@@ -1,5 +1,6 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -18,9 +19,10 @@ public partial class MainViewModel : ViewModelBase
     private readonly ConfigService _configService;
     private readonly OhrbobClient _client;
     private readonly ISimpleAudioPlayer? _player;
-    private readonly NetCoreAudio.Player? _desktopPlayer;
-    private readonly bool _useDesktopPlayer;
+    private Process? _ffplayProcess;
+    private readonly bool _isLinux;
     private string? _loadedStreamUri;
+    private int _lastSyncedPosition;
     private DispatcherTimer? _playbackTimer;
     private DispatcherTimer? _syncTimer;
 
@@ -87,22 +89,9 @@ public partial class MainViewModel : ViewModelBase
         _configService = configService;
         _client = client ?? new OhrbobClient(_configService);
 
-        _useDesktopPlayer = RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ||
-                            RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ||
-                            RuntimeInformation.IsOSPlatform(OSPlatform.OSX);
+        _isLinux = RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
 
-        if (_useDesktopPlayer)
-        {
-            try
-            {
-                _desktopPlayer = new NetCoreAudio.Player();
-            }
-            catch
-            {
-                _desktopPlayer = null;
-            }
-        }
-        else
+        if (!_isLinux)
         {
             try
             {
@@ -127,7 +116,7 @@ public partial class MainViewModel : ViewModelBase
 
     private void SetupTimers()
     {
-        // Timer to increment the playhead position
+        // Timer to increment the playhead position (runs every second)
         _playbackTimer = new DispatcherTimer
         {
             Interval = TimeSpan.FromSeconds(1)
@@ -136,21 +125,8 @@ public partial class MainViewModel : ViewModelBase
         {
             if (IsPlaying)
             {
-                if (!_useDesktopPlayer && _player != null && _player.IsPlaying)
-                {
-                    try
-                    {
-                        PositionSeconds = (int)_player.CurrentPosition;
-                    }
-                    catch
-                    {
-                        PositionSeconds++;
-                    }
-                }
-                else
-                {
-                    PositionSeconds++;
-                }
+                PositionSeconds++;
+                _lastSyncedPosition = PositionSeconds;
 
                 if (PositionSeconds >= DurationSeconds)
                 {
@@ -184,7 +160,16 @@ public partial class MainViewModel : ViewModelBase
     partial void OnPositionSecondsChanged(int value)
     {
         PositionText = FormatTime(value);
-        if (!_useDesktopPlayer && _player != null)
+
+        if (_isLinux)
+        {
+            // If manual seek is triggered (jump > 3s), restart ffplay at the new seek point
+            if (IsPlaying && !string.IsNullOrEmpty(CurrentEpisodeStreamUri) && Math.Abs(_lastSyncedPosition - value) > 3)
+            {
+                PlayFfplay(CurrentEpisodeStreamUri, value);
+            }
+        }
+        else if (_player != null)
         {
             try
             {
@@ -198,6 +183,49 @@ public partial class MainViewModel : ViewModelBase
                 // Ignore player exceptions
             }
         }
+
+        _lastSyncedPosition = value;
+    }
+
+    private void PlayFfplay(string url, int position)
+    {
+        StopFfplay();
+        try
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = "ffplay",
+                Arguments = $"-nodisp -autoexit -ss {position} \"{url}\"",
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
+            };
+            _ffplayProcess = Process.Start(psi);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to start ffplay: {ex.Message}");
+        }
+    }
+
+    private void StopFfplay()
+    {
+        try
+        {
+            if (_ffplayProcess != null && !_ffplayProcess.HasExited)
+            {
+                _ffplayProcess.Kill();
+            }
+        }
+        catch
+        {
+            // Safe fallback
+        }
+        finally
+        {
+            _ffplayProcess = null;
+        }
     }
 
     private async Task LoadAudioUrlAsync(string url)
@@ -208,30 +236,12 @@ public partial class MainViewModel : ViewModelBase
         {
             IsBuffering = true;
 
-            if (_useDesktopPlayer && _desktopPlayer != null)
+            if (_isLinux)
             {
-                // To guarantee playing on all systems, download the stream bytes to a local temporary cache file
-                var tempPath = Path.Combine(Path.GetTempPath(), "ohrbob_cache.mp3");
-                using var client = new System.Net.Http.HttpClient();
-                var data = await client.GetByteArrayAsync(url);
-                await File.WriteAllBytesAsync(tempPath, data);
-
-                try
-                {
-                    await _desktopPlayer.Stop();
-                }
-                catch {}
-
-                await _desktopPlayer.Play(tempPath);
                 _loadedStreamUri = url;
-
-                if (!IsPlaying)
+                if (IsPlaying)
                 {
-                    try
-                    {
-                        await _desktopPlayer.Pause();
-                    }
-                    catch {}
+                    PlayFfplay(url, PositionSeconds);
                 }
             }
             else if (_player != null)
@@ -270,25 +280,18 @@ public partial class MainViewModel : ViewModelBase
     {
         try
         {
-            if (_useDesktopPlayer && _desktopPlayer != null)
+            if (_isLinux)
             {
                 if (value)
                 {
                     if (!string.IsNullOrEmpty(CurrentEpisodeStreamUri))
                     {
-                        if (_loadedStreamUri != CurrentEpisodeStreamUri)
-                        {
-                            _ = LoadAudioUrlAsync(CurrentEpisodeStreamUri);
-                        }
-                        else
-                        {
-                            _desktopPlayer.Resume();
-                        }
+                        PlayFfplay(CurrentEpisodeStreamUri, PositionSeconds);
                     }
                 }
                 else
                 {
-                    _desktopPlayer.Pause();
+                    StopFfplay();
                 }
                 return;
             }
@@ -325,13 +328,14 @@ public partial class MainViewModel : ViewModelBase
     {
         try
         {
-            if (_useDesktopPlayer && _desktopPlayer != null)
+            if (_isLinux)
             {
-                _desktopPlayer.Stop();
+                StopFfplay();
                 _loadedStreamUri = null;
-                if (!string.IsNullOrEmpty(value))
+                if (IsPlaying && !string.IsNullOrEmpty(value))
                 {
-                    _ = LoadAudioUrlAsync(value);
+                    PlayFfplay(value, PositionSeconds);
+                    _loadedStreamUri = value;
                 }
                 return;
             }
@@ -435,9 +439,9 @@ public partial class MainViewModel : ViewModelBase
 
         try
         {
-            if (_useDesktopPlayer && _desktopPlayer != null)
+            if (_isLinux)
             {
-                _desktopPlayer.Stop();
+                StopFfplay();
             }
             else if (_player != null)
             {
