@@ -19,10 +19,14 @@ public class OhrbobClient
     private readonly HttpClient _httpClient;
     private readonly ConfigService _configService;
 
-    public OhrbobClient(ConfigService configService)
+    public OhrbobClient(ConfigService configService) : this(configService, null)
+    {
+    }
+
+    public OhrbobClient(ConfigService configService, HttpMessageHandler? handler)
     {
         _configService = configService;
-        _httpClient = new HttpClient();
+        _httpClient = handler != null ? new HttpClient(handler) : new HttpClient();
     }
 
     private void ApplyHeaders(HttpRequestMessage request)

@@ -9,8 +9,23 @@ public class ConfigService
     public string? ServerUrl { get; set; }
     public string? StreamToken { get; set; }
 
+    private readonly string? _customPath;
+
+    public ConfigService()
+    {
+    }
+
+    public ConfigService(string customPath)
+    {
+        _customPath = customPath;
+    }
+
     private string GetConfigFilePath()
     {
+        if (_customPath != null)
+        {
+            return _customPath;
+        }
         try
         {
             var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
