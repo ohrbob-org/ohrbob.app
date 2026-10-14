@@ -7,6 +7,7 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Ohrbob.App.Services;
+using Plugin.SimpleAudioPlayer;
 
 namespace Ohrbob.App.ViewModels;
 
@@ -14,6 +15,8 @@ public partial class MainViewModel : ViewModelBase
 {
     private readonly ConfigService _configService;
     private readonly OhrbobClient _client;
+    private readonly ISimpleAudioPlayer? _player;
+    private string? _loadedStreamUri;
     private DispatcherTimer? _playbackTimer;
     private DispatcherTimer? _syncTimer;
 
@@ -78,6 +81,15 @@ public partial class MainViewModel : ViewModelBase
         _configService = configService;
         _client = client ?? new OhrbobClient(_configService);
 
+        try
+        {
+            _player = CrossSimpleAudioPlayer.Current;
+        }
+        catch
+        {
+            _player = null;
+        }
+
         if (!string.IsNullOrEmpty(_configService.ServerUrl) && !string.IsNullOrEmpty(_configService.StreamToken))
         {
             ServerUrlInput = _configService.ServerUrl;
@@ -100,7 +112,22 @@ public partial class MainViewModel : ViewModelBase
         {
             if (IsPlaying)
             {
-                PositionSeconds++;
+                if (_player != null && _player.IsPlaying)
+                {
+                    try
+                    {
+                        PositionSeconds = (int)_player.CurrentPosition;
+                    }
+                    catch
+                    {
+                        PositionSeconds++;
+                    }
+                }
+                else
+                {
+                    PositionSeconds++;
+                }
+
                 if (PositionSeconds >= DurationSeconds)
                 {
                     _ = SkipToNextAsync();
@@ -133,6 +160,102 @@ public partial class MainViewModel : ViewModelBase
     partial void OnPositionSecondsChanged(int value)
     {
         PositionText = FormatTime(value);
+        if (_player != null)
+        {
+            try
+            {
+                if (Math.Abs(_player.CurrentPosition - value) > 2)
+                {
+                    _player.Seek(value);
+                }
+            }
+            catch
+            {
+                // Ignore player exceptions
+            }
+        }
+    }
+
+    private async Task LoadAudioUrlAsync(string url)
+    {
+        if (_player == null || string.IsNullOrEmpty(url)) return;
+
+        try
+        {
+            using var client = new System.Net.Http.HttpClient();
+            var data = await client.GetByteArrayAsync(url);
+            var ms = new System.IO.MemoryStream(data);
+            
+            _player.Stop();
+            _player.Load(ms);
+            _loadedStreamUri = url;
+            
+            if (PositionSeconds > 0)
+            {
+                _player.Seek(PositionSeconds);
+            }
+            
+            if (IsPlaying)
+            {
+                _player.Play();
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Failed to load audio stream: {ex.Message}");
+        }
+    }
+
+    partial void OnIsPlayingChanged(bool value)
+    {
+        if (_player != null)
+        {
+            try
+            {
+                if (value)
+                {
+                    if (!string.IsNullOrEmpty(CurrentEpisodeStreamUri))
+                    {
+                        if (_loadedStreamUri != CurrentEpisodeStreamUri)
+                        {
+                            _ = LoadAudioUrlAsync(CurrentEpisodeStreamUri);
+                        }
+                        else
+                        {
+                            _player.Play();
+                        }
+                    }
+                }
+                else
+                {
+                    _player.Pause();
+                }
+            }
+            catch
+            {
+                // Safe fallback
+            }
+        }
+    }
+
+    partial void OnCurrentEpisodeStreamUriChanged(string? value)
+    {
+        if (_player != null)
+        {
+            try
+            {
+                _player.Stop();
+                _loadedStreamUri = null;
+                if (!string.IsNullOrEmpty(value))
+                {
+                    _ = LoadAudioUrlAsync(value);
+                }
+            }
+            catch
+            {
+                // Safe fallback
+            }
+        }
     }
 
     partial void OnDurationSecondsChanged(int value)
@@ -215,6 +338,19 @@ public partial class MainViewModel : ViewModelBase
         CurrentEpisodeCoverUrl = null;
         CurrentEpisodeStreamUri = null;
         NextEpisodeTitle = null;
+
+        if (_player != null)
+        {
+            try
+            {
+                _player.Stop();
+                _loadedStreamUri = null;
+            }
+            catch
+            {
+                // Safe fallback
+            }
+        }
     }
 
     private async Task InitializeAppAsync()
