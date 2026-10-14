@@ -22,6 +22,13 @@
         <SolidColorBrush x:Key="OhrbobWhite" Color="#FFFFFF" />
         <SolidColorBrush x:Key="OhrbobGray" Color="#888888" />
         <SolidColorBrush x:Key="OhrbobDarkGray" Color="#333333" />
+        
+        <!-- Focused & Hover theme overrides for TextBoxes to prevent white-on-white style issues -->
+        <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#00113B" />
+        <SolidColorBrush x:Key="TextControlForegroundFocused" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="#fc5d00" />
+        <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="#00113B" />
+        <SolidColorBrush x:Key="TextControlForegroundPointerOver" Color="#FFFFFF" />
     </Window.Resources>
 
     <Design.DataContext>
