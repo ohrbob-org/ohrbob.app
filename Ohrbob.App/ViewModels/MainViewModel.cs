@@ -60,6 +60,9 @@ public partial class MainViewModel : ViewModelBase
     private bool _isPlaying;
 
     [ObservableProperty]
+    private bool _isBuffering;
+
+    [ObservableProperty]
     private int _positionSeconds;
 
     [ObservableProperty]
@@ -182,6 +185,7 @@ public partial class MainViewModel : ViewModelBase
 
         try
         {
+            IsBuffering = true;
             using var client = new System.Net.Http.HttpClient();
             var data = await client.GetByteArrayAsync(url);
             var ms = new System.IO.MemoryStream(data);
@@ -203,6 +207,10 @@ public partial class MainViewModel : ViewModelBase
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Failed to load audio stream: {ex.Message}");
+        }
+        finally
+        {
+            IsBuffering = false;
         }
     }
 

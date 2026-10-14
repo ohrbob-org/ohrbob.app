@@ -149,6 +149,14 @@
                                     <PathIcon Data="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M12,10A2,2 0 0,0 10,12A2,2 0 0,0 12,14A2,2 0 0,0 14,12A2,2 0 0,0 12,10Z" 
                                               Width="64" Height="64" Foreground="{StaticResource OhrbobOrange}" Opacity="0.5" />
                                     <Image Source="{Binding CurrentEpisodeCoverUrl}" Stretch="UniformToFill" Margin="0" IsVisible="{Binding CurrentEpisodeCoverUrl, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                    
+                                    <!-- Buffering Blur Overlay -->
+                                    <Border Background="#CC00113B" CornerRadius="16" IsVisible="{Binding IsBuffering}">
+                                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="12">
+                                            <ProgressBar IsIndeterminate="True" Width="100" Height="4" Foreground="{StaticResource OhrbobOrange}" Background="Transparent" />
+                                            <TextBlock Text="Buffering..." FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource OhrbobWhite}" HorizontalAlignment="Center" />
+                                        </StackPanel>
+                                    </Border>
                                 </Panel>
                             </Border>
                         </Grid>
@@ -157,8 +165,13 @@
                         <Grid Grid.Column="1" RowDefinitions="Auto, *, Auto" Margin="24,12,0,12">
                             <!-- Station & Episode Title -->
                             <StackPanel Grid.Row="0" Spacing="6">
-                                <TextBlock Text="{Binding SelectedStation.Name, FallbackValue='No Active Station'}" 
-                                           FontSize="12" FontWeight="Bold" Foreground="{StaticResource OhrbobOrange}" LetterSpacing="1" />
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="{Binding SelectedStation.Name, FallbackValue='No Active Station'}" 
+                                               FontSize="12" FontWeight="Bold" Foreground="{StaticResource OhrbobOrange}" LetterSpacing="1" />
+                                    <Border Background="{StaticResource OhrbobOrange}" CornerRadius="4" Padding="6,2" IsVisible="{Binding IsBuffering}">
+                                        <TextBlock Text="Buffering..." FontSize="9" FontWeight="Bold" Foreground="{StaticResource OhrbobWhite}" />
+                                    </Border>
+                                </StackPanel>
                                 <TextBlock Text="{Binding CurrentEpisodeTitle}" FontSize="24" FontWeight="Bold" Foreground="{StaticResource OhrbobWhite}" TextWrapping="Wrap" />
                             </StackPanel>
 
