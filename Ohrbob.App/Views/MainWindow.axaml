@@ -54,7 +54,7 @@
 
                     <!-- Stream Token -->
                     <TextBlock Text="API Stream Token" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource OhrbobCream}" />
-                    <TextBox Text="{Binding TokenInput}" PasswordChar="*" PlaceholderText="Your profile stream token" 
+                    <TextBox Text="{Binding TokenInput}" PlaceholderText="Your profile stream token" 
                              Background="{StaticResource OhrbobDarkNavy}" BorderBrush="{StaticResource OhrbobDarkGray}" Foreground="{StaticResource OhrbobWhite}" CornerRadius="6" Padding="10,8" />
 
                     <!-- Error Message -->
