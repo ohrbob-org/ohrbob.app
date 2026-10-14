@@ -1,6 +1,8 @@
 using System;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Avalonia.Threading;
@@ -16,6 +18,8 @@ public partial class MainViewModel : ViewModelBase
     private readonly ConfigService _configService;
     private readonly OhrbobClient _client;
     private readonly ISimpleAudioPlayer? _player;
+    private readonly NetCoreAudio.Player? _desktopPlayer;
+    private readonly bool _useDesktopPlayer;
     private string? _loadedStreamUri;
     private DispatcherTimer? _playbackTimer;
     private DispatcherTimer? _syncTimer;
@@ -76,7 +80,6 @@ public partial class MainViewModel : ViewModelBase
 
     public MainViewModel() : this(new ConfigService(), null)
     {
-        _configService.Load();
     }
 
     public MainViewModel(ConfigService configService, OhrbobClient? client)
@@ -84,13 +87,31 @@ public partial class MainViewModel : ViewModelBase
         _configService = configService;
         _client = client ?? new OhrbobClient(_configService);
 
-        try
+        _useDesktopPlayer = RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ||
+                            RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ||
+                            RuntimeInformation.IsOSPlatform(OSPlatform.OSX);
+
+        if (_useDesktopPlayer)
         {
-            _player = CrossSimpleAudioPlayer.Current;
+            try
+            {
+                _desktopPlayer = new NetCoreAudio.Player();
+            }
+            catch
+            {
+                _desktopPlayer = null;
+            }
         }
-        catch
+        else
         {
-            _player = null;
+            try
+            {
+                _player = CrossSimpleAudioPlayer.Current;
+            }
+            catch
+            {
+                _player = null;
+            }
         }
 
         if (!string.IsNullOrEmpty(_configService.ServerUrl) && !string.IsNullOrEmpty(_configService.StreamToken))
@@ -106,7 +127,7 @@ public partial class MainViewModel : ViewModelBase
 
     private void SetupTimers()
     {
-        // Timer to increment the playhead position (simulating active playback)
+        // Timer to increment the playhead position
         _playbackTimer = new DispatcherTimer
         {
             Interval = TimeSpan.FromSeconds(1)
@@ -115,7 +136,7 @@ public partial class MainViewModel : ViewModelBase
         {
             if (IsPlaying)
             {
-                if (_player != null && _player.IsPlaying)
+                if (!_useDesktopPlayer && _player != null && _player.IsPlaying)
                 {
                     try
                     {
@@ -163,7 +184,7 @@ public partial class MainViewModel : ViewModelBase
     partial void OnPositionSecondsChanged(int value)
     {
         PositionText = FormatTime(value);
-        if (_player != null)
+        if (!_useDesktopPlayer && _player != null)
         {
             try
             {
@@ -181,27 +202,58 @@ public partial class MainViewModel : ViewModelBase
 
     private async Task LoadAudioUrlAsync(string url)
     {
-        if (_player == null || string.IsNullOrEmpty(url)) return;
+        if (string.IsNullOrEmpty(url)) return;
 
         try
         {
             IsBuffering = true;
-            using var client = new System.Net.Http.HttpClient();
-            var data = await client.GetByteArrayAsync(url);
-            var ms = new System.IO.MemoryStream(data);
-            
-            _player.Stop();
-            _player.Load(ms);
-            _loadedStreamUri = url;
-            
-            if (PositionSeconds > 0)
+
+            if (_useDesktopPlayer && _desktopPlayer != null)
             {
-                _player.Seek(PositionSeconds);
+                // To guarantee playing on all systems, download the stream bytes to a local temporary cache file
+                var tempPath = Path.Combine(Path.GetTempPath(), "ohrbob_cache.mp3");
+                using var client = new System.Net.Http.HttpClient();
+                var data = await client.GetByteArrayAsync(url);
+                await File.WriteAllBytesAsync(tempPath, data);
+
+                try
+                {
+                    await _desktopPlayer.Stop();
+                }
+                catch {}
+
+                await _desktopPlayer.Play(tempPath);
+                _loadedStreamUri = url;
+
+                if (!IsPlaying)
+                {
+                    try
+                    {
+                        await _desktopPlayer.Pause();
+                    }
+                    catch {}
+                }
             }
-            
-            if (IsPlaying)
+            else if (_player != null)
             {
-                _player.Play();
+                using var client = new System.Net.Http.HttpClient();
+                var data = await client.GetByteArrayAsync(url);
+                var ms = new MemoryStream(data);
+                
+                _player.Stop();
+                _player.Load(ms);
+                _player.Volume = 1.0; // Guarantee the volume is set to 100% (unmuted)
+                _loadedStreamUri = url;
+                
+                if (PositionSeconds > 0)
+                {
+                    _player.Seek(PositionSeconds);
+                }
+                
+                if (IsPlaying)
+                {
+                    _player.Play();
+                }
             }
         }
         catch (Exception ex)
@@ -216,9 +268,32 @@ public partial class MainViewModel : ViewModelBase
 
     partial void OnIsPlayingChanged(bool value)
     {
-        if (_player != null)
+        try
         {
-            try
+            if (_useDesktopPlayer && _desktopPlayer != null)
+            {
+                if (value)
+                {
+                    if (!string.IsNullOrEmpty(CurrentEpisodeStreamUri))
+                    {
+                        if (_loadedStreamUri != CurrentEpisodeStreamUri)
+                        {
+                            _ = LoadAudioUrlAsync(CurrentEpisodeStreamUri);
+                        }
+                        else
+                        {
+                            _desktopPlayer.Resume();
+                        }
+                    }
+                }
+                else
+                {
+                    _desktopPlayer.Pause();
+                }
+                return;
+            }
+
+            if (_player != null)
             {
                 if (value)
                 {
@@ -239,18 +314,29 @@ public partial class MainViewModel : ViewModelBase
                     _player.Pause();
                 }
             }
-            catch
-            {
-                // Safe fallback
-            }
+        }
+        catch
+        {
+            // Safe fallback
         }
     }
 
     partial void OnCurrentEpisodeStreamUriChanged(string? value)
     {
-        if (_player != null)
+        try
         {
-            try
+            if (_useDesktopPlayer && _desktopPlayer != null)
+            {
+                _desktopPlayer.Stop();
+                _loadedStreamUri = null;
+                if (!string.IsNullOrEmpty(value))
+                {
+                    _ = LoadAudioUrlAsync(value);
+                }
+                return;
+            }
+
+            if (_player != null)
             {
                 _player.Stop();
                 _loadedStreamUri = null;
@@ -259,10 +345,10 @@ public partial class MainViewModel : ViewModelBase
                     _ = LoadAudioUrlAsync(value);
                 }
             }
-            catch
-            {
-                // Safe fallback
-            }
+        }
+        catch
+        {
+            // Safe fallback
         }
     }
 
@@ -347,17 +433,21 @@ public partial class MainViewModel : ViewModelBase
         CurrentEpisodeStreamUri = null;
         NextEpisodeTitle = null;
 
-        if (_player != null)
+        try
         {
-            try
+            if (_useDesktopPlayer && _desktopPlayer != null)
+            {
+                _desktopPlayer.Stop();
+            }
+            else if (_player != null)
             {
                 _player.Stop();
-                _loadedStreamUri = null;
             }
-            catch
-            {
-                // Safe fallback
-            }
+            _loadedStreamUri = null;
+        }
+        catch
+        {
+            // Safe fallback
         }
     }
 

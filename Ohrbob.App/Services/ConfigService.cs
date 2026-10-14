@@ -13,11 +13,13 @@ public class ConfigService
 
     public ConfigService()
     {
+        Load();
     }
 
     public ConfigService(string customPath)
     {
         _customPath = customPath;
+        Load();
     }
 
     private string GetConfigFilePath()
