@@ -1,1 +1,4 @@
 Task 1: complete (commits bc1d764, review clean)
+Task 2: complete (commits 6ca0536, review clean)
+Task 3: complete (commits 17afef4, review clean)
+Task 4: complete (commits 0847af9, review clean)
