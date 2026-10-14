@@ -68,11 +68,15 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     private string _durationText = "30:00";
 
-    public MainViewModel()
+    public MainViewModel() : this(new ConfigService(), null)
     {
-        _configService = new ConfigService();
         _configService.Load();
-        _client = new OhrbobClient(_configService);
+    }
+
+    public MainViewModel(ConfigService configService, OhrbobClient? client)
+    {
+        _configService = configService;
+        _client = client ?? new OhrbobClient(_configService);
 
         if (!string.IsNullOrEmpty(_configService.ServerUrl) && !string.IsNullOrEmpty(_configService.StreamToken))
         {
@@ -185,6 +189,8 @@ public partial class MainViewModel : ViewModelBase
         try
         {
             _configService.Save(server, token);
+            ServerUrlInput = server;
+            TokenInput = token;
             IsConnected = true;
             await InitializeAppAsync();
         }
