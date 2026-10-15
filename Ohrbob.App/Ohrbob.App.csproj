@@ -21,7 +21,10 @@
       <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
     </PackageReference>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="LibVLCSharp" Version="3.10.2" />
     <PackageReference Include="NetCoreAudio" Version="2.0.1" />
+    <PackageReference Include="VideoLAN.LibVLC.Mac" Version="3.0.18" />
+    <PackageReference Include="VideoLAN.LibVLC.Windows" Version="3.0.18" />
     <PackageReference Include="Xam.Plugin.SimpleAudioPlayer" Version="1.6.0" />
   </ItemGroup>
 </Project>

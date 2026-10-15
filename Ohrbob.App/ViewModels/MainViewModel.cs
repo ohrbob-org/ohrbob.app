@@ -10,7 +10,6 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Ohrbob.App.Services;
-using Plugin.SimpleAudioPlayer;
 
 namespace Ohrbob.App.ViewModels;
 
@@ -18,13 +17,12 @@ public partial class MainViewModel : ViewModelBase
 {
     private readonly ConfigService _configService;
     private readonly OhrbobClient _client;
-    private readonly ISimpleAudioPlayer? _player;
-    private Process? _ffplayProcess;
-    private readonly bool _isLinux;
+    private readonly IAudioPlayer _player;
     private string? _loadedStreamUri;
     private int _lastSyncedPosition;
-    private DispatcherTimer? _playbackTimer;
     private DispatcherTimer? _syncTimer;
+    private bool _isUpdatingPositionFromPlayer;
+    private bool _isUpdatingStateFromPlayer;
 
     [ObservableProperty]
     private bool _isConnected;
@@ -89,19 +87,57 @@ public partial class MainViewModel : ViewModelBase
         _configService = configService;
         _client = client ?? new OhrbobClient(_configService);
 
-        _isLinux = RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
+        _player = new VlcAudioPlayer();
 
-        if (!_isLinux)
+        if (!_player.IsLibVlcInstalled)
         {
-            try
-            {
-                _player = CrossSimpleAudioPlayer.Current;
-            }
-            catch
-            {
-                _player = null;
-            }
+            ConnectionErrorMessage = "LibVLC is missing on your Linux system. Please run 'sudo apt install libvlc-dev' (or equivalent) to enable audio playback.";
         }
+
+        _player.PositionChanged += (s, pos) =>
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                _isUpdatingPositionFromPlayer = true;
+                try
+                {
+                    PositionSeconds = pos;
+                }
+                finally
+                {
+                    _isUpdatingPositionFromPlayer = false;
+                }
+
+                if (IsPlaying && pos > 0 && DurationSeconds > 0 && pos >= DurationSeconds)
+                {
+                    _ = SkipToNextAsync();
+                }
+            });
+        };
+
+        _player.DurationChanged += (s, dur) =>
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                DurationSeconds = dur;
+            });
+        };
+
+        _player.PlaybackStateChanged += (s, state) =>
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                _isUpdatingStateFromPlayer = true;
+                try
+                {
+                    IsPlaying = state;
+                }
+                finally
+                {
+                    _isUpdatingStateFromPlayer = false;
+                }
+            });
+        };
 
         if (!string.IsNullOrEmpty(_configService.ServerUrl) && !string.IsNullOrEmpty(_configService.StreamToken))
         {
@@ -116,25 +152,6 @@ public partial class MainViewModel : ViewModelBase
 
     private void SetupTimers()
     {
-        // Timer to increment the playhead position (runs every second)
-        _playbackTimer = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromSeconds(1)
-        };
-        _playbackTimer.Tick += (s, e) =>
-        {
-            if (IsPlaying)
-            {
-                PositionSeconds++;
-                _lastSyncedPosition = PositionSeconds;
-
-                if (PositionSeconds >= DurationSeconds)
-                {
-                    _ = SkipToNextAsync();
-                }
-            }
-        };
-
         // Timer to periodically sync our current playback state back to the Ohrbob server
         _syncTimer = new DispatcherTimer
         {
@@ -161,19 +178,11 @@ public partial class MainViewModel : ViewModelBase
     {
         PositionText = FormatTime(value);
 
-        if (_isLinux)
-        {
-            // If manual seek is triggered (jump > 3s), restart ffplay at the new seek point
-            if (IsPlaying && !string.IsNullOrEmpty(CurrentEpisodeStreamUri) && Math.Abs(_lastSyncedPosition - value) > 3)
-            {
-                PlayFfplay(CurrentEpisodeStreamUri, value);
-            }
-        }
-        else if (_player != null)
+        if (!_isUpdatingPositionFromPlayer)
         {
             try
             {
-                if (Math.Abs(_player.CurrentPosition - value) > 2)
+                if (Math.Abs(_player.PositionSeconds - value) > 2)
                 {
                     _player.Seek(value);
                 }
@@ -187,47 +196,6 @@ public partial class MainViewModel : ViewModelBase
         _lastSyncedPosition = value;
     }
 
-    private void PlayFfplay(string url, int position)
-    {
-        StopFfplay();
-        try
-        {
-            var psi = new ProcessStartInfo
-            {
-                FileName = "ffplay",
-                Arguments = $"-nodisp -autoexit -ss {position} \"{url}\"",
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true
-            };
-            _ffplayProcess = Process.Start(psi);
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"Failed to start ffplay: {ex.Message}");
-        }
-    }
-
-    private void StopFfplay()
-    {
-        try
-        {
-            if (_ffplayProcess != null && !_ffplayProcess.HasExited)
-            {
-                _ffplayProcess.Kill();
-            }
-        }
-        catch
-        {
-            // Safe fallback
-        }
-        finally
-        {
-            _ffplayProcess = null;
-        }
-    }
-
     private async Task LoadAudioUrlAsync(string url)
     {
         if (string.IsNullOrEmpty(url)) return;
@@ -235,35 +203,18 @@ public partial class MainViewModel : ViewModelBase
         try
         {
             IsBuffering = true;
-
-            if (_isLinux)
+            _player.Stop();
+            _player.Load(url);
+            _loadedStreamUri = url;
+            
+            if (PositionSeconds > 0)
             {
-                _loadedStreamUri = url;
-                if (IsPlaying)
-                {
-                    PlayFfplay(url, PositionSeconds);
-                }
+                _player.Seek(PositionSeconds);
             }
-            else if (_player != null)
+            
+            if (IsPlaying)
             {
-                using var client = new System.Net.Http.HttpClient();
-                var data = await client.GetByteArrayAsync(url);
-                var ms = new MemoryStream(data);
-                
-                _player.Stop();
-                _player.Load(ms);
-                _player.Volume = 1.0; // Guarantee the volume is set to 100% (unmuted)
-                _loadedStreamUri = url;
-                
-                if (PositionSeconds > 0)
-                {
-                    _player.Seek(PositionSeconds);
-                }
-                
-                if (IsPlaying)
-                {
-                    _player.Play();
-                }
+                _player.Play();
             }
         }
         catch (Exception ex)
@@ -278,44 +229,27 @@ public partial class MainViewModel : ViewModelBase
 
     partial void OnIsPlayingChanged(bool value)
     {
+        if (_isUpdatingStateFromPlayer) return;
+
         try
         {
-            if (_isLinux)
+            if (value)
             {
-                if (value)
+                if (!string.IsNullOrEmpty(CurrentEpisodeStreamUri))
                 {
-                    if (!string.IsNullOrEmpty(CurrentEpisodeStreamUri))
+                    if (_loadedStreamUri != CurrentEpisodeStreamUri)
                     {
-                        PlayFfplay(CurrentEpisodeStreamUri, PositionSeconds);
+                        _ = LoadAudioUrlAsync(CurrentEpisodeStreamUri);
+                    }
+                    else
+                    {
+                        _player.Play();
                     }
                 }
-                else
-                {
-                    StopFfplay();
-                }
-                return;
             }
-
-            if (_player != null)
+            else
             {
-                if (value)
-                {
-                    if (!string.IsNullOrEmpty(CurrentEpisodeStreamUri))
-                    {
-                        if (_loadedStreamUri != CurrentEpisodeStreamUri)
-                        {
-                            _ = LoadAudioUrlAsync(CurrentEpisodeStreamUri);
-                        }
-                        else
-                        {
-                            _player.Play();
-                        }
-                    }
-                }
-                else
-                {
-                    _player.Pause();
-                }
+                _player.Pause();
             }
         }
         catch
@@ -328,26 +262,11 @@ public partial class MainViewModel : ViewModelBase
     {
         try
         {
-            if (_isLinux)
+            _player.Stop();
+            _loadedStreamUri = null;
+            if (!string.IsNullOrEmpty(value))
             {
-                StopFfplay();
-                _loadedStreamUri = null;
-                if (IsPlaying && !string.IsNullOrEmpty(value))
-                {
-                    PlayFfplay(value, PositionSeconds);
-                    _loadedStreamUri = value;
-                }
-                return;
-            }
-
-            if (_player != null)
-            {
-                _player.Stop();
-                _loadedStreamUri = null;
-                if (!string.IsNullOrEmpty(value))
-                {
-                    _ = LoadAudioUrlAsync(value);
-                }
+                _ = LoadAudioUrlAsync(value);
             }
         }
         catch
@@ -425,7 +344,6 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand]
     private void Disconnect()
     {
-        _playbackTimer?.Stop();
         IsPlaying = false;
         IsConnected = false;
         _configService.Save("", "");
@@ -439,14 +357,7 @@ public partial class MainViewModel : ViewModelBase
 
         try
         {
-            if (_isLinux)
-            {
-                StopFfplay();
-            }
-            else if (_player != null)
-            {
-                _player.Stop();
-            }
+            _player.Stop();
             _loadedStreamUri = null;
         }
         catch
@@ -467,7 +378,7 @@ public partial class MainViewModel : ViewModelBase
             }
 
             await RefreshStatusAsync();
-            _playbackTimer?.Start();
+            _syncTimer?.Start();
         }
         catch (Exception ex)
         {
