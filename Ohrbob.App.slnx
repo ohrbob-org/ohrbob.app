@@ -1,4 +1,7 @@
 <Solution>
   <Project Path="Ohrbob.App.Tests/Ohrbob.App.Tests.csproj" />
   <Project Path="Ohrbob.App/Ohrbob.App.csproj" />
+  <Project Path="Ohrbob.App.Desktop/Ohrbob.App.Desktop.csproj" />
+  <Project Path="Ohrbob.App.Android/Ohrbob.App.Android.csproj" />
+  <Project Path="Ohrbob.App.iOS/Ohrbob.App.iOS.csproj" />
 </Solution>

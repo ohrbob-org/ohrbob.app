@@ -87,7 +87,7 @@ public partial class MainViewModel : ViewModelBase
         _configService = configService;
         _client = client ?? new OhrbobClient(_configService);
 
-        _player = new VlcAudioPlayer();
+        _player = new SoundFlowAudioPlayer();
 
         if (!_player.IsLibVlcInstalled)
         {
