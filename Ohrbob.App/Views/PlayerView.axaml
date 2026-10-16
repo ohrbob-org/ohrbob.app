@@ -201,7 +201,7 @@
                                 <!-- Play / Pause Circular Toggle -->
                                 <Button Command="{Binding TogglePlayCommand}" Width="56" Height="56" CornerRadius="28" Background="{StaticResource OhrbobOrange}">
                                     <Panel>
-                                        <PathIcon Data="M8,5.14V19.14L19,12.14L8,5.14Z" Width="24" Height="24" Foreground="{StaticResource OhrbobWhite}" IsVisible="{Binding !IsPlaying}" />
+                                        <PathIcon Data="M8,5.14V19.14L19,12.14L8,5.14Z" Margin="6,0,0,0" Width="24" Height="24" Foreground="{StaticResource OhrbobWhite}" IsVisible="{Binding !IsPlaying}" />
                                         <PathIcon Data="M14,19H18V5H14M6,19H10V5H6V19Z" Width="20" Height="20" Foreground="{StaticResource OhrbobWhite}" IsVisible="{Binding IsPlaying}" />
                                     </Panel>
                                 </Button>
