@@ -8,9 +8,9 @@
     <Border Name="RootBorder" Background="{StaticResource OhrbobPaleViolet}" CornerRadius="16" Margin="16" Padding="16,12" BoxShadow="0 4 16 0 #10000000">
         <Grid>
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" MinWidth="150" MaxWidth="300" />
+                <ColumnDefinition Width="*" MinWidth="200" MaxWidth="350" />
                 <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" MinWidth="150" MaxWidth="300" />
+                <ColumnDefinition Width="1.5*" MinWidth="200" />
             </Grid.ColumnDefinitions>
 
             <!-- Left: Meta (Cover + Info) -->
@@ -34,13 +34,13 @@
 
             <!-- Center: Controls -->
             <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="0" Margin="12,0">
-                <Border Background="#20544ff4" CornerRadius="20" Margin="4,0">
+                <Border Background="#20001957" CornerRadius="20" Margin="4,0">
                     <Button Command="{Binding SeekBackCommand}" Width="40" Height="40" CornerRadius="20" Background="Transparent" Padding="0">
                         <PathIcon Data="M12.5,3C17.15,3 21.08,6.03 22.47,10.15L20.1,10.94C19.07,7.85 16.03,5.5 12.5,5.5C8.36,5.5 5,8.86 5,13C5,17.14 8.36,20.5 12.5,20.5C16.15,20.5 19.21,17.9 20.17,14.5H22.72C21.72,19.3 17.5,23 12.5,23C7,23 2.5,18.5 2.5,13C2.5,7.5 7,3 12.5,3M12.5,8V13H17.5V14.5H11V8H12.5Z" Width="18" Height="18" Foreground="{StaticResource ThemeDarkBrush}" />
                     </Button>
                 </Border>
 
-                <Border Background="#30fc5d00" CornerRadius="32" Margin="4,0" Padding="8">
+                <Border Background="#30fc5d00" CornerRadius="32" Margin="4,0" Padding="8" BoxShadow="0 4 12 0 #40fc5d00">
                     <Button Command="{Binding TogglePlayCommand}" Width="48" Height="48" CornerRadius="24" Background="{StaticResource ThemePrimaryBrush}" Padding="0">
                         <Panel>
                             <PathIcon Data="M8,5.14V19.14L19,12.14L8,5.14Z" Margin="4,0,0,0" Width="20" Height="20" Foreground="White" IsVisible="{Binding !IsPlaying}" />
@@ -49,13 +49,13 @@
                     </Button>
                 </Border>
 
-                <Border Background="#20544ff4" CornerRadius="20" Margin="4,0">
+                <Border Background="#20001957" CornerRadius="20" Margin="4,0">
                     <Button Command="{Binding SeekForwardCommand}" Width="40" Height="40" CornerRadius="20" Background="Transparent" Padding="0">
                         <PathIcon Data="M11.5,3C17,3 21.5,7.5 21.5,13C21.5,18.5 17,23 11.5,23C6.5,23 2.28,19.3 1.28,14.5H3.83C4.79,17.9 7.85,20.5 11.5,20.5C15.64,20.5 19,17.14 19,13C19,8.86 15.64,5.5 11.5,5.5C7.97,5.5 4.93,7.85 3.9,10.94L1.53,10.15C2.92,6.03 6.85,3 11.5,3M14,8V14.5H7.5V13H12.5V8H14Z" Width="18" Height="18" Foreground="{StaticResource ThemeDarkBrush}" />
                     </Button>
                 </Border>
 
-                <Border Background="#20544ff4" CornerRadius="20" Margin="4,0">
+                <Border Background="#20001957" CornerRadius="20" Margin="4,0">
                     <Button.IsVisible>
                         <Binding Path="Bounds.Width" ElementName="RootBorder">
                             <Binding.Converter>
@@ -70,7 +70,7 @@
             </StackPanel>
 
             <!-- Right: Progress -->
-            <Grid Grid.Column="2" ColumnDefinitions="Auto, *, Auto, Auto" VerticalAlignment="Center" HorizontalAlignment="Stretch" MaxWidth="350">
+            <Grid Grid.Column="2" ColumnDefinitions="Auto, *, Auto, Auto" VerticalAlignment="Center" HorizontalAlignment="Stretch" Margin="32,0,0,0">
                 <Grid.IsVisible>
                     <Binding Path="Bounds.Width" ElementName="RootBorder">
                         <Binding.Converter>
@@ -79,7 +79,7 @@
                     </Binding>
                 </Grid.IsVisible>
                 <TextBlock Grid.Column="0" Text="{Binding PositionText}" FontSize="11" Foreground="#6C757D" Width="40" TextAlignment="Right" VerticalAlignment="Center" Margin="0,0,12,0" />
-                <Slider Grid.Column="1" Value="{Binding PositionSeconds}" Maximum="{Binding DurationSeconds}" VerticalAlignment="Center" Minimum="0" />
+                <Slider Grid.Column="1" Value="{Binding PositionSeconds}" Maximum="{Binding DurationSeconds}" VerticalAlignment="Center" Minimum="0" Margin="16,0" Foreground="{StaticResource ThemeDarkBrush}" />
                 <TextBlock Grid.Column="2" Text="{Binding DurationText}" FontSize="11" Foreground="#6C757D" Width="40" TextAlignment="Left" VerticalAlignment="Center" Margin="12,0,16,0" />
                 <Button Grid.Column="3" Background="Transparent" Width="32" Height="32" Padding="0" VerticalAlignment="Center" IsEnabled="False" Opacity="0.6">
                     <PathIcon Data="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.98C19.47,12.66 19.5,12.34 19.5,12C19.5,11.66 19.47,11.34 19.43,11.02L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.65 15.48,5.32 14.87,5.07L14.49,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.51,2.42L9.13,5.07C8.52,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11.02C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.52,18.68 9.13,18.93L9.51,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.49,21.58L14.87,18.93C15.48,18.68 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.98Z" Width="18" Height="18" Foreground="{StaticResource ThemeDarkBrush}" />
