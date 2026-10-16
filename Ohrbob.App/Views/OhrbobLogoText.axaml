@@ -1,0 +1,12 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Ohrbob.App.Views.OhrbobLogoText">
+    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+        <TextBlock Text="o" FontFamily="{StaticResource SulphurPoint}" FontWeight="Bold" Foreground="{DynamicResource ThemeSecondaryBrush}" />
+        <TextBlock Text="h" FontFamily="{StaticResource SulphurPoint}" FontWeight="Bold" Foreground="{DynamicResource ThemeDarkBrush}" />
+        <TextBlock Text="r" FontFamily="{StaticResource SulphurPoint}" FontWeight="Bold" Foreground="{DynamicResource ThemePrimaryBrush}" />
+        <TextBlock Text="b" FontFamily="{StaticResource SulphurPoint}" FontWeight="Bold" Foreground="{DynamicResource ThemeSecondaryBrush}" />
+        <TextBlock Text="o" FontFamily="{StaticResource SulphurPoint}" FontWeight="Bold" Foreground="{DynamicResource ThemePrimaryBrush}" />
+        <TextBlock Text="b" FontFamily="{StaticResource SulphurPoint}" FontWeight="Bold" Foreground="{DynamicResource ThemeDarkBrush}" />
+    </StackPanel>
+</UserControl>

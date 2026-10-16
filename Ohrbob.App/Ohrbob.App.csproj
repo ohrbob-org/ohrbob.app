@@ -25,4 +25,14 @@
     <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
     <PackageReference Include="SoundFlow" Version="1.4.1" />
   </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="Resources\Images\ohrbob-logo.png" />
+    <EmbeddedResource Include="Resources\Images\ohrbob-logo.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="Resources\Images\ohrbob-logo.svg" />
+    <Resource Include="Resources\Images\ohrbob-logo.svg" />
+  </ItemGroup>
 </Project>

@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Ohrbob.App.ViewModels"
              xmlns:services="using:Ohrbob.App.Services"
+             xmlns:views="using:Ohrbob.App.Views"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="600"
@@ -48,7 +49,10 @@
                 <Grid RowDefinitions="Auto, *, Auto">
                     <!-- App Header -->
                     <StackPanel Grid.Row="0" Margin="24,24,24,15">
-                        <TextBlock Text="ohrbob" Classes="h2" Foreground="{StaticResource OhrbobOrange}" />
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <Image Source="../Assets/ohrbob-logo.png" Width="24" Height="24" />
+                            <views:OhrbobLogoText FontSize="24" Margin="0,-2,0,0" />
+                        </StackPanel>
                         <TextBlock Text="podcast player" FontSize="11" Foreground="{StaticResource OhrbobGray}" FontWeight="SemiBold" LetterSpacing="1" />
                     </StackPanel>
 
