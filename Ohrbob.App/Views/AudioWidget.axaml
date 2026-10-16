@@ -33,7 +33,7 @@
             </Grid>
 
             <!-- Center: Controls -->
-            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="0" Margin="12,0">
+            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Spacing="0" Margin="12,0">
                 <Border Background="#20001957" CornerRadius="20" Margin="4,0">
                     <Button Command="{Binding SeekBackCommand}" Width="40" Height="40" CornerRadius="20" Background="Transparent" Padding="0">
                         <PathIcon Data="M12.5,3C17.15,3 21.08,6.03 22.47,10.15L20.1,10.94C19.07,7.85 16.03,5.5 12.5,5.5C8.36,5.5 5,8.86 5,13C5,17.14 8.36,20.5 12.5,20.5C16.15,20.5 19.21,17.9 20.17,14.5H22.72C21.72,19.3 17.5,23 12.5,23C7,23 2.5,18.5 2.5,13C2.5,7.5 7,3 12.5,3M12.5,8V13H17.5V14.5H11V8H12.5Z" Width="18" Height="18" Foreground="{StaticResource ThemeDarkBrush}" />
