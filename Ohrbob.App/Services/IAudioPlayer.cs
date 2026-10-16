@@ -1,4 +1,5 @@
 using System;
+using System.Threading.Tasks;
 
 namespace Ohrbob.App.Services;
 
@@ -8,9 +9,8 @@ public interface IAudioPlayer : IDisposable
     int PositionSeconds { get; }
     int DurationSeconds { get; }
     string? CurrentUrl { get; }
-    bool IsLibVlcInstalled { get; }
 
-    void Load(string url);
+    Task Load(string url);
     void Play();
     void Pause();
     void Stop();

@@ -8,6 +8,7 @@ public class ConfigService
 {
     public string? ServerUrl { get; set; }
     public string? StreamToken { get; set; }
+    public bool DoNotAutoPlay { get; set; }
 
     private readonly string? _customPath;
 
@@ -61,6 +62,7 @@ public class ConfigService
             {
                 ServerUrl = data.ServerUrl;
                 StreamToken = data.StreamToken;
+                DoNotAutoPlay = data.DoNotAutoPlay;
             }
         }
         catch
@@ -69,10 +71,11 @@ public class ConfigService
         }
     }
 
-    public void Save(string serverUrl, string streamToken)
+    public void Save(string serverUrl, string streamToken, bool? doNotAutoPlay = null)
     {
         ServerUrl = serverUrl;
         StreamToken = streamToken;
+        if (doNotAutoPlay.HasValue) DoNotAutoPlay = doNotAutoPlay.Value;
 
         var path = GetConfigFilePath();
         try
@@ -83,7 +86,7 @@ public class ConfigService
                 Directory.CreateDirectory(dir);
             }
 
-            var data = new ConfigData { ServerUrl = ServerUrl, StreamToken = StreamToken };
+            var data = new ConfigData { ServerUrl = ServerUrl, StreamToken = StreamToken, DoNotAutoPlay = DoNotAutoPlay };
             var json = JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true });
             File.WriteAllText(path, json);
         }
@@ -93,7 +96,7 @@ public class ConfigService
             try
             {
                 var fallbackPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "config.json");
-                var data = new ConfigData { ServerUrl = ServerUrl, StreamToken = StreamToken };
+                var data = new ConfigData { ServerUrl = ServerUrl, StreamToken = StreamToken, DoNotAutoPlay = DoNotAutoPlay };
                 var json = JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true });
                 File.WriteAllText(fallbackPath, json);
             }
@@ -108,5 +111,6 @@ public class ConfigService
     {
         public string? ServerUrl { get; set; }
         public string? StreamToken { get; set; }
+        public bool DoNotAutoPlay { get; set; }
     }
 }

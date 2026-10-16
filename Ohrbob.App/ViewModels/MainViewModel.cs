@@ -3,13 +3,16 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.Logging;
 using Ohrbob.App.Services;
+using Serilog;
 
 namespace Ohrbob.App.ViewModels;
 
@@ -28,10 +31,10 @@ public partial class MainViewModel : ViewModelBase
     private bool _isConnected;
 
     [ObservableProperty]
-    private string _serverUrlInput = "http://localhost:5002";
+    private string _serverUrlInput = "http://10.0.0.2:5002";
 
     [ObservableProperty]
-    private string _tokenInput = "";
+    private string _tokenInput = "00ef0bbf-8177-4f5d-b308-b2843ab09d0c";
 
     [ObservableProperty]
     private string _deepLinkInput = "";
@@ -78,66 +81,33 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     private string _durationText = "30:00";
 
-    public MainViewModel() : this(new ConfigService(), null)
+    public MainViewModel() : this( new ConfigService(), null)
     {
     }
 
     public MainViewModel(ConfigService configService, OhrbobClient? client)
     {
         _configService = configService;
-        _client = client ?? new OhrbobClient(_configService);
+        var handler = new HttpClientHandler();
 
-        _player = new SoundFlowAudioPlayer();
+        // Only bypass if running locally or in a specific dev environment
+        bool isDevelopment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
 
-        if (!_player.IsLibVlcInstalled)
+        if (isDevelopment)
         {
-            ConnectionErrorMessage = "LibVLC is missing on your Linux system. Please run 'sudo apt install libvlc-dev' (or equivalent) to enable audio playback.";
+            handler.ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true;
         }
 
-        _player.PositionChanged += (s, pos) =>
-        {
-            Dispatcher.UIThread.Post(() =>
-            {
-                _isUpdatingPositionFromPlayer = true;
-                try
-                {
-                    PositionSeconds = pos;
-                }
-                finally
-                {
-                    _isUpdatingPositionFromPlayer = false;
-                }
+        
+        _client = client ?? new OhrbobClient(_configService, handler);
 
-                if (IsPlaying && pos > 0 && DurationSeconds > 0 && pos >= DurationSeconds)
-                {
-                    _ = SkipToNextAsync();
-                }
-            });
-        };
+        _player = new SoundFlowAudioPlayer();
+        _player.PositionChanged += OnPlayerOnPositionChanged;
+        _player.DurationChanged += OnPlayerOnDurationChanged;
+        _player.PlaybackStateChanged += OnPlayerOnPlaybackStateChanged;
 
-        _player.DurationChanged += (s, dur) =>
-        {
-            Dispatcher.UIThread.Post(() =>
-            {
-                DurationSeconds = dur;
-            });
-        };
-
-        _player.PlaybackStateChanged += (s, state) =>
-        {
-            Dispatcher.UIThread.Post(() =>
-            {
-                _isUpdatingStateFromPlayer = true;
-                try
-                {
-                    IsPlaying = state;
-                }
-                finally
-                {
-                    _isUpdatingStateFromPlayer = false;
-                }
-            });
-        };
+        if (Avalonia.Controls.Design.IsDesignMode)
+            return;
 
         if (!string.IsNullOrEmpty(_configService.ServerUrl) && !string.IsNullOrEmpty(_configService.StreamToken))
         {
@@ -148,6 +118,48 @@ public partial class MainViewModel : ViewModelBase
         }
 
         SetupTimers();
+    }
+
+    private void OnPlayerOnPositionChanged(object? s, int pos)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            _isUpdatingPositionFromPlayer = true;
+            try
+            {
+                PositionSeconds = pos;
+            }
+            finally
+            {
+                _isUpdatingPositionFromPlayer = false;
+            }
+
+            if (IsPlaying && pos > 0 && DurationSeconds > 0 && pos >= DurationSeconds)
+            {
+                _ = SkipToNextAsync();
+            }
+        });
+    }
+
+    private void OnPlayerOnDurationChanged(object? s, int dur)
+    {
+        Dispatcher.UIThread.Post(() => { DurationSeconds = dur; });
+    }
+
+    private void OnPlayerOnPlaybackStateChanged(object? s, bool state)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            _isUpdatingStateFromPlayer = true;
+            try
+            {
+                IsPlaying = state;
+            }
+            finally
+            {
+                _isUpdatingStateFromPlayer = false;
+            }
+        });
     }
 
     private void SetupTimers()
@@ -204,7 +216,7 @@ public partial class MainViewModel : ViewModelBase
         {
             IsBuffering = true;
             _player.Stop();
-            _player.Load(url);
+            await _player.Load(url);
             _loadedStreamUri = url;
             
             if (PositionSeconds > 0)
@@ -212,14 +224,14 @@ public partial class MainViewModel : ViewModelBase
                 _player.Seek(PositionSeconds);
             }
             
-            if (IsPlaying)
+            if (!_configService.DoNotAutoPlay)
             {
                 _player.Play();
             }
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Failed to load audio stream: {ex.Message}");
+            Log.Error($"Failed to load audio stream: {ex.Message}");
         }
         finally
         {
@@ -266,7 +278,15 @@ public partial class MainViewModel : ViewModelBase
             _loadedStreamUri = null;
             if (!string.IsNullOrEmpty(value))
             {
-                _ = LoadAudioUrlAsync(value);
+                bool shouldPlay = !_configService.DoNotAutoPlay;
+                if (IsPlaying != shouldPlay)
+                {
+                    IsPlaying = shouldPlay;
+                }
+                else
+                {
+                    _ = LoadAudioUrlAsync(value);
+                }
             }
         }
         catch
@@ -370,6 +390,7 @@ public partial class MainViewModel : ViewModelBase
     {
         try
         {
+            Log.Debug("Initializing app...");
             var stationsList = await _client.GetStationsAsync();
             Stations.Clear();
             foreach (var station in stationsList)
@@ -383,6 +404,9 @@ public partial class MainViewModel : ViewModelBase
         catch (Exception ex)
         {
             ConnectionErrorMessage = $"Initialization error: {ex.Message}";
+            Log.Error($"Initialization error: {ex.Message}");
+            Log.Fatal(ex, "App initialization failed");
+            
             Disconnect();
         }
     }
@@ -472,6 +496,7 @@ public partial class MainViewModel : ViewModelBase
     {
         if (string.IsNullOrEmpty(CurrentEpisodeStreamUri)) return;
         IsPlaying = !IsPlaying;
+        _configService.Save(_configService.ServerUrl ?? "", _configService.StreamToken ?? "", doNotAutoPlay: !IsPlaying);
     }
 
     [RelayCommand]

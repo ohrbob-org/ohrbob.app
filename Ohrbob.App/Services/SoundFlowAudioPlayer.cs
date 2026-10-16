@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Timers;
 using Avalonia.Threading;
+using Serilog;
 using SoundFlow.Backends.MiniAudio;
 using SoundFlow.Backends.MiniAudio.Devices;
 using SoundFlow.Components;
@@ -57,7 +58,7 @@ public class SoundFlowAudioPlayer : IAudioPlayer
         }
     }
 
-    public async void Load(string url)
+    public async Task Load(string url)
     {
         CurrentUrl = url;
         Stop(); // Cleans up previous streams
@@ -160,13 +161,10 @@ public class SoundFlowAudioPlayer : IAudioPlayer
                 _device.Start();
                 
             }, ct);
-            
-            _isPlaying = true;
-            PlaybackStateChanged?.Invoke(this, true); // Loading complete implies state could be playing once Play is called.
         }
         catch(Exception e)
         {
-            System.Diagnostics.Debug.WriteLine($"Error loading SoundFlow audio: {e}");
+            Log.Fatal(e,$"Error loading SoundFlow audio: {e}");
         }
     }
 

@@ -5,6 +5,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Serilog;
 
 namespace Ohrbob.App.Services;
 
@@ -48,7 +49,9 @@ public class OhrbobClient
         var url = $"{serverUrl}/stream/stations";
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         ApplyHeaders(request);
-
+        
+        Log.Debug($"Sending request to {url}");
+        
         using var response = await _httpClient.SendAsync(request);
         response.EnsureSuccessStatusCode();
 

@@ -29,6 +29,13 @@ To run the full test suite (including unit tests and headless UI E2E tests):
 dotnet test Ohrbob.App.Tests/Ohrbob.App.Tests.csproj
 ```
 
+
+### Launch the Android App
+
+```bash
+dotnet run --project Ohrbob.App.Android -p:AndroidSdkDirectory=/home/kaiwegner/Projects/android-emu/android-sdk -- --adb /home/kaiwegner/Projects/android-emu/android-sdk/platform-tools/adb
+```
+
 ---
 
 ## Connection Format

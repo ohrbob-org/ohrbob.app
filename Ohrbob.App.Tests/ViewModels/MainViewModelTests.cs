@@ -134,11 +134,14 @@ public class MainViewModelTests
         Assert.That(vm.IsPlaying, Is.False);
 
         // Set CurrentEpisodeStreamUri to "http://stream.mp3"
+        // This will now autoplay (IsPlaying = true)
         vm.CurrentEpisodeStreamUri = "http://stream.mp3";
-        vm.TogglePlayCommand.Execute(null);
         Assert.That(vm.IsPlaying, Is.True);
-
+        
         vm.TogglePlayCommand.Execute(null);
         Assert.That(vm.IsPlaying, Is.False);
+
+        vm.TogglePlayCommand.Execute(null);
+        Assert.That(vm.IsPlaying, Is.True);
     }
 }
