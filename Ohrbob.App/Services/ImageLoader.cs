@@ -1,21 +1,48 @@
 using System;
 using System.Collections.Concurrent;
-using System.Globalization;
 using System.IO;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
-using Avalonia.Data.Converters;
+using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using Serilog;
 
 namespace Ohrbob.App.Services;
 
-public class ImageLoaderConverter : IValueConverter
+public static class ImageLoader
 {
-    public static readonly ImageLoaderConverter Instance = new();
-    
+    public static readonly AttachedProperty<string?> SourceProperty =
+        AvaloniaProperty.RegisterAttached<Image, string?>("Source", typeof(ImageLoader));
+
+    static ImageLoader()
+    {
+        SourceProperty.Changed.AddClassHandler<Image>(OnSourceChanged);
+    }
+
+    public static string? GetSource(Image element) => element.GetValue(SourceProperty);
+    public static void SetSource(Image element, string? value) => element.SetValue(SourceProperty, value);
+
+    private static async void OnSourceChanged(Image image, AvaloniaPropertyChangedEventArgs args)
+    {
+        var url = args.NewValue as string;
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            image.Source = null;
+            return;
+        }
+
+        var bitmap = await LoadImageAsync(url);
+        
+        // Only apply if the URL hasn't changed during the await
+        if (GetSource(image) == url)
+        {
+            image.Source = bitmap;
+        }
+    }
+
     // Memory Cache
     private const int MaxMemoryCacheSize = 64;
     private static readonly ConcurrentDictionary<string, Bitmap> MemoryCache = new();
@@ -56,22 +83,9 @@ public class ImageLoaderConverter : IValueConverter
         }
     }
 
-    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    private static async Task<Bitmap?> LoadImageAsync(string url)
     {
-        if (value is not string url || string.IsNullOrWhiteSpace(url))
-            return null;
-
-        // 1. Check Memory Cache (instant sync return)
-        if (MemoryCache.TryGetValue(url, out var cachedBitmap))
-            return cachedBitmap;
-
-        // 2. Fallback to async load (Disk or Network)
-        return new Task<Bitmap?>(() => LoadImageAsync(url).Result);
-    }
-
-    private async Task<Bitmap?> LoadImageAsync(string url)
-    {
-        // Double check memory cache in case another task already loaded it
+        // 1. Check memory cache
         if (MemoryCache.TryGetValue(url, out var cachedBitmap))
             return cachedBitmap;
 
@@ -79,20 +93,20 @@ public class ImageLoaderConverter : IValueConverter
         {
             var diskPath = GetDiskCachePath(url);
 
-            // 1. Check Disk Cache
+            // 2. Check Disk Cache
             if (File.Exists(diskPath))
             {
-                // Verify file isn't empty/corrupt
                 var fileInfo = new FileInfo(diskPath);
                 if (fileInfo.Length > 0)
                 {
-                    var bitmap = new Bitmap(diskPath);
+                    // Run disk IO on background thread
+                    var bitmap = await Task.Run(() => new Bitmap(diskPath));
                     AddToMemoryCache(url, bitmap);
                     return bitmap;
                 }
             }
 
-            // 2. Download from Network
+            // 3. Download from Network
             var response = await HttpClient.GetAsync(url);
             response.EnsureSuccessStatusCode();
             
@@ -113,10 +127,5 @@ public class ImageLoaderConverter : IValueConverter
             Log.Error(ex, "Failed to load image from {Url}", url);
             return null;
         }
-    }
-
-    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
-    {
-        throw new NotSupportedException();
     }
 }
