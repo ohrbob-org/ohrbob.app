@@ -31,7 +31,7 @@ public partial class MainViewModel : ViewModelBase
     private bool _isConnected;
 
     [ObservableProperty]
-    private string _serverUrlInput = "http://10.0.0.2:5002";
+    private string _serverUrlInput = "http://10.0.2.2:5002";
 
     [ObservableProperty]
     private string _tokenInput = "00ef0bbf-8177-4f5d-b308-b2843ab09d0c";
@@ -93,10 +93,10 @@ public partial class MainViewModel : ViewModelBase
         // Only bypass if running locally or in a specific dev environment
         bool isDevelopment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
 
-        if (isDevelopment)
-        {
-            handler.ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true;
-        }
+        #if DEBUG
+        
+        handler.ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true;
+        #endif
 
         
         _client = client ?? new OhrbobClient(_configService, handler);

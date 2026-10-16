@@ -53,7 +53,10 @@ public class OhrbobClient
         Log.Debug($"Sending request to {url}");
         
         using var response = await _httpClient.SendAsync(request);
-        response.EnsureSuccessStatusCode();
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new HttpRequestException($"HTTP error! Status: {response.StatusCode}");
+        }
 
         var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
         var stations = await response.Content.ReadFromJsonAsync<List<Station>>(options);
