@@ -99,7 +99,7 @@
                                 </Style>
                                 <Style Selector="ListBoxItem:selected Border.stationCard">
                                     <Setter Property="BorderBrush" Value="{StaticResource OhrbobOrange}" />
-                                    <Setter Property="BorderThickness" Value="2" />
+                                    <Setter Property="BorderThickness" Value="4" />
                                 </Style>
                             </ListBox.Styles>
                         </ListBox>
