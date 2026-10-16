@@ -121,7 +121,7 @@
 
             <SplitView.Content>
             <!-- Right Detail Player View wrapped in Border for padding & styling -->
-            <Border Background="{StaticResource OhrbobDeepNavy}" Padding="32">
+            <Border Background="{StaticResource AppBackgroundBrush}" Padding="32">
                 <Grid RowDefinitions="Auto, *, Auto">
                     
                     <Button Name="MenuButton" Grid.Row="0" Command="{Binding ToggleSidebarCommand}" 
