@@ -6,7 +6,7 @@
              x:DataType="vm:MainViewModel">
              
     <Border Name="RootBorder" Background="{StaticResource OhrbobPaleViolet}" CornerRadius="16" Margin="16" Padding="16,12" BoxShadow="0 4 16 0 #10000000">
-        <Grid ColumnDefinitions="Auto, *, Auto">
+        <Grid ColumnDefinitions="*, Auto">
             <!-- Left: Meta (Cover + Info) -->
             <Grid Grid.Column="0" ColumnDefinitions="Auto, *" HorizontalAlignment="Left">
                 <Border Grid.Column="0" Width="48" Height="48" CornerRadius="8" ClipToBounds="True" Background="#F0F0F0" Margin="0,0,12,0" VerticalAlignment="Center">
@@ -26,11 +26,11 @@
                 </StackPanel>
             </Grid>
 
-            <!-- Center/Right Container -->
-            <Grid Grid.Column="1" Grid.ColumnSpan="2" ColumnDefinitions="Auto, *">
+            <!-- Right: Controls + Progress Container -->
+            <Grid Grid.Column="1" ColumnDefinitions="Auto, Auto">
                 
                 <!-- Center: Controls -->
-                <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="0" Margin="12,0">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Spacing="0" Margin="12,0">
                     <Border Background="#20001957" CornerRadius="20" Margin="4,0">
                         <Button Command="{Binding SeekBackCommand}" Width="40" Height="40" CornerRadius="20" Background="Transparent" Padding="0">
                             <PathIcon Data="M12.5,3C17.15,3 21.08,6.03 22.47,10.15L20.1,10.94C19.07,7.85 16.03,5.5 12.5,5.5C8.36,5.5 5,8.86 5,13C5,17.14 8.36,20.5 12.5,20.5C16.15,20.5 19.21,17.9 20.17,14.5H22.72C21.72,19.3 17.5,23 12.5,23C7,23 2.5,18.5 2.5,13C2.5,7.5 7,3 12.5,3M12.5,8V13H17.5V14.5H11V8H12.5Z" Width="18" Height="18" Foreground="{StaticResource ThemeDarkBrush}" />
@@ -67,7 +67,7 @@
                 </StackPanel>
 
                 <!-- Right: Progress -->
-                <Grid Grid.Column="1" ColumnDefinitions="Auto, *, Auto, Auto" VerticalAlignment="Center" HorizontalAlignment="Stretch" Margin="32,0,0,0">
+                <Grid Grid.Column="1" ColumnDefinitions="Auto, *, Auto, Auto" VerticalAlignment="Center" HorizontalAlignment="Stretch" Margin="16,0,0,0" MinWidth="200">
                     <Grid.IsVisible>
                         <Binding Path="Bounds.Width" ElementName="RootBorder">
                             <Binding.Converter>
