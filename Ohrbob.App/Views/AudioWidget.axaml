@@ -5,9 +5,8 @@
              x:Class="Ohrbob.App.Views.AudioWidget"
              x:DataType="vm:MainViewModel">
              
-    <Border Background="#FFFFFFFF" BorderThickness="0,1,0,0" BorderBrush="#EAEAEA" Padding="16,12" BoxShadow="0 -4 16 0 #08000000">
+    <Border Name="RootBorder" Background="#FFFFFFFF" BorderThickness="0,1,0,0" BorderBrush="#EAEAEA" Padding="16,12" BoxShadow="0 -4 16 0 #08000000">
         <Grid>
-            <!-- Create a 3 column layout that collapses when squeezed -->
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" MinWidth="150" MaxWidth="300" />
                 <ColumnDefinition Width="Auto" />
@@ -51,12 +50,26 @@
                 </Button>
 
                 <Button Command="{Binding SkipToNextCommand}" Classes="audio-btn-icon" Background="Transparent" Padding="8">
+                    <Button.IsVisible>
+                        <Binding Path="Bounds.Width" ElementName="RootBorder">
+                            <Binding.Converter>
+                                <services:WidthToVisibilityConverter Threshold="700" />
+                            </Binding.Converter>
+                        </Binding>
+                    </Button.IsVisible>
                     <PathIcon Data="M6,18L14.5,12L6,6V18M16,6V18H18V6H16Z" Width="18" Height="18" Foreground="{StaticResource ThemeDarkBrush}" />
                 </Button>
             </StackPanel>
 
             <!-- Right: Progress -->
             <Grid Grid.Column="2" ColumnDefinitions="Auto, *, Auto" VerticalAlignment="Center" HorizontalAlignment="Stretch" MaxWidth="300">
+                <Grid.IsVisible>
+                    <Binding Path="Bounds.Width" ElementName="RootBorder">
+                        <Binding.Converter>
+                            <services:WidthToVisibilityConverter Threshold="600" />
+                        </Binding.Converter>
+                    </Binding>
+                </Grid.IsVisible>
                 <TextBlock Grid.Column="0" Text="{Binding PositionText}" FontSize="11" Foreground="#6C757D" Width="40" TextAlignment="Right" VerticalAlignment="Center" Margin="0,0,12,0" />
                 <Slider Grid.Column="1" Value="{Binding PositionSeconds}" Maximum="{Binding DurationSeconds}" VerticalAlignment="Center" Minimum="0" />
                 <TextBlock Grid.Column="2" Text="{Binding DurationText}" FontSize="11" Foreground="#6C757D" Width="40" TextAlignment="Left" VerticalAlignment="Center" Margin="12,0,0,0" />
