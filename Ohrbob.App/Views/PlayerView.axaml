@@ -57,7 +57,6 @@
 
                     <!-- Stations List Section -->
                     <Grid Grid.Row="1" RowDefinitions="Auto, *">
-                       
                         <ListBox Grid.Row="1" ItemsSource="{Binding Stations}" SelectedItem="{Binding SelectedStation}"
                                  Background="Transparent" BorderThickness="0" Margin="12,0,12,0">
                             <ListBox.ItemTemplate>
@@ -128,7 +127,7 @@
 
             <SplitView.Content>
             <!-- Right Detail Player View wrapped in Border for padding & styling -->
-            <Border Background="{StaticResource AppBackgroundBrush}" Padding="32">
+            <Border Background="{StaticResource AppBackgroundBrush}">
                 <Grid RowDefinitions="Auto, *, Auto">
                     
                     <Button Name="MenuButton" Grid.Row="0" Command="{Binding ToggleSidebarCommand}" 
@@ -137,7 +136,7 @@
                     </Button>
 
                     <!-- Center Info Pane (Episode details, Cover Art, Description) -->
-                    <ScrollViewer Grid.Row="1" Margin="0,0,0,24">
+                    <ScrollViewer Grid.Row="1" Margin="0,0,0,24" Padding="32">
                     <WrapPanel Orientation="Horizontal" HorizontalAlignment="Center">
                         <!-- Album Art Block -->
                         <Grid Width="320" VerticalAlignment="Center" HorizontalAlignment="Center">
