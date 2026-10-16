@@ -131,7 +131,8 @@
                 <Grid RowDefinitions="Auto, *, Auto">
                     
                     <Button Name="MenuButton" Grid.Row="0" Command="{Binding ToggleSidebarCommand}" 
-                            HorizontalAlignment="Left" VerticalAlignment="Top" Background="Transparent" Margin="-16,-16,0,16">
+                            HorizontalAlignment="Left" VerticalAlignment="Top"
+                            Background="Transparent" Margin="8,8,0,8">
                         <PathIcon Data="M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z" Foreground="{StaticResource OhrbobWhite}" Width="24" Height="24" />
                     </Button>
 
