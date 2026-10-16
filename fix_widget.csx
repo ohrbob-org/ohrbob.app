@@ -1,1 +1,0 @@
-// We need the slider to stretch. Currently it's wrapped in a Grid that aligns `HorizontalAlignment="Stretch"` but the parent grid has `<ColumnDefinition Width="*" MinWidth="150" MaxWidth="300" />` which limits the right column to 300px max. We can just set MaxWidth higher or remove it so it stretches fully.
