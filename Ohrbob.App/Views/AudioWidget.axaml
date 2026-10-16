@@ -8,7 +8,7 @@
     <Border Name="RootBorder" Background="{StaticResource OhrbobPaleViolet}" CornerRadius="16" Margin="16" Padding="16,12" BoxShadow="0 4 16 0 #10000000">
         <Grid>
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" MinWidth="200" MaxWidth="350" />
+                <ColumnDefinition Width="*" MinWidth="200" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="1.5*" MinWidth="200" />
             </Grid.ColumnDefinitions>
