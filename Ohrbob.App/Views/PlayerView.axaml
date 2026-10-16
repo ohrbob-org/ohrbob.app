@@ -48,18 +48,16 @@
             <Border Background="{StaticResource OhrbobDarkNavy}" BorderBrush="{StaticResource OhrbobDarkGray}" BorderThickness="0,0,1,0">
                 <Grid RowDefinitions="Auto, *, Auto">
                     <!-- App Header -->
-                    <StackPanel Grid.Row="0" Margin="24,24,24,15">
+                    <StackPanel Grid.Row="0" Margin="24,24,24,15" HorizontalAlignment="Center">
                         <StackPanel Orientation="Horizontal" Spacing="4">
                             <Image Source="../Assets/ohrbob-logo.png" Width="24" Height="24" />
                             <views:OhrbobLogoText FontSize="24" Margin="0,-2,0,0" />
                         </StackPanel>
-                        <TextBlock Text="podcast player" FontSize="11" Foreground="{StaticResource OhrbobGray}" FontWeight="SemiBold" LetterSpacing="1" />
                     </StackPanel>
 
                     <!-- Stations List Section -->
                     <Grid Grid.Row="1" RowDefinitions="Auto, *">
-                        <TextBlock Grid.Row="0" Text="YOUR STATIONS" FontSize="11" FontWeight="Bold" Foreground="{StaticResource OhrbobCream}" Margin="24,15,24,8" />
-                        
+                       
                         <ListBox Grid.Row="1" ItemsSource="{Binding Stations}" SelectedItem="{Binding SelectedStation}"
                                  Background="Transparent" BorderThickness="0" Margin="12,0,12,0">
                             <ListBox.ItemTemplate>
