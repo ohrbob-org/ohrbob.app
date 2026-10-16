@@ -1,0 +1,202 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Ohrbob.App.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="600"
+             x:Class="Ohrbob.App.Views.PlayerView"
+             x:DataType="vm:MainViewModel">
+
+    <UserControl.Resources>
+        <SolidColorBrush x:Key="OhrbobOrange" Color="{StaticResource OhrbobStrongOrange}" />
+        <SolidColorBrush x:Key="OhrbobPurple" Color="{StaticResource OhrbobLightBlue}" />
+        <SolidColorBrush x:Key="OhrbobDeepNavy" Color="{StaticResource OhrbobPaleYellow}" />
+        <SolidColorBrush x:Key="OhrbobDarkNavy" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="OhrbobCream" Color="{StaticResource OhrbobDarkBlue}" />
+        <SolidColorBrush x:Key="OhrbobWhite" Color="{StaticResource OhrbobDarkBlue}" />
+        <SolidColorBrush x:Key="OhrbobGray" Color="#888888" />
+        <SolidColorBrush x:Key="OhrbobDarkGray" Color="#e0e0e0" />
+    </UserControl.Resources>
+
+    <UserControl.Styles>
+        <!-- Desktop / Wide (default) styles -->
+        <Style Selector="SplitView#MainSplitView">
+            <Setter Property="DisplayMode" Value="Inline" />
+            <Setter Property="IsPaneOpen" Value="True" />
+        </Style>
+        <Style Selector="Button#MenuButton">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+
+        <!-- Mobile / Narrow styles bound to ViewModel -->
+        <Style Selector="SplitView#MainSplitView.portrait">
+            <Setter Property="DisplayMode" Value="Overlay" />
+            <Setter Property="IsPaneOpen" Value="{Binding IsSidebarOpen}" />
+        </Style>
+        <Style Selector="SplitView#MainSplitView.portrait Button#MenuButton">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+    </UserControl.Styles>
+
+        <SplitView Name="MainSplitView" Classes.portrait="{Binding IsPortrait}"
+                   OpenPaneLength="260">
+            
+            <SplitView.Pane>
+            <!-- Left Sidebar wrapped in Border for styling -->
+            <Border Background="{StaticResource OhrbobDarkNavy}" BorderBrush="{StaticResource OhrbobDarkGray}" BorderThickness="0,0,1,0">
+                <Grid RowDefinitions="Auto, *, Auto">
+                    <!-- App Header -->
+                    <StackPanel Grid.Row="0" Margin="24,24,24,15">
+                        <TextBlock Text="ohrbob" Classes="h2" Foreground="{StaticResource OhrbobOrange}" />
+                        <TextBlock Text="podcast player" FontSize="11" Foreground="{StaticResource OhrbobGray}" FontWeight="SemiBold" LetterSpacing="1" />
+                    </StackPanel>
+
+                    <!-- Stations List Section -->
+                    <Grid Grid.Row="1" RowDefinitions="Auto, *">
+                        <TextBlock Grid.Row="0" Text="YOUR STATIONS" FontSize="11" FontWeight="Bold" Foreground="{StaticResource OhrbobCream}" Margin="24,15,24,8" />
+                        
+                        <ListBox Grid.Row="1" ItemsSource="{Binding Stations}" SelectedItem="{Binding SelectedStation}"
+                                 Background="Transparent" BorderThickness="0" Margin="12,0,12,0">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid ColumnDefinitions="Auto, *" Margin="8,4">
+                                        <PathIcon Data="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M12,6A6,6 0 0,0 6,12A6,6 0 0,0 12,18A6,6 0 0,0 18,12A6,6 0 0,0 12,6M12,8A4,4 0 0,1 16,12A4,4 0 0,1 12,16A4,4 0 0,1 8,12A4,4 0 0,1 12,8Z" 
+                                                  Width="16" Height="16" Foreground="{StaticResource OhrbobOrange}" Margin="0,0,10,0" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{StaticResource OhrbobWhite}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                            <ListBox.Styles>
+                                <Style Selector="ListBoxItem">
+                                    <Setter Property="Padding" Value="4,8" />
+                                    <Setter Property="CornerRadius" Value="6" />
+                                </Style>
+                                <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+                                    <Setter Property="Background" Value="{StaticResource OhrbobDeepNavy}" />
+                                </Style>
+                            </ListBox.Styles>
+                        </ListBox>
+                    </Grid>
+
+                    <!-- Sidebar Footer (Settings / Disconnect) -->
+                    <Border Grid.Row="2" Background="{StaticResource OhrbobDarkNavy}" Padding="16" BorderBrush="{StaticResource OhrbobDarkGray}" BorderThickness="0,1,0,0">
+                        <Grid ColumnDefinitions="*, Auto">
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                <TextBlock Text="Connected Stream" FontSize="11" Foreground="{StaticResource OhrbobGray}" FontWeight="SemiBold" />
+                                <TextBlock Text="Active Profile" FontSize="13" Foreground="{StaticResource OhrbobWhite}" FontWeight="SemiBold" />
+                            </StackPanel>
+                            <Button Grid.Column="1" Command="{Binding DisconnectCommand}" Content="Disconnect"
+                                    Background="{StaticResource OhrbobDarkGray}" Foreground="{StaticResource OhrbobWhite}" FontSize="11" CornerRadius="12" Padding="12,6" />
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Border>
+            </SplitView.Pane>
+
+            <SplitView.Content>
+            <!-- Right Detail Player View wrapped in Border for padding & styling -->
+            <Border Background="{StaticResource OhrbobDeepNavy}" Padding="32">
+                <Grid RowDefinitions="Auto, *, Auto">
+                    
+                    <Button Name="MenuButton" Grid.Row="0" Command="{Binding ToggleSidebarCommand}" 
+                            HorizontalAlignment="Left" VerticalAlignment="Top" Background="Transparent" Margin="-16,-16,0,16">
+                        <PathIcon Data="M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z" Foreground="{StaticResource OhrbobWhite}" Width="24" Height="24" />
+                    </Button>
+
+                    <!-- Center Info Pane (Episode details, Cover Art, Description) -->
+                    <ScrollViewer Grid.Row="1" Margin="0,0,0,24">
+                    <WrapPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <!-- Album Art Block -->
+                        <Grid Width="320" VerticalAlignment="Center" HorizontalAlignment="Center">
+                            <Border Width="280" Height="280" Background="{StaticResource OhrbobDarkNavy}" CornerRadius="16" BoxShadow="0 8 30 0 #20000000">
+                                <!-- Placeholder or Image -->
+                                <Panel>
+                                    <PathIcon Data="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M12,10A2,2 0 0,0 10,12A2,2 0 0,0 12,14A2,2 0 0,0 14,12A2,2 0 0,0 12,10Z" 
+                                              Width="64" Height="64" Foreground="{StaticResource OhrbobOrange}" Opacity="0.5" />
+                                    <Image Source="{Binding CurrentEpisodeCoverUrl}" Stretch="UniformToFill" Margin="0" IsVisible="{Binding CurrentEpisodeCoverUrl, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                    
+                                    <!-- Buffering Blur Overlay -->
+                                    <Border Background="#CCFFFFFF" CornerRadius="16" IsVisible="{Binding IsBuffering}">
+                                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="12">
+                                            <ProgressBar IsIndeterminate="True" Width="100" Height="4" Foreground="{StaticResource OhrbobOrange}" Background="Transparent" />
+                                            <TextBlock Text="Buffering..." FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource OhrbobCream}" HorizontalAlignment="Center" />
+                                        </StackPanel>
+                                    </Border>
+                                </Panel>
+                            </Border>
+                        </Grid>
+
+                        <!-- Text Details Box -->
+                        <Grid Width="360" RowDefinitions="Auto, *, Auto" Margin="24,12,0,12">
+                            <!-- Station & Episode Title -->
+                            <StackPanel Grid.Row="0" Spacing="6">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="{Binding SelectedStation.Name, FallbackValue='No Active Station'}" 
+                                               FontSize="12" FontWeight="Bold" Foreground="{StaticResource OhrbobOrange}" LetterSpacing="1" />
+                                    <Border Background="{StaticResource OhrbobOrange}" CornerRadius="4" Padding="6,2" IsVisible="{Binding IsBuffering}">
+                                        <TextBlock Text="Buffering..." FontSize="9" FontWeight="Bold" Foreground="{StaticResource OhrbobWhite}" />
+                                    </Border>
+                                </StackPanel>
+                                <TextBlock Text="{Binding CurrentEpisodeTitle}" FontSize="24" FontWeight="Bold" Foreground="{StaticResource OhrbobWhite}" TextWrapping="Wrap" />
+                            </StackPanel>
+
+                            <!-- Episode Description Scrollable Panel -->
+                            <TextBlock Grid.Row="1" Margin="0,16,0,16" Text="{Binding CurrentEpisodeDescription}" FontSize="14" Foreground="{StaticResource OhrbobCream}" TextWrapping="Wrap" LineHeight="20" />
+
+                            <!-- Up Next Feature -->
+                            <Border Grid.Row="2" Background="{StaticResource OhrbobDarkNavy}" CornerRadius="8" Padding="12,10" IsVisible="{Binding NextEpisodeTitle, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="NEXT:" FontSize="10" FontWeight="Bold" Foreground="{StaticResource OhrbobOrange}" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding NextEpisodeTitle}" FontSize="12" Foreground="{StaticResource OhrbobWhite}" FontWeight="SemiBold" MaxWidth="300" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </WrapPanel>
+                    </ScrollViewer>
+
+                    <!-- Bottom Controller Deck (Seekbar, Controls, Action buttons) -->
+                    <Grid Grid.Row="2" RowDefinitions="Auto, Auto" Margin="0,0,0,12">
+                        <!-- Progress Slider Panel -->
+                        <Grid Grid.Row="0" ColumnDefinitions="Auto, *, Auto" Margin="0,0,0,16">
+                            <TextBlock Grid.Column="0" Text="{Binding PositionText}" FontSize="12" Foreground="{StaticResource OhrbobCream}" Width="40" TextAlignment="Left" />
+                            <Slider Grid.Column="1" Value="{Binding PositionSeconds}" Maximum="{Binding DurationSeconds}" Margin="12,0" Height="20" />
+                            <TextBlock Grid.Column="2" Text="{Binding DurationText}" FontSize="12" Foreground="{StaticResource OhrbobCream}" Width="40" TextAlignment="Right" />
+                        </Grid>
+
+                        <!-- Control Buttons Pane -->
+                        <Grid Grid.Row="1" ColumnDefinitions="*, Auto, *">
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="24">
+                                <!-- Skip Back 15s -->
+                                <Button Command="{Binding SeekBackCommand}" Width="40" Height="40" CornerRadius="20" Background="{StaticResource OhrbobDarkNavy}">
+                                    <PathIcon Data="M12.5,3C17.15,3 21.08,6.03 22.47,10.15L20.1,10.94C19.07,7.85 16.03,5.5 12.5,5.5C8.36,5.5 5,8.86 5,13C5,17.14 8.36,20.5 12.5,20.5C16.15,20.5 19.21,17.9 20.17,14.5H22.72C21.72,19.3 17.5,23 12.5,23C7,23 2.5,18.5 2.5,13C2.5,7.5 7,3 12.5,3M12.5,8V13H17.5V14.5H11V8H12.5Z" 
+                                              Width="18" Height="16" Foreground="{StaticResource OhrbobWhite}" />
+                                </Button>
+
+                                <!-- Play / Pause Circular Toggle -->
+                                <Button Command="{Binding TogglePlayCommand}" Width="56" Height="56" CornerRadius="28" Background="{StaticResource OhrbobOrange}">
+                                    <Panel>
+                                        <PathIcon Data="M8,5.14V19.14L19,12.14L8,5.14Z" Width="24" Height="24" Foreground="{StaticResource OhrbobWhite}" IsVisible="{Binding !IsPlaying}" />
+                                        <PathIcon Data="M14,19H18V5H14M6,19H10V5H6V19Z" Width="20" Height="20" Foreground="{StaticResource OhrbobWhite}" IsVisible="{Binding IsPlaying}" />
+                                    </Panel>
+                                </Button>
+
+                                <!-- Skip Forward 30s -->
+                                <Button Command="{Binding SeekForwardCommand}" Width="40" Height="40" CornerRadius="20" Background="{StaticResource OhrbobDarkNavy}">
+                                    <PathIcon Data="M11.5,3C17,3 21.5,7.5 21.5,13C21.5,18.5 17,23 11.5,23C6.5,23 2.28,19.3 1.28,14.5H3.83C4.79,17.9 7.85,20.5 11.5,20.5C15.64,20.5 19,17.14 19,13C19,8.86 15.64,5.5 11.5,5.5C7.97,5.5 4.93,7.85 3.9,10.94L1.53,10.15C2.92,6.03 6.85,3 11.5,3M14,8V14.5H7.5V13H12.5V8H14Z" 
+                                              Width="18" Height="16" Foreground="{StaticResource OhrbobWhite}" />
+                                </Button>
+
+                                <!-- Next Track -->
+                                <Button Command="{Binding SkipToNextCommand}" Width="40" Height="40" CornerRadius="20" Background="{StaticResource OhrbobDarkNavy}">
+                                    <PathIcon Data="M6,18L14.5,12L6,6V18M16,6V18H18V6H16Z" Width="16" Height="16" Foreground="{StaticResource OhrbobWhite}" />
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+                    </Grid>
+                    
+                </Grid>
+            </Border>
+            </SplitView.Content>
+        </SplitView>
+
+</UserControl>

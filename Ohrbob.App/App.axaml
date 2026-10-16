@@ -9,7 +9,76 @@
         <local:ViewLocator />
     </Application.DataTemplates>
 
+    <Application.Resources>
+        <!-- Base Colors -->
+        <Color x:Key="OhrbobDarkBlue">#001957</Color>
+        <Color x:Key="OhrbobLightBlue">#544ff4</Color>
+        <Color x:Key="OhrbobYellow">#fdb200</Color>
+        <Color x:Key="OhrbobOrangeLight">#ff9a00</Color>
+        <Color x:Key="OhrbobStrongOrange">#fc5d00</Color>
+        <Color x:Key="OhrbobPaleYellow">#fff4d8</Color>
+        <Color x:Key="OhrbobPaleViolet">#e9e8fd</Color>
+        
+        <!-- Bootstrap Theme Mapping -->
+        <SolidColorBrush x:Key="ThemePrimaryBrush" Color="{StaticResource OhrbobStrongOrange}" />
+        <SolidColorBrush x:Key="ThemeSecondaryBrush" Color="{StaticResource OhrbobLightBlue}" />
+        <SolidColorBrush x:Key="ThemeInfoBrush" Color="{StaticResource OhrbobLightBlue}" />
+        <SolidColorBrush x:Key="ThemeWarningBrush" Color="{StaticResource OhrbobYellow}" />
+        <SolidColorBrush x:Key="ThemeDangerBrush" Color="#dc3545" />
+        <SolidColorBrush x:Key="ThemeLightBrush" Color="{StaticResource OhrbobPaleYellow}" />
+        <SolidColorBrush x:Key="ThemeDarkBrush" Color="{StaticResource OhrbobDarkBlue}" />
+
+        <!-- Application Background & Foreground -->
+        <SolidColorBrush x:Key="AppBackgroundBrush" Color="#ffffff" />
+        <SolidColorBrush x:Key="AppForegroundBrush" Color="{StaticResource OhrbobDarkBlue}" />
+
+        <FontFamily x:Key="SulphurPoint">avares://Ohrbob.App/Assets/Fonts#Sulphur Point</FontFamily>
+    </Application.Resources>
+
     <Application.Styles>
         <FluentTheme />
+        
+        <Style Selector="Window">
+            <Setter Property="Background" Value="{StaticResource AppBackgroundBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource AppForegroundBrush}"/>
+        </Style>
+
+        <Style Selector="TextBlock.h1">
+            <Setter Property="FontFamily" Value="{StaticResource SulphurPoint}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="32"/>
+            <Setter Property="Foreground" Value="{StaticResource AppForegroundBrush}"/>
+        </Style>
+
+        <Style Selector="TextBlock.h2">
+            <Setter Property="FontFamily" Value="{StaticResource SulphurPoint}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="24"/>
+            <Setter Property="Foreground" Value="{StaticResource AppForegroundBrush}"/>
+        </Style>
+
+        <Style Selector="Button">
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Padding" Value="12,6"/>
+        </Style>
+
+        <!-- .btn-primary -->
+        <Style Selector="Button.btn-primary">
+            <Setter Property="Background" Value="{StaticResource ThemePrimaryBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+        <Style Selector="Button.btn-primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{StaticResource OhrbobOrangeLight}"/>
+        </Style>
+
+        <!-- .btn-secondary -->
+        <Style Selector="Button.btn-secondary">
+            <Setter Property="Background" Value="{StaticResource ThemeSecondaryBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+        <Style Selector="Button.btn-secondary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{StaticResource OhrbobPaleViolet}"/>
+            <Setter Property="Foreground" Value="{StaticResource ThemeDarkBrush}"/>
+        </Style>
     </Application.Styles>
 </Application>

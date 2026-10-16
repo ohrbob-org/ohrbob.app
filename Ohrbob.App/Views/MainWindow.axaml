@@ -9,27 +9,16 @@
         x:DataType="vm:MainViewModel"
         Icon="/Assets/avalonia-logo.ico"
         Title="Ohrbob player"
-        Background="{StaticResource OhrbobDarkNavy}"
-        Foreground="{StaticResource OhrbobWhite}"
         Width="950" Height="650"
         WindowStartupLocation="CenterScreen">
 
     <Window.Resources>
-        <SolidColorBrush x:Key="OhrbobOrange" Color="#fc5d00" />
-        <SolidColorBrush x:Key="OhrbobPurple" Color="#544ff4" />
-        <SolidColorBrush x:Key="OhrbobDeepNavy" Color="#001957" />
-        <SolidColorBrush x:Key="OhrbobDarkNavy" Color="#00113B" />
-        <SolidColorBrush x:Key="OhrbobCream" Color="#fff4d8" />
-        <SolidColorBrush x:Key="OhrbobWhite" Color="#FFFFFF" />
-        <SolidColorBrush x:Key="OhrbobGray" Color="#888888" />
-        <SolidColorBrush x:Key="OhrbobDarkGray" Color="#333333" />
-        
         <!-- Focused & Hover theme overrides for TextBoxes to prevent white-on-white style issues -->
-        <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#00113B" />
-        <SolidColorBrush x:Key="TextControlForegroundFocused" Color="#FFFFFF" />
-        <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="#fc5d00" />
-        <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="#00113B" />
-        <SolidColorBrush x:Key="TextControlForegroundPointerOver" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="{StaticResource OhrbobPaleYellow}" />
+        <SolidColorBrush x:Key="TextControlForegroundFocused" Color="{StaticResource OhrbobDarkBlue}" />
+        <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="{StaticResource OhrbobStrongOrange}" />
+        <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="{StaticResource OhrbobPaleYellow}" />
+        <SolidColorBrush x:Key="TextControlForegroundPointerOver" Color="{StaticResource OhrbobDarkBlue}" />
     </Window.Resources>
 
     <Design.DataContext>
@@ -37,52 +26,6 @@
     </Design.DataContext>
 
     <Grid>
-        <!-- Onboarding Screen (Displayed when not connected) -->
-        <Grid IsVisible="{Binding !IsConnected}" Background="{StaticResource OhrbobDarkNavy}" HorizontalAlignment="Center" VerticalAlignment="Center">
-            <Border Width="450" Background="{StaticResource OhrbobDeepNavy}" CornerRadius="12" BoxShadow="0 4 20 0 #000000" Padding="30">
-                <StackPanel Spacing="15">
-                    <!-- Stylized Logo/Title -->
-                    <TextBlock Text="ohrbob" FontSize="36" FontWeight="Bold" Foreground="{StaticResource OhrbobOrange}" HorizontalAlignment="Center" Margin="0,0,0,10" />
-                    
-                    <TextBlock Text="Connect Your Ohrbob App" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" Foreground="{StaticResource OhrbobWhite}" />
-                    <TextBlock Text="Scan the QR code in your Ohrbob Web interface or paste the connection deep link below." 
-                               FontSize="13" Foreground="{StaticResource OhrbobCream}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,0,0,15" />
-
-                    <!-- Deep Link Input -->
-                    <TextBlock Text="Connection Link (from QR code)" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource OhrbobCream}" />
-                    <TextBox Text="{Binding DeepLinkInput}" PlaceholderText="ohrbob://connect?server=...&amp;token=..." 
-                             Background="{StaticResource OhrbobDarkNavy}" BorderBrush="{StaticResource OhrbobDarkGray}" Foreground="{StaticResource OhrbobWhite}" CornerRadius="6" Padding="10,8" />
-
-                    <TextBlock Text="OR Enter Manually" FontSize="11" FontWeight="Bold" Foreground="{StaticResource OhrbobGray}" HorizontalAlignment="Center" Margin="0,5" />
-
-                    <!-- Server URL -->
-                    <TextBlock Text="Ohrbob Server URL" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource OhrbobCream}" />
-                    <TextBox Text="{Binding ServerUrlInput}" PlaceholderText="http://localhost:5002" 
-                             Background="{StaticResource OhrbobDarkNavy}" BorderBrush="{StaticResource OhrbobDarkGray}" Foreground="{StaticResource OhrbobWhite}" CornerRadius="6" Padding="10,8" />
-
-                    <!-- Stream Token -->
-                    <TextBlock Text="API Stream Token" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource OhrbobCream}" />
-                    <TextBox Text="{Binding TokenInput}" PlaceholderText="Your profile stream token" 
-                             Background="{StaticResource OhrbobDarkNavy}" BorderBrush="{StaticResource OhrbobDarkGray}" Foreground="{StaticResource OhrbobWhite}" CornerRadius="6" Padding="10,8" />
-
-                    <!-- Error Message -->
-                    <TextBlock Text="{Binding ConnectionErrorMessage}" Foreground="#FF5555" FontSize="12" TextWrapping="Wrap" 
-                               HorizontalAlignment="Center" IsVisible="{Binding ConnectionErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-
-                    <!-- Connect Button -->
-                    <Button Command="{Binding ConnectCommand}" Content="Connect Application" 
-                            Background="{StaticResource OhrbobOrange}" Foreground="{StaticResource OhrbobWhite}" FontWeight="Bold" Height="40" CornerRadius="20"
-                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="0,10,0,0">
-                        <Button.Styles>
-                            <Style Selector="Button:pointerover /template/ ContentPresenter">
-                                <Setter Property="Background" Value="{StaticResource OhrbobPurple}" />
-                            </Style>
-                        </Button.Styles>
-                    </Button>
-                </StackPanel>
-            </Border>
-        </Grid>
-
         <views:MainView />
     </Grid>
 

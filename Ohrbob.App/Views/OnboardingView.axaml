@@ -1,0 +1,50 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Ohrbob.App.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="600"
+             x:Class="Ohrbob.App.Views.OnboardingView"
+             x:DataType="vm:MainViewModel">
+
+    <!-- Onboarding Screen (Displayed when not connected) -->
+    <Grid Background="{StaticResource ThemeLightBrush}" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <Border Width="450" Background="{StaticResource AppBackgroundBrush}" CornerRadius="12" BoxShadow="0 4 20 0 #40000000" Padding="30">
+            <StackPanel Spacing="15">
+                <!-- Stylized Logo/Title -->
+                <Image Source="avares://Ohrbob.App/Assets/ohrbob-logo.png" Height="60" Margin="0,0,0,10" HorizontalAlignment="Center" />
+                
+                <TextBlock Text="Connect Your Ohrbob App" Classes="h2" HorizontalAlignment="Center" />
+                <TextBlock Text="Scan the QR code in your Ohrbob Web interface or paste the connection deep link below." 
+                           FontSize="13" Foreground="{StaticResource ThemeDarkBrush}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,0,0,15" />
+
+                <!-- Deep Link Input -->
+                <TextBlock Text="Connection Link (from QR code)" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource ThemeDarkBrush}" />
+                <TextBox Text="{Binding DeepLinkInput}" PlaceholderText="ohrbob://connect?server=...&amp;token=..." 
+                         Background="{StaticResource ThemeLightBrush}" BorderBrush="{StaticResource ThemeSecondaryBrush}" Foreground="{StaticResource ThemeDarkBrush}" CornerRadius="6" Padding="10,8" />
+
+                <TextBlock Text="OR Enter Manually" FontSize="11" FontWeight="Bold" Foreground="{StaticResource ThemeSecondaryBrush}" HorizontalAlignment="Center" Margin="0,5" />
+
+                <!-- Server URL -->
+                <TextBlock Text="Ohrbob Server URL" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource ThemeDarkBrush}" />
+                <TextBox Text="{Binding ServerUrlInput}" PlaceholderText="http://localhost:5002" 
+                         Background="{StaticResource ThemeLightBrush}" BorderBrush="{StaticResource ThemeSecondaryBrush}" Foreground="{StaticResource ThemeDarkBrush}" CornerRadius="6" Padding="10,8" />
+
+                <!-- Stream Token -->
+                <TextBlock Text="API Stream Token" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource ThemeDarkBrush}" />
+                <TextBox Text="{Binding TokenInput}" PlaceholderText="Your profile stream token" 
+                         Background="{StaticResource ThemeLightBrush}" BorderBrush="{StaticResource ThemeSecondaryBrush}" Foreground="{StaticResource ThemeDarkBrush}" CornerRadius="6" Padding="10,8" />
+
+                <!-- Error Message -->
+                <TextBlock Text="{Binding ConnectionErrorMessage}" Foreground="{StaticResource ThemeDangerBrush}" FontSize="12" TextWrapping="Wrap" 
+                           HorizontalAlignment="Center" IsVisible="{Binding ConnectionErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+
+                <!-- Connect Button -->
+                <Button Command="{Binding ConnectCommand}" Content="Connect Application" Classes="btn-primary"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="0,10,0,0">
+                </Button>
+            </StackPanel>
+        </Border>
+    </Grid>
+
+</UserControl>
