@@ -60,7 +60,7 @@
                                  Background="Transparent" BorderThickness="0" Margin="12,0,12,0">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
-                                    <Border Classes="stationCard" Background="{StaticResource OhrbobDeepNavy}" CornerRadius="8" Padding="8" Margin="0,4" BorderThickness="2" BorderBrush="Transparent">
+                                    <Border Classes="stationCard" Background="#FFFFFF" CornerRadius="8" Padding="8" Margin="4,4" BorderThickness="1" BorderBrush="#EAEAEA" BoxShadow="0 4 12 0 #10000000">
                                         <Grid ColumnDefinitions="Auto, *">
                                             <Border Grid.Column="0" Width="48" Height="48" CornerRadius="6" Background="{StaticResource OhrbobDarkNavy}" Margin="0,0,12,0" ClipToBounds="True">
                                                 <Panel>
@@ -99,6 +99,7 @@
                                 </Style>
                                 <Style Selector="ListBoxItem:selected Border.stationCard">
                                     <Setter Property="BorderBrush" Value="{StaticResource OhrbobOrange}" />
+                                    <Setter Property="BorderThickness" Value="2" />
                                 </Style>
                             </ListBox.Styles>
                         </ListBox>
