@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Ohrbob.App.ViewModels"
+             xmlns:views="using:Ohrbob.App.Views"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="600"
@@ -26,6 +27,26 @@
         <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="#00113B" />
         <SolidColorBrush x:Key="TextControlForegroundPointerOver" Color="#FFFFFF" />
     </UserControl.Resources>
+
+    <UserControl.Styles>
+        <!-- Desktop / Wide (default) styles -->
+        <Style Selector="SplitView#MainSplitView">
+            <Setter Property="DisplayMode" Value="Inline" />
+            <Setter Property="IsPaneOpen" Value="True" />
+        </Style>
+        <Style Selector="Button#MenuButton">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+
+        <!-- Mobile / Narrow styles -->
+        <Style Selector="views|MainView[IsPortrait=True] SplitView#MainSplitView">
+            <Setter Property="DisplayMode" Value="Overlay" />
+            <Setter Property="IsPaneOpen" Value="{Binding IsSidebarOpen}" />
+        </Style>
+        <Style Selector="views|MainView[IsPortrait=True] Button#MenuButton">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+    </UserControl.Styles>
 
     <Design.DataContext>
         <vm:MainViewModel />
@@ -79,10 +100,13 @@
         </Grid>
 
         <!-- Main App Player Interface (Displayed when connected) -->
-        <Grid IsVisible="{Binding IsConnected}" ColumnDefinitions="260, *">
+        <SplitView Name="MainSplitView"
+                   IsVisible="{Binding IsConnected}"
+                   OpenPaneLength="260">
             
+            <SplitView.Pane>
             <!-- Left Sidebar wrapped in Border for styling -->
-            <Border Grid.Column="0" Background="{StaticResource OhrbobDarkNavy}" BorderBrush="{StaticResource OhrbobDarkGray}" BorderThickness="0,0,1,0">
+            <Border Background="{StaticResource OhrbobDarkNavy}" BorderBrush="{StaticResource OhrbobDarkGray}" BorderThickness="0,0,1,0">
                 <Grid RowDefinitions="Auto, *, Auto">
                     <!-- App Header -->
                     <StackPanel Grid.Row="0" Margin="24,24,24,15">
@@ -130,15 +154,23 @@
                     </Border>
                 </Grid>
             </Border>
+            </SplitView.Pane>
 
+            <SplitView.Content>
             <!-- Right Detail Player View wrapped in Border for padding & styling -->
-            <Border Grid.Column="1" Background="{StaticResource OhrbobDeepNavy}" Padding="32">
-                <Grid RowDefinitions="*, Auto">
+            <Border Background="{StaticResource OhrbobDeepNavy}" Padding="32">
+                <Grid RowDefinitions="Auto, *, Auto">
                     
+                    <Button Name="MenuButton" Grid.Row="0" Command="{Binding ToggleSidebarCommand}" 
+                            HorizontalAlignment="Left" VerticalAlignment="Top" Background="Transparent" Margin="-16,-16,0,16">
+                        <PathIcon Data="M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z" Foreground="{StaticResource OhrbobWhite}" Width="24" Height="24" />
+                    </Button>
+
                     <!-- Center Info Pane (Episode details, Cover Art, Description) -->
-                    <Grid Grid.Row="0" ColumnDefinitions="320, *" Margin="0,0,0,24">
+                    <ScrollViewer Grid.Row="1" Margin="0,0,0,24">
+                    <WrapPanel Orientation="Horizontal" HorizontalAlignment="Center">
                         <!-- Album Art Block -->
-                        <Grid Grid.Column="0" VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <Grid Width="320" VerticalAlignment="Center" HorizontalAlignment="Center">
                             <Border Width="280" Height="280" Background="{StaticResource OhrbobDarkNavy}" CornerRadius="16" BoxShadow="0 8 30 0 #000000">
                                 <!-- Placeholder or Image -->
                                 <Panel>
@@ -158,7 +190,7 @@
                         </Grid>
 
                         <!-- Text Details Box -->
-                        <Grid Grid.Column="1" RowDefinitions="Auto, *, Auto" Margin="24,12,0,12">
+                        <Grid Width="360" RowDefinitions="Auto, *, Auto" Margin="24,12,0,12">
                             <!-- Station & Episode Title -->
                             <StackPanel Grid.Row="0" Spacing="6">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
@@ -172,9 +204,7 @@
                             </StackPanel>
 
                             <!-- Episode Description Scrollable Panel -->
-                            <ScrollViewer Grid.Row="1" Margin="0,16,0,16" VerticalScrollBarVisibility="Auto">
-                                <TextBlock Text="{Binding CurrentEpisodeDescription}" FontSize="14" Foreground="{StaticResource OhrbobCream}" TextWrapping="Wrap" LineHeight="20" />
-                            </ScrollViewer>
+                            <TextBlock Grid.Row="1" Margin="0,16,0,16" Text="{Binding CurrentEpisodeDescription}" FontSize="14" Foreground="{StaticResource OhrbobCream}" TextWrapping="Wrap" LineHeight="20" />
 
                             <!-- Up Next Feature -->
                             <Border Grid.Row="2" Background="{StaticResource OhrbobDarkNavy}" CornerRadius="8" Padding="12,10" IsVisible="{Binding NextEpisodeTitle, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
@@ -184,10 +214,11 @@
                                 </StackPanel>
                             </Border>
                         </Grid>
-                    </Grid>
+                    </WrapPanel>
+                    </ScrollViewer>
 
                     <!-- Bottom Controller Deck (Seekbar, Controls, Action buttons) -->
-                    <Grid Grid.Row="1" RowDefinitions="Auto, Auto" Margin="0,0,0,12">
+                    <Grid Grid.Row="2" RowDefinitions="Auto, Auto" Margin="0,0,0,12">
                         <!-- Progress Slider Panel -->
                         <Grid Grid.Row="0" ColumnDefinitions="Auto, *, Auto" Margin="0,0,0,16">
                             <TextBlock Grid.Column="0" Text="{Binding PositionText}" FontSize="12" Foreground="{StaticResource OhrbobCream}" Width="40" TextAlignment="Left" />
@@ -228,8 +259,8 @@
                     
                 </Grid>
             </Border>
-            
-        </Grid>
+            </SplitView.Content>
+        </SplitView>
     </Grid>
 
 </UserControl>

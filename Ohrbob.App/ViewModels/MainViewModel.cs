@@ -81,6 +81,18 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     private string _durationText = "30:00";
 
+    [ObservableProperty]
+    private bool _isPortrait;
+
+    [ObservableProperty]
+    private bool _isSidebarOpen = true;
+
+    [RelayCommand]
+    private void ToggleSidebar()
+    {
+        IsSidebarOpen = !IsSidebarOpen;
+    }
+
     public MainViewModel() : this( new ConfigService(), null)
     {
     }
@@ -474,6 +486,7 @@ public partial class MainViewModel : ViewModelBase
     {
         if (value != null)
         {
+            if (IsPortrait) IsSidebarOpen = false;
             _ = SwitchStationAsync(value.Id);
         }
     }
