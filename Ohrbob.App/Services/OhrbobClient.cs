@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -7,13 +8,9 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Serilog;
 
-namespace Ohrbob.App.Services;
+using Ohrbob.App.Models;
 
-public class Station
-{
-    public string Id { get; set; } = string.Empty;
-    public string Name { get; set; } = string.Empty;
-}
+namespace Ohrbob.App.Services;
 
 public class OhrbobClient
 {
@@ -38,7 +35,7 @@ public class OhrbobClient
         }
     }
 
-    public async Task<List<Station>> GetStationsAsync()
+    public async Task<List<StationWithFeedsDto>> GetStationsAsync()
     {
         var serverUrl = _configService.ServerUrl?.TrimEnd('/');
         if (string.IsNullOrEmpty(serverUrl))
@@ -59,8 +56,18 @@ public class OhrbobClient
         }
 
         var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-        var stations = await response.Content.ReadFromJsonAsync<List<Station>>(options);
-        return stations ?? new List<Station>();
+        var stations = await response.Content.ReadFromJsonAsync<List<StationWithFeedsDto>>(options);
+        if (stations != null)
+        {
+            foreach (var s in stations)
+            {
+                if (s.Feeds != null && s.Feeds.Count > 4)
+                {
+                    s.Feeds = s.Feeds.Take(4).ToList();
+                }
+            }
+        }
+        return stations ?? new List<StationWithFeedsDto>();
     }
 
     public async Task<JsonElement> GetStatusAsync()

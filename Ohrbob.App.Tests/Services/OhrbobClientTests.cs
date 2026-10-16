@@ -27,7 +27,7 @@ public class OhrbobClientTests
     [Test]
     public async Task GetStationsAsync_SendsCorrectRequestAndReturnsStations()
     {
-        var mockResponseJson = "[{\"id\":\"s1\",\"name\":\"Station 1\"}]";
+        var mockResponseJson = "[{\"station\": {\"id\":\"s1\",\"name\":\"Station 1\"}}]";
         var handler = new MockHttpMessageHandler(req =>
         {
             return new HttpResponseMessage(HttpStatusCode.OK)
@@ -49,8 +49,9 @@ public class OhrbobClientTests
 
         Assert.That(stations, Is.Not.Null);
         Assert.That(stations.Count, Is.EqualTo(1));
-        Assert.That(stations[0].Id, Is.EqualTo("s1"));
-        Assert.That(stations[0].Name, Is.EqualTo("Station 1"));
+        Assert.That(stations[0].Station, Is.Not.Null);
+        Assert.That(stations[0].Station.Id, Is.EqualTo("s1"));
+        Assert.That(stations[0].Station.Name, Is.EqualTo("Station 1"));
     }
 
     [Test]

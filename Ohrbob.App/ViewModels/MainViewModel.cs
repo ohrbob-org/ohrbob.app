@@ -12,6 +12,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using Ohrbob.App.Services;
+using Ohrbob.App.Models;
 using Serilog;
 
 namespace Ohrbob.App.ViewModels;
@@ -43,10 +44,10 @@ public partial class MainViewModel : ViewModelBase
     private string? _connectionErrorMessage;
 
     [ObservableProperty]
-    private ObservableCollection<Station> _stations = new();
+    private ObservableCollection<StationWithFeedsDto> _stations = new();
 
     [ObservableProperty]
-    private Station? _selectedStation;
+    private StationWithFeedsDto? _selectedStation;
 
     [ObservableProperty]
     private string _currentEpisodeTitle = "No Track Selected";
@@ -188,7 +189,10 @@ public partial class MainViewModel : ViewModelBase
                 try
                 {
                     // Call the API sync endpoint
-                    await _client.SyncStatusAsync(CurrentEpisodeTitle, SelectedStation.Id, PositionSeconds);
+                    if (SelectedStation?.Station?.Id != null)
+                    {
+                        await _client.SyncStatusAsync(CurrentEpisodeTitle, SelectedStation.Station.Id, PositionSeconds);
+                    }
                 }
                 catch
                 {
@@ -433,9 +437,9 @@ public partial class MainViewModel : ViewModelBase
                 if (status.TryGetProperty("stationId", out var stationIdProp))
                 {
                     var stationId = stationIdProp.GetString();
-                    if (!string.IsNullOrEmpty(stationId) && (SelectedStation == null || SelectedStation.Id != stationId))
+                    if (!string.IsNullOrEmpty(stationId) && (SelectedStation == null || SelectedStation.Station?.Id != stationId))
                     {
-                        SelectedStation = Stations.FirstOrDefault(s => s.Id == stationId);
+                        SelectedStation = Stations.FirstOrDefault(s => s.Station?.Id == stationId);
                     }
                 }
 
@@ -482,12 +486,12 @@ public partial class MainViewModel : ViewModelBase
         }
     }
 
-    partial void OnSelectedStationChanged(Station? value)
+    partial void OnSelectedStationChanged(StationWithFeedsDto? value)
     {
-        if (value != null)
+        if (value != null && value.Station?.Id != null)
         {
             if (IsPortrait) IsSidebarOpen = false;
-            _ = SwitchStationAsync(value.Id);
+            _ = SwitchStationAsync(value.Station.Id);
         }
     }
 
