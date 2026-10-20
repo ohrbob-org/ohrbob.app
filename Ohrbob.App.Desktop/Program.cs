@@ -1,5 +1,6 @@
 ﻿using System;
 using Avalonia;
+using Ohrbob.App.Services.Media;
 using Serilog;
 
 namespace Ohrbob.App.Desktop;
@@ -12,7 +13,13 @@ sealed class Program
     [STAThread]
     public static void Main(string[] args)
     {
-        
+        // Register the OS media session for this platform before Avalonia starts.
+        // Linux uses MPRIS over D-Bus so the sound menu / media keys can control playback.
+        if (OperatingSystem.IsLinux())
+        {
+            MediaSessionHost.Factory = () => MprisMediaSession.Create();
+        }
+
         // 1. Configure global Serilog pipeline
         Log.Logger = new LoggerConfiguration()
             .MinimumLevel.Debug()
