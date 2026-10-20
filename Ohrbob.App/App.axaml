@@ -61,25 +61,25 @@
                 </ResourceDictionary>
 
                 <ResourceDictionary x:Key="Dark">
-                    <!-- Deep-navy background, light cream foreground (brand family, not neutral black) -->
-                    <SolidColorBrush x:Key="AppBackgroundBrush" Color="#001957" />
-                    <SolidColorBrush x:Key="AppForegroundBrush" Color="#FFF4D8" />
+                    <!-- Neutral dark-grey background with light text (brand accents stay unchanged) -->
+                    <SolidColorBrush x:Key="AppBackgroundBrush" Color="#1F1F1F" />
+                    <SolidColorBrush x:Key="AppForegroundBrush" Color="#F2F2F2" />
                     <!-- Raised surfaces sit a shade above the background -->
-                    <SolidColorBrush x:Key="AppSurfaceBrush" Color="#0A2A63" />
-                    <SolidColorBrush x:Key="AppSurfaceAltBrush" Color="#0A2A63" />
-                    <SolidColorBrush x:Key="AppBorderBrush" Color="#1E3A73" />
-                    <SolidColorBrush x:Key="AppMutedTextBrush" Color="#9AA4C8" />
+                    <SolidColorBrush x:Key="AppSurfaceBrush" Color="#2A2A2A" />
+                    <SolidColorBrush x:Key="AppSurfaceAltBrush" Color="#2A2A2A" />
+                    <SolidColorBrush x:Key="AppBorderBrush" Color="#3A3A3A" />
+                    <SolidColorBrush x:Key="AppMutedTextBrush" Color="#9E9E9E" />
                     <SolidColorBrush x:Key="AppControlBackgroundBrush" Color="#33FFFFFF" />
-                    <SolidColorBrush x:Key="AppOverlayBrush" Color="#CC001957" />
+                    <SolidColorBrush x:Key="AppOverlayBrush" Color="#CC1F1F1F" />
 
-                    <SolidColorBrush x:Key="ThemeLightBrush" Color="#000F33" />
-                    <SolidColorBrush x:Key="ThemeDarkBrush" Color="#FFF4D8" />
+                    <SolidColorBrush x:Key="ThemeLightBrush" Color="#151515" />
+                    <SolidColorBrush x:Key="ThemeDarkBrush" Color="#F2F2F2" />
 
-                    <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#0A2A63" />
-                    <SolidColorBrush x:Key="TextControlForegroundFocused" Color="#FFF4D8" />
+                    <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#2A2A2A" />
+                    <SolidColorBrush x:Key="TextControlForegroundFocused" Color="#F2F2F2" />
                     <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="#FC5D00" />
-                    <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="#0A2A63" />
-                    <SolidColorBrush x:Key="TextControlForegroundPointerOver" Color="#FFF4D8" />
+                    <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="#2A2A2A" />
+                    <SolidColorBrush x:Key="TextControlForegroundPointerOver" Color="#F2F2F2" />
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
         </ResourceDictionary>

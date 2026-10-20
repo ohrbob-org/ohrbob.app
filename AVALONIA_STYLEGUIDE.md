@@ -133,7 +133,7 @@ so it updates when the OS theme changes:
 | `AppOverlayBrush` | Buffering overlay on cover art |
 | `ThemeLightBrush` / `ThemeDarkBrush` | Bootstrap `light`/`dark` role brushes |
 
-Dark mode uses a deep-navy background (`#001957`), light cream foreground (`#FFF4D8`) and surfaces a shade
-above the background (`#0A2A63`) — still in the brand family rather than neutral black. When adding new UI,
+Dark mode uses a neutral dark-grey background (`#1F1F1F`), light text (`#F2F2F2`) and surfaces a shade above
+the background (`#2A2A2A`), with the brand accents (orange, violet, yellow) unchanged. When adding new UI,
 prefer these named brushes over hard-coded hex values so it works in both themes.
 

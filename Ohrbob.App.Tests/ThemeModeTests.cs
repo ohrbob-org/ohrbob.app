@@ -1,3 +1,4 @@
+using System;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
@@ -46,6 +47,27 @@ public class ThemeModeTests
             "dark theme background should be dark");
         Assert.That(Luminance(foreground), Is.GreaterThan(180),
             "dark theme foreground should be light enough to read on a dark background");
+    }
+
+    private static double Chroma(Color c) =>
+        Math.Max(c.R, Math.Max(c.G, c.B)) - Math.Min(c.R, Math.Min(c.G, c.B));
+
+    [AvaloniaTest]
+    public void DarkTheme_BackgroundIsNeutralGrey()
+    {
+        var background = Resolve(ThemeVariant.Dark, "AppBackgroundBrush");
+
+        Assert.That(Chroma(background), Is.LessThanOrEqualTo(12),
+            "dark theme background should be a neutral grey, not a blue-tinted navy");
+    }
+
+    [AvaloniaTest]
+    public void DarkTheme_SurfacesAreNeutralGrey()
+    {
+        var surface = Resolve(ThemeVariant.Dark, "AppSurfaceBrush");
+
+        Assert.That(Chroma(surface), Is.LessThanOrEqualTo(12),
+            "dark theme surfaces (cards, sidebar) should be neutral grey, not blue-tinted");
     }
 
     [AvaloniaTest]
