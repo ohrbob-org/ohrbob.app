@@ -7,26 +7,8 @@
              mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="600"
              x:Class="Ohrbob.App.Views.MainView"
              x:DataType="vm:MainViewModel"
-             Background="{StaticResource AppBackgroundBrush}"
-             Foreground="{StaticResource AppForegroundBrush}">
-
-    <UserControl.Resources>
-        <SolidColorBrush x:Key="OhrbobOrange" Color="{StaticResource OhrbobStrongOrange}" />
-        <SolidColorBrush x:Key="OhrbobPurple" Color="{StaticResource OhrbobLightBlue}" />
-        <SolidColorBrush x:Key="OhrbobDeepNavy" Color="{StaticResource OhrbobPaleYellow}" />
-        <SolidColorBrush x:Key="OhrbobDarkNavy" Color="#FFFFFF" />
-        <SolidColorBrush x:Key="OhrbobCream" Color="{StaticResource OhrbobDarkBlue}" />
-        <SolidColorBrush x:Key="OhrbobWhite" Color="{StaticResource OhrbobDarkBlue}" />
-        <SolidColorBrush x:Key="OhrbobGray" Color="#888888" />
-        <SolidColorBrush x:Key="OhrbobDarkGray" Color="#e0e0e0" />
-        
-        <!-- Focused & Hover theme overrides for TextBoxes to prevent white-on-white style issues -->
-        <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="{StaticResource OhrbobPaleYellow}" />
-        <SolidColorBrush x:Key="TextControlForegroundFocused" Color="{StaticResource OhrbobDarkBlue}" />
-        <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="{StaticResource OhrbobStrongOrange}" />
-        <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="{StaticResource OhrbobPaleYellow}" />
-        <SolidColorBrush x:Key="TextControlForegroundPointerOver" Color="{StaticResource OhrbobDarkBlue}" />
-    </UserControl.Resources>
+             Background="{DynamicResource AppBackgroundBrush}"
+             Foreground="{DynamicResource AppForegroundBrush}">
 
     <UserControl.Styles>
         <Style Selector="SplitView#MainSplitView">

@@ -11,13 +11,6 @@
 
     <UserControl.Resources>
         <SolidColorBrush x:Key="OhrbobOrange" Color="{StaticResource OhrbobStrongOrange}" />
-        <SolidColorBrush x:Key="OhrbobPurple" Color="{StaticResource OhrbobLightBlue}" />
-        <SolidColorBrush x:Key="OhrbobDeepNavy" Color="{StaticResource OhrbobPaleYellow}" />
-        <SolidColorBrush x:Key="OhrbobDarkNavy" Color="#FFFFFF" />
-        <SolidColorBrush x:Key="OhrbobCream" Color="{StaticResource OhrbobDarkBlue}" />
-        <SolidColorBrush x:Key="OhrbobWhite" Color="{StaticResource OhrbobDarkBlue}" />
-        <SolidColorBrush x:Key="OhrbobGray" Color="#888888" />
-        <SolidColorBrush x:Key="OhrbobDarkGray" Color="#e0e0e0" />
     </UserControl.Resources>
 
     <UserControl.Styles>
@@ -45,7 +38,7 @@
             
             <SplitView.Pane>
             <!-- Left Sidebar wrapped in Border for styling -->
-            <Border Background="{StaticResource OhrbobDarkNavy}" BorderBrush="{StaticResource OhrbobDarkGray}" BorderThickness="0,0,1,0">
+            <Border Background="{DynamicResource AppSurfaceBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,1,0">
                 <Grid RowDefinitions="Auto, *, Auto">
                     <!-- App Header -->
                     <StackPanel Grid.Row="0" Margin="24,24,24,15" HorizontalAlignment="Center">
@@ -61,9 +54,9 @@
                                  Background="Transparent" BorderThickness="0" Margin="12,0,12,0">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
-                                    <Border Classes="stationCard" Background="#FFFFFF" CornerRadius="8" Padding="8" Margin="4,4" BoxShadow="0 4 12 0 #10000000">
+                                    <Border Classes="stationCard" Background="{DynamicResource AppSurfaceBrush}" CornerRadius="8" Padding="8" Margin="4,4" BoxShadow="0 4 12 0 #10000000">
                                         <Grid ColumnDefinitions="Auto, *">
-                                            <Border Grid.Column="0" Width="48" Height="48" CornerRadius="6" Background="{StaticResource OhrbobDarkNavy}" Margin="0,0,12,0" ClipToBounds="True">
+                                            <Border Grid.Column="0" Width="48" Height="48" CornerRadius="6" Background="{DynamicResource AppSurfaceBrush}" Margin="0,0,12,0" ClipToBounds="True">
                                                 <Panel>
                                                     <PathIcon Data="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M12,6A6,6 0 0,0 6,12A6,6 0 0,0 12,18A6,6 0 0,0 18,12A6,6 0 0,0 12,6M12,8A4,4 0 0,1 16,12A4,4 0 0,1 12,16A4,4 0 0,1 8,12A4,4 0 0,1 12,8Z" 
                                                               Width="24" Height="24" Foreground="{StaticResource OhrbobOrange}" Opacity="0.5" VerticalAlignment="Center" HorizontalAlignment="Center" />
@@ -81,7 +74,7 @@
                                                     </ItemsControl>
                                                 </Panel>
                                             </Border>
-                                            <TextBlock Grid.Column="1" Text="{Binding Station.Name}" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{StaticResource OhrbobWhite}" TextWrapping="Wrap" />
+                                            <TextBlock Grid.Column="1" Text="{Binding Station.Name}" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource AppForegroundBrush}" TextWrapping="Wrap" />
                                         </Grid>
                                     </Border>
                                 </DataTemplate>
@@ -99,7 +92,7 @@
                                     <Setter Property="Background" Value="Transparent" />
                                 </Style>
                                 <Style Selector="ListBoxItem Border.stationCard">
-                                    <Setter Property="BorderBrush" Value="#EAEAEA" />
+                                    <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
                                     <Setter Property="BorderThickness" Value="1" />
                                 </Style>
                                 <Style Selector="ListBoxItem:selected Border.stationCard">
@@ -111,14 +104,14 @@
                     </Grid>
 
                     <!-- Sidebar Footer (Settings / Disconnect) -->
-                    <Border Grid.Row="2" Background="{StaticResource OhrbobDarkNavy}" Padding="16" BorderBrush="{StaticResource OhrbobDarkGray}" BorderThickness="0,1,0,0">
+                    <Border Grid.Row="2" Background="{DynamicResource AppSurfaceBrush}" Padding="16" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,1,0,0">
                         <Grid ColumnDefinitions="*, Auto">
                             <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                <TextBlock Text="Connected Stream" FontSize="11" Foreground="{StaticResource OhrbobGray}" FontWeight="SemiBold" />
-                                <TextBlock Text="Active Profile" FontSize="13" Foreground="{StaticResource OhrbobWhite}" FontWeight="SemiBold" />
+                                <TextBlock Text="Connected Stream" FontSize="11" Foreground="{DynamicResource AppMutedTextBrush}" FontWeight="SemiBold" />
+                                <TextBlock Text="Active Profile" FontSize="13" Foreground="{DynamicResource AppForegroundBrush}" FontWeight="SemiBold" />
                             </StackPanel>
                             <Button Grid.Column="1" Command="{Binding DisconnectCommand}" Content="Disconnect"
-                                    Background="{StaticResource OhrbobDarkGray}" Foreground="{StaticResource OhrbobWhite}" FontSize="11" CornerRadius="12" Padding="12,6" />
+                                    Background="{DynamicResource AppBorderBrush}" Foreground="{DynamicResource AppForegroundBrush}" FontSize="11" CornerRadius="12" Padding="12,6" />
                         </Grid>
                     </Border>
                 </Grid>
@@ -133,7 +126,7 @@
                     <Button Name="MenuButton" Grid.Row="0" Command="{Binding ToggleSidebarCommand}" 
                             HorizontalAlignment="Left" VerticalAlignment="Top"
                             Background="Transparent" Margin="8,8,0,8">
-                        <PathIcon Data="M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z" Foreground="{StaticResource OhrbobWhite}" Width="24" Height="24" />
+                        <PathIcon Data="M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z" Foreground="{DynamicResource AppForegroundBrush}" Width="24" Height="24" />
                     </Button>
 
                     <!-- Center Info Pane (Episode details, Cover Art, Description) -->
@@ -141,7 +134,7 @@
                     <WrapPanel Orientation="Horizontal" HorizontalAlignment="Center">
                         <!-- Album Art Block -->
                         <Grid Width="320" VerticalAlignment="Center" HorizontalAlignment="Center">
-                            <Border Width="280" Height="280" Background="{StaticResource OhrbobDarkNavy}" CornerRadius="16" BoxShadow="0 8 30 0 #20000000">
+                            <Border Width="280" Height="280" Background="{DynamicResource AppSurfaceBrush}" CornerRadius="16" BoxShadow="0 8 30 0 #20000000">
                                 <!-- Placeholder or Image -->
                                 <Panel>
                                     <PathIcon Data="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M12,10A2,2 0 0,0 10,12A2,2 0 0,0 12,14A2,2 0 0,0 14,12A2,2 0 0,0 12,10Z" 
@@ -149,10 +142,10 @@
                                     <Image services:ImageLoader.Source="{Binding CurrentEpisodeCoverUrl}" Stretch="UniformToFill" Margin="0" IsVisible="{Binding CurrentEpisodeCoverUrl, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                                     
                                     <!-- Buffering Blur Overlay -->
-                                    <Border Background="#CCFFFFFF" CornerRadius="16" IsVisible="{Binding IsBuffering}">
+                                    <Border Background="{DynamicResource AppOverlayBrush}" CornerRadius="16" IsVisible="{Binding IsBuffering}">
                                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="12">
                                             <ProgressBar IsIndeterminate="True" Width="100" Height="4" Foreground="{StaticResource OhrbobOrange}" Background="Transparent" />
-                                            <TextBlock Text="Buffering..." FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource OhrbobCream}" HorizontalAlignment="Center" />
+                                            <TextBlock Text="Buffering..." FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource AppForegroundBrush}" HorizontalAlignment="Center" />
                                         </StackPanel>
                                     </Border>
                                 </Panel>
@@ -167,20 +160,20 @@
                                     <TextBlock Text="{Binding SelectedStation.Station.Name, FallbackValue='No Active Station'}" 
                                                FontSize="12" FontWeight="Bold" Foreground="{StaticResource OhrbobOrange}" LetterSpacing="1" />
                                     <Border Background="{StaticResource OhrbobOrange}" CornerRadius="4" Padding="6,2" IsVisible="{Binding IsBuffering}">
-                                        <TextBlock Text="Buffering..." FontSize="9" FontWeight="Bold" Foreground="{StaticResource OhrbobWhite}" />
+                                        <TextBlock Text="Buffering..." FontSize="9" FontWeight="Bold" Foreground="{DynamicResource AppForegroundBrush}" />
                                     </Border>
                                 </StackPanel>
-                                <TextBlock Text="{Binding CurrentEpisodeTitle}" FontSize="24" FontWeight="Bold" Foreground="{StaticResource OhrbobWhite}" TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding CurrentEpisodeTitle}" FontSize="24" FontWeight="Bold" Foreground="{DynamicResource AppForegroundBrush}" TextWrapping="Wrap" />
                             </StackPanel>
 
                             <!-- Episode Description Scrollable Panel -->
-                            <TextBlock Grid.Row="1" Margin="0,16,0,16" Text="{Binding CurrentEpisodeDescription}" FontSize="14" Foreground="{StaticResource OhrbobCream}" TextWrapping="Wrap" LineHeight="20" />
+                            <TextBlock Grid.Row="1" Margin="0,16,0,16" Text="{Binding CurrentEpisodeDescription}" FontSize="14" Foreground="{DynamicResource AppForegroundBrush}" TextWrapping="Wrap" LineHeight="20" />
 
                             <!-- Up Next Feature -->
-                            <Border Grid.Row="2" Background="{StaticResource OhrbobDarkNavy}" CornerRadius="8" Padding="12,10" IsVisible="{Binding NextEpisodeTitle, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                            <Border Grid.Row="2" Background="{DynamicResource AppSurfaceBrush}" CornerRadius="8" Padding="12,10" IsVisible="{Binding NextEpisodeTitle, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <TextBlock Text="NEXT:" FontSize="10" FontWeight="Bold" Foreground="{StaticResource OhrbobOrange}" VerticalAlignment="Center" />
-                                    <TextBlock Text="{Binding NextEpisodeTitle}" FontSize="12" Foreground="{StaticResource OhrbobWhite}" FontWeight="SemiBold" MaxWidth="300" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding NextEpisodeTitle}" FontSize="12" Foreground="{DynamicResource AppForegroundBrush}" FontWeight="SemiBold" MaxWidth="300" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Border>
                         </Grid>

@@ -12,15 +12,6 @@
         Width="950" Height="650"
         WindowStartupLocation="CenterScreen">
 
-    <Window.Resources>
-        <!-- Focused & Hover theme overrides for TextBoxes to prevent white-on-white style issues -->
-        <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="{StaticResource OhrbobPaleYellow}" />
-        <SolidColorBrush x:Key="TextControlForegroundFocused" Color="{StaticResource OhrbobDarkBlue}" />
-        <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="{StaticResource OhrbobStrongOrange}" />
-        <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="{StaticResource OhrbobPaleYellow}" />
-        <SolidColorBrush x:Key="TextControlForegroundPointerOver" Color="{StaticResource OhrbobDarkBlue}" />
-    </Window.Resources>
-
     <Design.DataContext>
         <vm:MainViewModel />
     </Design.DataContext>

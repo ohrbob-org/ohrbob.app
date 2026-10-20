@@ -27,9 +27,8 @@ Define the Ohrbob colors as `SolidColorBrush` resources in your `App.axaml` (or 
     <SolidColorBrush x:Key="ThemeLightBrush" Color="{StaticResource OhrbobPaleYellow}" />
     <SolidColorBrush x:Key="ThemeDarkBrush" Color="{StaticResource OhrbobDarkBlue}" />
 
-    <!-- Application Background & Foreground -->
-    <SolidColorBrush x:Key="AppBackgroundBrush">#ffffff</SolidColorBrush>
-    <SolidColorBrush x:Key="AppForegroundBrush" Color="{StaticResource OhrbobDarkBlue}" />
+    <!-- Application Background & Foreground: theme-aware, see section 5 -->
+    <!-- (defined per Light/Dark in ResourceDictionary.ThemeDictionaries) -->
 </ResourceDictionary>
 ```
 
@@ -111,3 +110,30 @@ Set default window styles to match `$body-bg` and `$body-color`:
 
 ## Summary
 By injecting the specific hex codes from `$variables` into Avalonia `SolidColorBrush` resources, mapping standard Bootstrap modifier classes to Avalonia `Classes="btn-xxx"`, and embedding `Sulphur Point` as an `avares://` resource, the UI will retain total visual parity with the web interface.
+
+## 5. Light & Dark Theming
+
+The app follows the OS light/dark setting (`RequestedThemeVariant="Default"` on the `Application`). Brand
+accents (`ThemePrimaryBrush`, `ThemeSecondaryBrush`, `ThemeWarningBrush`, `ThemeDangerBrush`) and the raw
+`Ohrbob*` colours are the same in both themes and live directly in `Application.Resources`.
+
+Everything that must *change* with the OS theme lives in `ResourceDictionary.ThemeDictionaries` under the
+`Light` and `Dark` keys, and is referenced from views with `{DynamicResource ...}` (not `{StaticResource}`)
+so it updates when the OS theme changes:
+
+| Brush | Role |
+| --- | --- |
+| `AppBackgroundBrush` | Window/page background |
+| `AppForegroundBrush` | Default text |
+| `AppSurfaceBrush` | Raised surfaces: cards, sidebar, cover placeholders |
+| `AppSurfaceAltBrush` | Subtle surfaces: onboarding backdrop, audio widget |
+| `AppBorderBrush` | Borders and dividers |
+| `AppMutedTextBrush` | De-emphasised text |
+| `AppControlBackgroundBrush` | Translucent chip behind the audio controls |
+| `AppOverlayBrush` | Buffering overlay on cover art |
+| `ThemeLightBrush` / `ThemeDarkBrush` | Bootstrap `light`/`dark` role brushes |
+
+Dark mode uses a deep-navy background (`#001957`), light cream foreground (`#FFF4D8`) and surfaces a shade
+above the background (`#0A2A63`) — still in the brand family rather than neutral black. When adding new UI,
+prefer these named brushes over hard-coded hex values so it works in both themes.
+

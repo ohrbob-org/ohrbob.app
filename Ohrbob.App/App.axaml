@@ -10,51 +10,101 @@
     </Application.DataTemplates>
 
     <Application.Resources>
-        <!-- Base Colors -->
-        <Color x:Key="OhrbobDarkBlue">#001957</Color>
-        <Color x:Key="OhrbobLightBlue">#544ff4</Color>
-        <Color x:Key="OhrbobYellow">#fdb200</Color>
-        <Color x:Key="OhrbobOrangeLight">#ff9a00</Color>
-        <Color x:Key="OhrbobStrongOrange">#fc5d00</Color>
-        <Color x:Key="OhrbobPaleYellow">#fff4d8</Color>
-        <Color x:Key="OhrbobPaleViolet">#e9e8fd</Color>
-        
-        <!-- Bootstrap Theme Mapping -->
-        <SolidColorBrush x:Key="ThemePrimaryBrush" Color="{StaticResource OhrbobStrongOrange}" />
-        <SolidColorBrush x:Key="ThemeSecondaryBrush" Color="{StaticResource OhrbobLightBlue}" />
-        <SolidColorBrush x:Key="ThemeInfoBrush" Color="{StaticResource OhrbobLightBlue}" />
-        <SolidColorBrush x:Key="ThemeWarningBrush" Color="{StaticResource OhrbobYellow}" />
-        <SolidColorBrush x:Key="ThemeDangerBrush" Color="#dc3545" />
-        <SolidColorBrush x:Key="ThemeLightBrush" Color="{StaticResource OhrbobPaleYellow}" />
-        <SolidColorBrush x:Key="ThemeDarkBrush" Color="{StaticResource OhrbobDarkBlue}" />
+        <ResourceDictionary>
+            <!-- Base brand colours: identical in light and dark -->
+            <Color x:Key="OhrbobDarkBlue">#001957</Color>
+            <Color x:Key="OhrbobLightBlue">#544ff4</Color>
+            <Color x:Key="OhrbobYellow">#fdb200</Color>
+            <Color x:Key="OhrbobOrangeLight">#ff9a00</Color>
+            <Color x:Key="OhrbobStrongOrange">#fc5d00</Color>
+            <Color x:Key="OhrbobPaleYellow">#fff4d8</Color>
+            <Color x:Key="OhrbobPaleViolet">#e9e8fd</Color>
 
-        <!-- Application Background & Foreground -->
-        <SolidColorBrush x:Key="AppBackgroundBrush" Color="#ffffff" />
-        <SolidColorBrush x:Key="AppForegroundBrush" Color="{StaticResource OhrbobDarkBlue}" />
+            <!-- Bootstrap theme mapping (brand accents are identical in both themes) -->
+            <SolidColorBrush x:Key="ThemePrimaryBrush" Color="{StaticResource OhrbobStrongOrange}" />
+            <SolidColorBrush x:Key="ThemeSecondaryBrush" Color="{StaticResource OhrbobLightBlue}" />
+            <SolidColorBrush x:Key="ThemeInfoBrush" Color="{StaticResource OhrbobLightBlue}" />
+            <SolidColorBrush x:Key="ThemeWarningBrush" Color="{StaticResource OhrbobYellow}" />
+            <SolidColorBrush x:Key="ThemeDangerBrush" Color="#dc3545" />
 
-        <FontFamily x:Key="SulphurPoint">avares://Ohrbob.App/Assets/Fonts#Sulphur Point</FontFamily>
+            <FontFamily x:Key="SulphurPoint">avares://Ohrbob.App/Assets/Fonts#Sulphur Point</FontFamily>
+
+            <!-- Theme-sensitive brushes: these switch with the OS light/dark setting. -->
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <!-- Application background & foreground -->
+                    <SolidColorBrush x:Key="AppBackgroundBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="AppForegroundBrush" Color="#001957" />
+                    <!-- Raised surfaces: cards, sidebar, cover placeholders -->
+                    <SolidColorBrush x:Key="AppSurfaceBrush" Color="#FFFFFF" />
+                    <!-- Subtle surfaces: onboarding backdrop, audio widget -->
+                    <SolidColorBrush x:Key="AppSurfaceAltBrush" Color="#E9E8FD" />
+                    <!-- Borders & dividers -->
+                    <SolidColorBrush x:Key="AppBorderBrush" Color="#E0E0E0" />
+                    <!-- De-emphasised text -->
+                    <SolidColorBrush x:Key="AppMutedTextBrush" Color="#6C757D" />
+                    <!-- Translucent chip behind the audio controls -->
+                    <SolidColorBrush x:Key="AppControlBackgroundBrush" Color="#00001957" />
+                    <!-- Buffering overlay on top of cover art -->
+                    <SolidColorBrush x:Key="AppOverlayBrush" Color="#CCFFFFFF" />
+
+                    <!-- Bootstrap light/dark role brushes (theme-aware, unlike the accents above) -->
+                    <SolidColorBrush x:Key="ThemeLightBrush" Color="#FFF4D8" />
+                    <SolidColorBrush x:Key="ThemeDarkBrush" Color="#001957" />
+
+                    <!-- TextBox focused / hover overrides to prevent white-on-white text -->
+                    <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#FFF4D8" />
+                    <SolidColorBrush x:Key="TextControlForegroundFocused" Color="#001957" />
+                    <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="#FC5D00" />
+                    <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="#FFF4D8" />
+                    <SolidColorBrush x:Key="TextControlForegroundPointerOver" Color="#001957" />
+                </ResourceDictionary>
+
+                <ResourceDictionary x:Key="Dark">
+                    <!-- Deep-navy background, light cream foreground (brand family, not neutral black) -->
+                    <SolidColorBrush x:Key="AppBackgroundBrush" Color="#001957" />
+                    <SolidColorBrush x:Key="AppForegroundBrush" Color="#FFF4D8" />
+                    <!-- Raised surfaces sit a shade above the background -->
+                    <SolidColorBrush x:Key="AppSurfaceBrush" Color="#0A2A63" />
+                    <SolidColorBrush x:Key="AppSurfaceAltBrush" Color="#0A2A63" />
+                    <SolidColorBrush x:Key="AppBorderBrush" Color="#1E3A73" />
+                    <SolidColorBrush x:Key="AppMutedTextBrush" Color="#9AA4C8" />
+                    <SolidColorBrush x:Key="AppControlBackgroundBrush" Color="#33FFFFFF" />
+                    <SolidColorBrush x:Key="AppOverlayBrush" Color="#CC001957" />
+
+                    <SolidColorBrush x:Key="ThemeLightBrush" Color="#000F33" />
+                    <SolidColorBrush x:Key="ThemeDarkBrush" Color="#FFF4D8" />
+
+                    <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#0A2A63" />
+                    <SolidColorBrush x:Key="TextControlForegroundFocused" Color="#FFF4D8" />
+                    <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="#FC5D00" />
+                    <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="#0A2A63" />
+                    <SolidColorBrush x:Key="TextControlForegroundPointerOver" Color="#FFF4D8" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
     </Application.Resources>
 
     <Application.Styles>
         <FluentTheme />
         
         <Style Selector="Window">
-            <Setter Property="Background" Value="{StaticResource AppBackgroundBrush}"/>
-            <Setter Property="Foreground" Value="{StaticResource AppForegroundBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource AppBackgroundBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}"/>
         </Style>
 
         <Style Selector="TextBlock.h1">
             <Setter Property="FontFamily" Value="{StaticResource SulphurPoint}"/>
             <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="FontSize" Value="32"/>
-            <Setter Property="Foreground" Value="{StaticResource AppForegroundBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}"/>
         </Style>
 
         <Style Selector="TextBlock.h2">
             <Setter Property="FontFamily" Value="{StaticResource SulphurPoint}"/>
             <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="FontSize" Value="24"/>
-            <Setter Property="Foreground" Value="{StaticResource AppForegroundBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}"/>
         </Style>
 
         <Style Selector="Button">
@@ -78,7 +128,8 @@
         </Style>
         <Style Selector="Button.btn-secondary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="{StaticResource OhrbobPaleViolet}"/>
-            <Setter Property="Foreground" Value="{StaticResource ThemeDarkBrush}"/>
+            <!-- The hover background stays pale violet in both themes, so the text stays dark blue. -->
+            <Setter Property="Foreground" Value="{StaticResource OhrbobDarkBlue}"/>
         </Style>
     </Application.Styles>
 </Application>
