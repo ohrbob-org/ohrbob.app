@@ -162,7 +162,7 @@ public sealed class AndroidMediaSession : IMediaSessionService
         return new NotificationCompat.Builder(_context, ChannelId)
             .SetContentTitle(_info.Title)
             .SetContentText(_info.Artist)
-            .SetSmallIcon(Resource.Drawable.Icon)
+            .SetSmallIcon(Resource.Drawable.ic_stat_ohrbob)
             .SetContentIntent(contentIntent)
             .SetVisibility(NotificationCompat.VisibilityPublic)
             .SetOngoing(_info.IsPlaying)
