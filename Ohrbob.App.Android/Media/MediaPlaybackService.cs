@@ -36,10 +36,11 @@ public sealed class MediaPlaybackService : Service
             session.HandleNotificationAction(action);
         }
 
-        if (session.IsPlaying)
-        {
-            StartForeground(NotificationId, session.BuildNotification());
-        }
+        // Must always promote to foreground after startForegroundService(), no matter
+        // the playback state. The playback state can flip between when the service is
+        // started and when this runs, and skipping StartForeground() then makes Android
+        // kill the app with ForegroundServiceDidNotStartInTimeException (~30s later).
+        StartForeground(NotificationId, session.BuildNotification());
 
         return StartCommandResult.Sticky;
     }

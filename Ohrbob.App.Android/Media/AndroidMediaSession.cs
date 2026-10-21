@@ -36,6 +36,7 @@ public sealed class AndroidMediaSession : IMediaSessionService
     private readonly MediaSessionCompat _session;
     private MediaSessionInfo _info = new("Ohrbob", "Ohrbob", null, false, 0, 0);
     private bool _serviceStarted;
+    private string _lastContentKey = string.Empty;
 
     public AndroidMediaSession(Context context)
     {
@@ -54,10 +55,35 @@ public sealed class AndroidMediaSession : IMediaSessionService
 
     public void Update(MediaSessionInfo info)
     {
+        var contentChanged = ContentChanged(info);
         _info = info;
-        UpdateMetadata();
+
+        if (contentChanged)
+        {
+            UpdateMetadata();
+        }
+
+        // The position changes every second; keep the playback state fresh but only
+        // rebuild the notification / metadata when the displayed content changes.
         UpdatePlaybackState();
-        UpdateNotification();
+
+        if (contentChanged)
+        {
+            UpdateNotification();
+        }
+    }
+
+    private bool ContentChanged(MediaSessionInfo info)
+    {
+        var key = string.Join(
+            '\u0000', info.Title, info.Artist, info.IsPlaying, info.DurationSeconds);
+        if (key == _lastContentKey)
+        {
+            return false;
+        }
+
+        _lastContentKey = key;
+        return true;
     }
 
     private void UpdateMetadata()
@@ -152,11 +178,13 @@ public sealed class AndroidMediaSession : IMediaSessionService
     {
         var intent = new Intent(_context, typeof(MediaPlaybackService));
         intent.SetAction(action);
-        var pendingIntent = PendingIntent.GetService(
-            _context,
-            action.GetHashCode(),
-            intent,
-            PendingIntentFlags.Immutable | PendingIntentFlags.UpdateCurrent)!;
+        var requestCode = action.GetHashCode();
+        var flags = PendingIntentFlags.Immutable | PendingIntentFlags.UpdateCurrent;
+        // Start the service as a foreground service so the action still works when the
+        // app is in the background (a plain startService is refused by Android 8+).
+        var pendingIntent = OperatingSystem.IsAndroidVersionAtLeast(26)
+            ? PendingIntent.GetForegroundService(_context, requestCode, intent, flags)!
+            : PendingIntent.GetService(_context, requestCode, intent, flags)!;
         return new NotificationCompat.Action(icon, title, pendingIntent);
     }
 

@@ -15,11 +15,14 @@ namespace Ohrbob.App.Android
 
         public override void OnCreate()
         {
-            base.OnCreate();
-
-            // Register the Android media session before Avalonia builds the app,
-            // so the lock screen / notification can show and control playback.
+            // Register the Android media session before Avalonia builds the app.
+            // base.OnCreate() runs Avalonia's initialization, which constructs the
+            // app and wires up whatever MediaSessionHost.Factory returns — so the
+            // factory must be set first, otherwise the media session is never
+            // created and nothing shows on the lock screen / in notifications.
             MediaSessionHost.Factory = () => new Media.AndroidMediaSession(this);
+
+            base.OnCreate();
         }
 
         protected override AppBuilder CustomizeAppBuilder(AppBuilder builder)
