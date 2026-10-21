@@ -6,7 +6,7 @@ using Avalonia.Android;
 namespace Ohrbob.App.Android;
 
 [Activity(
-    Label = "Ohrbob.App.Android",
+    Label = "Ohrbob Player",
     Theme = "@style/MyTheme.NoActionBar",
     Icon = "@mipmap/ic_launcher",
     MainLauncher = true,
