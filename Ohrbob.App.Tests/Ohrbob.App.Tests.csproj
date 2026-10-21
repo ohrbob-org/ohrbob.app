@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Ohrbob.App\Ohrbob.App.csproj" />
+    <ProjectReference Include="..\Ohrbob.App.Desktop\Ohrbob.App.Desktop.csproj" />
   </ItemGroup>
 
 </Project>

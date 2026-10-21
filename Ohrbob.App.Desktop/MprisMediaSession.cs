@@ -52,8 +52,16 @@ public sealed class MprisMediaSession : IMediaSessionService
 
             var connection = new DBusConnection(address);
             await connection.ConnectAsync();
-            await connection.RequestNameAsync(BusName, RequestNameOptions.ReplaceExisting);
+
+            // Register the object handler *before* acquiring the well-known name.
+            // Acquiring the name makes it visible to every MPRIS client (GNOME
+            // Shell, media-key daemons, ...) at once, and they immediately query
+            // us with Properties.GetAll. If the handler isn't in place yet those
+            // requests get UnknownMethod, the client's GDBusProxy init fails, and
+            // (for GNOME Shell) the player is dropped from the media controls for
+            // the rest of the session.
             connection.AddMethodHandler(_handler);
+            await connection.RequestNameAsync(BusName, RequestNameOptions.ReplaceExisting);
             _connection = connection;
             PublishChanged(force: true);
         }
