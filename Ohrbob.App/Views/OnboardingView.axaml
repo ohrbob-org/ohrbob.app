@@ -15,34 +15,58 @@
                 <Image Source="avares://Ohrbob.App/Assets/ohrbob-logo.png" Height="60" Margin="0,0,0,10" HorizontalAlignment="Center" />
                 
                 <TextBlock Text="Connect Your Ohrbob App" Classes="h2" HorizontalAlignment="Center" />
-                <TextBlock Text="Scan the QR code in your Ohrbob Web interface or paste the connection deep link below." 
-                           FontSize="13" Foreground="{DynamicResource ThemeDarkBrush}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,0,0,15" />
 
-                <!-- Deep Link Input -->
-                <TextBlock Text="Connection Link (from QR code)" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource ThemeDarkBrush}" />
-                <TextBox Text="{Binding DeepLinkInput}" PlaceholderText="ohrbob://connect?server=...&amp;token=..." 
-                         Background="{DynamicResource ThemeLightBrush}" BorderBrush="{StaticResource ThemeSecondaryBrush}" Foreground="{DynamicResource ThemeDarkBrush}" CornerRadius="6" Padding="10,8" />
+                <!-- Simple Mode: one primary action, advanced setup is opt-in -->
+                <StackPanel Spacing="15" IsVisible="{Binding !IsAdvancedMode}">
+                    <TextBlock Text="Open ohrbob.org in your browser to connect this app to your Ohrbob server."
+                               FontSize="13" Foreground="{DynamicResource ThemeDarkBrush}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,0,0,15" />
 
-                <TextBlock Text="OR Enter Manually" FontSize="11" FontWeight="Bold" Foreground="{StaticResource ThemeSecondaryBrush}" HorizontalAlignment="Center" Margin="0,5" />
+                    <Button x:Name="HostedConnectButton" Command="{Binding OpenHostedConnectPageCommand}" Content="Connect with ohrbob.org" Classes="btn-primary"
+                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                    </Button>
 
-                <!-- Server URL -->
-                <TextBlock Text="Ohrbob Server URL" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource ThemeDarkBrush}" />
-                <TextBox Text="{Binding ServerUrlInput}" PlaceholderText="http://localhost:5002" 
-                         Background="{DynamicResource ThemeLightBrush}" BorderBrush="{StaticResource ThemeSecondaryBrush}" Foreground="{DynamicResource ThemeDarkBrush}" CornerRadius="6" Padding="10,8" />
+                    <!-- Advanced Affordance -->
+                    <Button x:Name="ShowAdvancedButton" Command="{Binding ToggleAdvancedModeCommand}" Content="Advanced"
+                            HorizontalAlignment="Center" Background="Transparent" BorderThickness="0" Padding="8,4" FontSize="12"
+                            Foreground="{StaticResource ThemeSecondaryBrush}" />
+                </StackPanel>
 
-                <!-- Stream Token -->
-                <TextBlock Text="API Stream Token" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource ThemeDarkBrush}" />
-                <TextBox Text="{Binding TokenInput}" PlaceholderText="Your profile stream token" 
-                         Background="{DynamicResource ThemeLightBrush}" BorderBrush="{StaticResource ThemeSecondaryBrush}" Foreground="{DynamicResource ThemeDarkBrush}" CornerRadius="6" Padding="10,8" />
+                <!-- Advanced Mode: deep-link paste and manual server/token entry -->
+                <StackPanel Spacing="15" IsVisible="{Binding IsAdvancedMode}">
+                    <TextBlock Text="Scan the QR code in your Ohrbob Web interface or paste the connection deep link below."
+                               FontSize="13" Foreground="{DynamicResource ThemeDarkBrush}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,0,0,15" />
 
-                <!-- Error Message -->
-                <TextBlock Text="{Binding ConnectionErrorMessage}" Foreground="{StaticResource ThemeDangerBrush}" FontSize="12" TextWrapping="Wrap" 
-                           HorizontalAlignment="Center" IsVisible="{Binding ConnectionErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                    <!-- Deep Link Input -->
+                    <TextBlock Text="Connection Link (from QR code)" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource ThemeDarkBrush}" />
+                    <TextBox Text="{Binding DeepLinkInput}" PlaceholderText="ohrbob://connect?server=...&amp;token=..." 
+                             Background="{DynamicResource ThemeLightBrush}" BorderBrush="{StaticResource ThemeSecondaryBrush}" Foreground="{DynamicResource ThemeDarkBrush}" CornerRadius="6" Padding="10,8" />
 
-                <!-- Connect Button -->
-                <Button Command="{Binding ConnectCommand}" Content="Connect Application" Classes="btn-primary"
-                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="0,10,0,0">
-                </Button>
+                    <TextBlock Text="OR Enter Manually" FontSize="11" FontWeight="Bold" Foreground="{StaticResource ThemeSecondaryBrush}" HorizontalAlignment="Center" Margin="0,5" />
+
+                    <!-- Server URL -->
+                    <TextBlock Text="Ohrbob Server URL" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource ThemeDarkBrush}" />
+                    <TextBox x:Name="ServerUrlTextBox" Text="{Binding ServerUrlInput}" PlaceholderText="http://localhost:5002" 
+                             Background="{DynamicResource ThemeLightBrush}" BorderBrush="{StaticResource ThemeSecondaryBrush}" Foreground="{DynamicResource ThemeDarkBrush}" CornerRadius="6" Padding="10,8" />
+
+                    <!-- Stream Token -->
+                    <TextBlock Text="API Stream Token" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource ThemeDarkBrush}" />
+                    <TextBox x:Name="TokenTextBox" Text="{Binding TokenInput}" PlaceholderText="Your profile stream token" 
+                             Background="{DynamicResource ThemeLightBrush}" BorderBrush="{StaticResource ThemeSecondaryBrush}" Foreground="{DynamicResource ThemeDarkBrush}" CornerRadius="6" Padding="10,8" />
+
+                    <!-- Error Message -->
+                    <TextBlock Text="{Binding ConnectionErrorMessage}" Foreground="{StaticResource ThemeDangerBrush}" FontSize="12" TextWrapping="Wrap" 
+                               HorizontalAlignment="Center" IsVisible="{Binding ConnectionErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+
+                    <!-- Connect Button -->
+                    <Button Command="{Binding ConnectCommand}" Content="Connect Application" Classes="btn-primary"
+                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="0,10,0,0">
+                    </Button>
+
+                    <!-- Return to simple mode -->
+                    <Button x:Name="HideAdvancedButton" Command="{Binding ToggleAdvancedModeCommand}" Content="Back to simple setup"
+                            HorizontalAlignment="Center" Background="Transparent" BorderThickness="0" Padding="8,4" FontSize="12"
+                            Foreground="{StaticResource ThemeSecondaryBrush}" />
+                </StackPanel>
             </StackPanel>
         </Border>
     </Grid>

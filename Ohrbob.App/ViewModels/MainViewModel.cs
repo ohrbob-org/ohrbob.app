@@ -442,6 +442,12 @@ public partial class MainViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private void ToggleAdvancedMode()
+    {
+        IsAdvancedMode = !IsAdvancedMode;
+    }
+
+    [RelayCommand]
     private void ConfirmReplace()
     {
         IsReplaceConfirmationVisible = false;
