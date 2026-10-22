@@ -24,12 +24,38 @@
         <vm:MainViewModel />
     </Design.DataContext>
 
-    <Grid>
-        <!-- Onboarding Screen (Displayed when not connected) -->
-        <views:OnboardingView IsVisible="{Binding !IsConnected}" />
+    <Panel>
+        <Grid>
+            <!-- Onboarding Screen (Displayed when not connected) -->
+            <views:OnboardingView IsVisible="{Binding !IsConnected}" />
 
-        <!-- Main App Player Interface (Displayed when connected) -->
-        <views:PlayerView IsVisible="{Binding IsConnected}" />
-    </Grid>
+            <!-- Main App Player Interface (Displayed when connected) -->
+            <views:PlayerView IsVisible="{Binding IsConnected}" />
+        </Grid>
+
+        <!-- Replace-connection confirmation (shown when a link arrives while connected) -->
+        <Border Background="#80000000" IsVisible="{Binding IsReplaceConfirmationVisible}">
+            <Border x:Name="ReplaceConfirmationDialog" Width="360" Padding="24" CornerRadius="12"
+                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Background="{DynamicResource AppBackgroundBrush}"
+                    BoxShadow="0 4 20 0 #40000000">
+                <StackPanel Spacing="16">
+                    <TextBlock Text="Replace the current connection?"
+                               Classes="h2" TextWrapping="Wrap" TextAlignment="Center"
+                               Foreground="{DynamicResource AppForegroundBrush}" />
+                    <TextBlock Text="Connecting this link will disconnect the server you are using now."
+                               FontSize="13" TextWrapping="Wrap" TextAlignment="Center"
+                               Foreground="{DynamicResource ThemeDarkBrush}" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="12">
+                        <Button x:Name="CancelReplaceButton" Command="{Binding CancelReplaceCommand}" Content="Cancel"
+                                MinWidth="110" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
+                        <Button x:Name="ConfirmReplaceButton" Command="{Binding ConfirmReplaceCommand}" Content="Replace"
+                                Classes="btn-primary" MinWidth="110"
+                                HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Border>
+    </Panel>
 
 </UserControl>

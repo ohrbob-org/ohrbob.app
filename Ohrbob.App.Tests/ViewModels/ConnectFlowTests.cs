@@ -161,4 +161,40 @@ public class ConnectFlowTests
         Assert.That(config.StreamToken, Is.EqualTo("old"));
         Assert.That(vm.IsReplaceConfirmationVisible, Is.True);
     }
+
+    // Confirming the prompt swaps in the parked connection and closes the overlay.
+    [Test]
+    public void ConfirmReplace_AppliesThePendingConnectionAndClosesThePrompt()
+    {
+        var config = new ConfigService(_tempConfigPath);
+        config.Save("https://player.ohrbob.org", "old");
+        var client = new OhrbobClient(config, new FakeHttpMessageHandler());
+        var vm = new MainViewModel(config, client, new RecordingUriLauncher());
+        vm.IsConnected = true;
+        vm.ApplyDeepLink("ohrbob://connect?server=https%3A%2F%2Fother.example&token=new");
+
+        vm.ConfirmReplaceCommand.Execute(null);
+
+        Assert.That(config.ServerUrl, Is.EqualTo("https://other.example"));
+        Assert.That(config.StreamToken, Is.EqualTo("new"));
+        Assert.That(vm.IsReplaceConfirmationVisible, Is.False);
+    }
+
+    // Cancelling the prompt must leave the active connection untouched.
+    [Test]
+    public void CancelReplace_DiscardsThePendingConnectionAndClosesThePrompt()
+    {
+        var config = new ConfigService(_tempConfigPath);
+        config.Save("https://player.ohrbob.org", "old");
+        var client = new OhrbobClient(config, new FakeHttpMessageHandler());
+        var vm = new MainViewModel(config, client, new RecordingUriLauncher());
+        vm.IsConnected = true;
+        vm.ApplyDeepLink("ohrbob://connect?server=https%3A%2F%2Fother.example&token=new");
+
+        vm.CancelReplaceCommand.Execute(null);
+
+        Assert.That(config.ServerUrl, Is.EqualTo("https://player.ohrbob.org"));
+        Assert.That(config.StreamToken, Is.EqualTo("old"));
+        Assert.That(vm.IsReplaceConfirmationVisible, Is.False);
+    }
 }
