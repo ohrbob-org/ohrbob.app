@@ -1,7 +1,7 @@
 [Desktop Entry]
 Name=Ohrbob
 Comment=Cross-platform desktop & mobile player client for Ohrbob
-Exec=app.ohrbob.Ohrbob
+Exec=app.ohrbob.Ohrbob %u
 Icon=app.ohrbob.Ohrbob
 Terminal=false
 Type=Application

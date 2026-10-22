@@ -1,5 +1,6 @@
 ﻿using System;
 using Avalonia;
+using Ohrbob.App.Services;
 using Ohrbob.App.Services.Media;
 using Serilog;
 
@@ -36,6 +37,33 @@ sealed class Program
 
             // 2. Register the SerilogLogSink with Avalonia's Logger
             Avalonia.Logging.Logger.Sink = new SerilogSink(Log.Logger);
+
+            // The OS delivers a registered ohrbob:// link as a command-line
+            // argument (see the exported .desktop file's "%u").
+            var deepLink = DeepLinkArguments.Find(args);
+
+            // 3. Single instance: a later launch forwards its link to the
+            // instance that is already running and exits without opening a
+            // second window.
+            using var instance = new SingleInstance();
+            if (!instance.TryAcquire(uri => DeepLinkRouter.Publish(uri)))
+            {
+                if (deepLink is not null)
+                {
+                    instance.Send(deepLink);
+                    Log.Information("Forwarded the deep link to the running instance");
+                }
+
+                return;
+            }
+
+            // Cold start: publish before the view model exists — the router's
+            // pending slot hands the URI over as soon as MainViewModel
+            // subscribes.
+            if (deepLink is not null)
+            {
+                DeepLinkRouter.Publish(deepLink);
+            }
 
             BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
         }
