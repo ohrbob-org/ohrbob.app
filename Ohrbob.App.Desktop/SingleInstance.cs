@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.IO.Pipes;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
@@ -18,12 +19,12 @@ namespace Ohrbob.App.Desktop;
 /// </summary>
 /// <remarks>
 /// <para>
-/// On Linux/macOS the gate and the channel are one and the same: a Unix domain
-/// socket in the temp directory. The first process to <c>bind</c> the path owns
-/// the gate; the kernel makes that claim atomic, so no separate lock is needed.
-/// A crashed primary can leave the socket file behind, so a failed bind probes
-/// whether anyone still answers and otherwise removes the stale file and
-/// retries once.
+/// On Linux/macOS the gate is an exclusively locked ("<c>flock</c>") lock file
+/// in a directory only the current user can reach; the OS makes the lock
+/// claim atomic and releases it automatically if the process dies, so a second
+/// launch can never become a second primary and there is no stale lock to clean
+/// up. The channel is a Unix domain socket next to it, which the lock holder
+/// owns and may (re)create freely.
 /// </para>
 /// <para>
 /// On Windows the gate is a named <see cref="Mutex"/> (named pipe names cannot
@@ -31,9 +32,12 @@ namespace Ohrbob.App.Desktop;
 /// is a named pipe.
 /// </para>
 /// <para>
-/// The endpoint name is scoped to the current user so two users on the same
-/// machine never collide, and lives in the temp directory because that is
-/// shared between separate runs of the same Flatpak sandbox.
+/// The channel lives in <c>$XDG_RUNTIME_DIR</c> when available (a <c>0700</c>
+/// directory owned by the user, which is also how Flatpak exposes it), and
+/// otherwise in a <c>0700</c> directory under the temp directory. That is what
+/// keeps a <c>server</c>+<c>token</c> credential from being handed to another
+/// user's socket; on Linux the connected peer's uid is checked as well before a
+/// credential is written.
 /// </para>
 /// </remarks>
 public sealed class SingleInstance : IDisposable
@@ -43,11 +47,21 @@ public sealed class SingleInstance : IDisposable
     private const int MaxMessageBytes = 64 * 1024;
     private const byte AckByte = 0x06;
 
+    // Linux socket options used to ask the kernel who is on the other end.
+    private const int SolSocket = 1;
+    private const int SoPeerCred = 17;
+    private const int PeerCredLength = 12; // struct ucred { pid_t pid; uid_t uid; gid_t gid; }
+
+    private static readonly Lazy<uint?> CurrentUid = new(ReadCurrentUid);
+
     private readonly string _name;
     private readonly CancellationTokenSource _cts = new();
     private Mutex? _mutex;
+    private FileStream? _lockFile;
     private Socket? _unixListener;
+    private string? _channelDirectory;
     private bool _primary;
+    private bool _ownsEndpointFile;
     private bool _disposed;
 
     public SingleInstance(string? name = null) => _name = name ?? DefaultName;
@@ -113,12 +127,18 @@ public sealed class SingleInstance : IDisposable
         _unixListener = null;
         listener?.Dispose();
 
-        // Only the primary owns the on-disk socket file; a forwarder must never
-        // delete the primary's endpoint on its way out.
-        if (_primary && !OperatingSystem.IsWindows())
+        // Only remove the endpoint file when this instance actually created it,
+        // so a forwarder — or a failed acquisition — never deletes a socket the
+        // running primary still owns. The lock file itself is deliberately left
+        // in place: deleting a file another process may be locking is its own
+        // race.
+        if (_ownsEndpointFile && !OperatingSystem.IsWindows())
         {
-            TryDeleteSocket(SocketPath);
+            TryDeleteEndpoint(SocketPath);
         }
+
+        _lockFile?.Dispose();
+        _lockFile = null;
 
         var mutex = _mutex;
         _mutex = null;
@@ -138,51 +158,62 @@ public sealed class SingleInstance : IDisposable
 
     private bool TryAcquireUnixSocket(Action<string> onMessage)
     {
-        var path = SocketPath;
-        var socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
-
+        string directory;
         try
         {
-            socket.Bind(new UnixDomainSocketEndPoint(path));
-        }
-        catch (SocketException ex) when (ex.SocketErrorCode == SocketError.AddressAlreadyInUse)
-        {
-            socket.Dispose();
-
-            // Someone else may own the path — or a previous run may have
-            // crashed and left the socket file behind. Only reclaim it when
-            // nobody answers.
-            if (CanReachUnixSocket(path))
-            {
-                return false;
-            }
-
-            TryDeleteSocket(path);
-            socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
-            try
-            {
-                socket.Bind(new UnixDomainSocketEndPoint(path));
-            }
-            catch (SocketException)
-            {
-                // Lost a race against a concurrent launch; behave as a
-                // forwarder rather than risk two primaries.
-                socket.Dispose();
-                return false;
-            }
+            directory = ChannelDirectory;
         }
         catch (Exception ex)
         {
             // Fail open: a broken IPC layer must not stop the user from
             // launching the app at all.
-            socket.Dispose();
-            Log.Error(ex, "Failed to claim the single-instance gate; starting as primary");
+            Log.Error(ex, "Failed to prepare the single-instance directory; starting as primary");
             _primary = true;
             return true;
         }
 
-        socket.Listen(backlog: 16);
+        FileStream lockFile;
+        try
+        {
+            lockFile = new FileStream(
+                Path.Combine(directory, LockFileName),
+                FileMode.OpenOrCreate,
+                FileAccess.ReadWrite,
+                FileShare.None);
+        }
+        catch (IOException)
+        {
+            // Another process holds the lock: we are a forwarder.
+            return false;
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to claim the single-instance lock; starting as primary");
+            _primary = true;
+            return true;
+        }
+
+        var socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
+        try
+        {
+            // We hold the lock, so any leftover socket file belongs to a
+            // previous, now-dead primary. Reclaim it before binding.
+            TryDeleteEndpoint(SocketPath);
+            socket.Bind(new UnixDomainSocketEndPoint(SocketPath));
+            socket.Listen(backlog: 16);
+        }
+        catch (Exception ex)
+        {
+            socket.Dispose();
+            lockFile.Dispose();
+            Log.Error(ex, "Failed to start the single-instance listener; starting as primary");
+            _primary = true;
+            return true;
+        }
+
+        _lockFile = lockFile;
         _unixListener = socket;
+        _ownsEndpointFile = true;
         _primary = true;
         _ = Task.Run(() => AcceptUnixClientsAsync(onMessage));
         return true;
@@ -238,6 +269,14 @@ public sealed class SingleInstance : IDisposable
                 await socket.ConnectAsync(new UnixDomainSocketEndPoint(path), cancellationToken)
                     .ConfigureAwait(false);
 
+                // Never hand the server+token credential to a socket owned by
+                // anyone but this user.
+                if (!IsTrustedPeer(socket))
+                {
+                    Log.Warning("Refusing to forward the deep link to an untrusted single-instance endpoint");
+                    return;
+                }
+
                 using var stream = new NetworkStream(socket, ownsSocket: true);
                 socket = null;
                 await WriteMessageAsync(stream, message, cancellationToken).ConfigureAwait(false);
@@ -246,7 +285,7 @@ public sealed class SingleInstance : IDisposable
             }
             catch (SocketException) when (Environment.TickCount64 < deadline)
             {
-                // The primary may still be starting up and not yet listening;
+                // The primary may hold the lock but not yet be listening;
                 // retry briefly so an early launch never loses the URL.
                 socket?.Dispose();
                 await Task.Delay(100, cancellationToken).ConfigureAwait(false);
@@ -258,21 +297,63 @@ public sealed class SingleInstance : IDisposable
         }
     }
 
-    private static bool CanReachUnixSocket(string path)
+    private static bool IsTrustedPeer(Socket socket)
     {
+        if (!OperatingSystem.IsLinux())
+        {
+            // Only Linux exposes a portable-enough peer-credential lookup here;
+            // elsewhere the private channel directory is the guarantee.
+            return true;
+        }
+
+        var ownUid = CurrentUid.Value;
+        if (ownUid is null)
+        {
+            return true;
+        }
+
         try
         {
-            using var probe = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
-            var connect = probe.ConnectAsync(new UnixDomainSocketEndPoint(path));
-            return connect.Wait(TimeSpan.FromMilliseconds(500)) && probe.Connected;
+            Span<byte> buffer = stackalloc byte[PeerCredLength];
+            var length = socket.GetRawSocketOption(SolSocket, SoPeerCred, buffer);
+            if (length < 8)
+            {
+                return true;
+            }
+
+            var peerUid = BitConverter.ToUInt32(buffer.Slice(4, 4));
+            return peerUid == ownUid.Value;
         }
-        catch
+        catch (Exception ex)
         {
-            return false;
+            // A kernel/API quirk is not evidence of an attack; the private
+            // directory already keeps other users out.
+            Log.Debug(ex, "Could not verify the single-instance peer credentials");
+            return true;
         }
     }
 
-    private static void TryDeleteSocket(string path)
+    private static uint? ReadCurrentUid()
+    {
+        if (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS())
+        {
+            return null;
+        }
+
+        try
+        {
+            return NativeGetUid();
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    [DllImport("libc", EntryPoint = "getuid", SetLastError = false)]
+    private static extern uint NativeGetUid();
+
+    private static void TryDeleteEndpoint(string path)
     {
         try
         {
@@ -455,16 +536,117 @@ public sealed class SingleInstance : IDisposable
         }
     }
 
-    // --------------------------------------------------------------- Names --
+    // --------------------------------------------------------------- Paths --
 
     private string MutexName => "ohrbob-single-instance-" + ScopeKey;
 
     private string PipeName => "ohrbob-single-instance-" + ScopeKey;
 
+    private string LockFileName => "ohrbob-single-instance-" + ScopeKey + ".lock";
+
     private string SocketPath =>
-        Path.Combine(Path.GetTempPath(), "ohrbob-single-instance-" + ScopeKey + ".sock");
+        Path.Combine(ChannelDirectory, "ohrbob-single-instance-" + ScopeKey + ".sock");
 
     private string ScopeKey => ComputeScopeKey(_name);
+
+    /// <summary>
+    /// The directory that holds the lock file and socket. Prefers
+    /// <c>$XDG_RUNTIME_DIR</c> (a private, user-owned runtime directory, which
+    /// Flatpak also provides) and otherwise creates a <c>0700</c> directory
+    /// under the temp directory.
+    /// </summary>
+    private string ChannelDirectory
+    {
+        get
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                throw new PlatformNotSupportedException("The Unix single-instance channel is not used on Windows");
+            }
+
+            if (_channelDirectory is not null)
+            {
+                return _channelDirectory;
+            }
+
+            var runtime = Environment.GetEnvironmentVariable("XDG_RUNTIME_DIR");
+            if (IsPrivateDirectory(runtime))
+            {
+                _channelDirectory = runtime!;
+                return _channelDirectory;
+            }
+
+            var fallback = Path.Combine(Path.GetTempPath(), "ohrbob-" + UserTag());
+            try
+            {
+                Directory.CreateDirectory(
+                    fallback,
+                    UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            }
+            catch (Exception ex)
+            {
+                Log.Debug(ex, "Failed to create the single-instance fallback directory");
+            }
+
+            if (!IsPrivateDirectory(fallback))
+            {
+                throw new IOException(
+                    $"Could not obtain a private directory for the single-instance channel ('{fallback}')");
+            }
+
+            _channelDirectory = fallback;
+            return _channelDirectory;
+        }
+    }
+
+    private static bool IsPrivateDirectory(string? path)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return false;
+        }
+
+        if (string.IsNullOrEmpty(path) || !Directory.Exists(path))
+        {
+            return false;
+        }
+
+        try
+        {
+            // Reject symlinks so the fallback cannot be redirected elsewhere.
+            if ((File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
+            {
+                return false;
+            }
+
+            var mode = File.GetUnixFileMode(path);
+            const UnixFileMode foreign =
+                UnixFileMode.GroupRead | UnixFileMode.GroupWrite | UnixFileMode.GroupExecute |
+                UnixFileMode.OtherRead | UnixFileMode.OtherWrite | UnixFileMode.OtherExecute;
+            return (mode & foreign) == 0;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static string UserTag()
+    {
+        var uid = CurrentUid.Value;
+        return uid is not null ? uid.Value.ToString() : Sanitize(Environment.UserName);
+    }
+
+    private static string Sanitize(string value)
+    {
+        var builder = new StringBuilder(value.Length);
+        foreach (var c in value)
+        {
+            builder.Append(char.IsLetterOrDigit(c) ? c : '_');
+        }
+
+        return builder.Length == 0 ? "user" : builder.ToString();
+    }
 
     private static string ComputeScopeKey(string name)
     {

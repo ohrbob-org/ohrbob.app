@@ -89,4 +89,66 @@ public class SingleInstanceTests
         Assert.That(new[] { await first.Task, await second.Task },
             Is.EquivalentTo(new[] { "ohrbob://connect?server=a&token=1", "ohrbob://connect?server=b&token=2" }));
     }
+
+    // The gate must be atomic: however many launches race for it, exactly one
+    // may become the primary — otherwise two windows appear and the forwarded
+    // URL goes to whichever lost.
+    [Test]
+    public void ConcurrentClaimsProduceExactlyOnePrimary()
+    {
+        var name = NewName();
+        var primaries = 0;
+        var claims = new SingleInstance[8];
+
+        System.Threading.Tasks.Parallel.For(0, claims.Length, i =>
+        {
+            var candidate = new SingleInstance(name);
+            if (candidate.TryAcquire(_ => { }))
+            {
+                System.Threading.Interlocked.Increment(ref primaries);
+            }
+
+            claims[i] = candidate;
+        });
+
+        try
+        {
+            Assert.That(primaries, Is.EqualTo(1), "more than one launch became the primary");
+        }
+        finally
+        {
+            foreach (var claim in claims)
+            {
+                claim?.Dispose();
+            }
+        }
+    }
+
+    // A forwarder that exits must not tear down the running primary's endpoint.
+    [Test]
+    public async Task ForwarderDisposeDoesNotRemoveThePrimaryEndpoint()
+    {
+        var name = NewName();
+        var received = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        using var primary = new SingleInstance(name);
+        Assert.That(primary.TryAcquire(m => { received.TrySetResult(m); }), Is.True);
+
+        using (var forwarder = new SingleInstance(name))
+        {
+            Assert.That(forwarder.TryAcquire(_ => { }), Is.False);
+        }
+
+        // The primary must still be reachable after the forwarder disposed.
+        await Task.Run(() =>
+        {
+            using var secondForwarder = new SingleInstance(name);
+            Assert.That(secondForwarder.TryAcquire(_ => { }), Is.False);
+            secondForwarder.Send("ohrbob://connect?server=still-alive&token=1");
+        });
+
+        var completed = await Task.WhenAny(received.Task, Task.Delay(TimeSpan.FromSeconds(10)));
+        Assert.That(completed, Is.SameAs(received.Task), "the primary's endpoint did not survive the forwarder's disposal");
+        Assert.That(await received.Task, Is.EqualTo("ohrbob://connect?server=still-alive&token=1"));
+    }
 }
