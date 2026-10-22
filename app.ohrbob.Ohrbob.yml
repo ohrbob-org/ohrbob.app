@@ -35,3 +35,11 @@ modules:
     sources:
       - type: dir
         path: .
+        skip:
+          - .git
+          - .cache
+          - .local
+          - .idea
+          - .superpowers
+          - .env
+          - .envrc

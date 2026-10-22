@@ -2,6 +2,26 @@
 
 This repository includes a Flatpak manifest (`app.ohrbob.Ohrbob.yml`) to build and run the Linux desktop app as a Flatpak.
 
+## Excluding Local Files From the Build
+
+The manifest uses a whole-repo `dir` source (`path: .`), which would otherwise copy everything in the working tree — including local state that must not end up in the build. The source therefore declares a `skip` list:
+
+```yaml
+sources:
+  - type: dir
+    path: .
+    skip:
+      - .git
+      - .cache
+      - .local
+      - .idea
+      - .superpowers
+      - .env
+      - .envrc
+```
+
+If you add another dot-folder or dot-file that shouldn't be bundled, add it here too. The same paths are also listed in `.gitignore` so they stay out of version control. Note that `skip` on `dir` sources requires flatpak-builder >= 1.4.0.
+
 ## How to Build and Launch Locally
 
 ### Native Build (Recommended)

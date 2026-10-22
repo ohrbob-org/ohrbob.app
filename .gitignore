@@ -3,5 +3,9 @@ obj/
 *.user
 .idea/
 .vs/
-.superpowers/sdd/progress.md
+.superpowers/
 logs/*
+.env
+.envrc
+.cache/
+.local/
