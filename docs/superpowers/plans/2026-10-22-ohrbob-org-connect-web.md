@@ -209,3 +209,75 @@ cd /home/kaiwegner/Projects/ohrbob2
 git add Ohrbob.Web/Views/Connect/Handoff.cshtml
 git commit -m "feat(web): handoff view that opens the ohrbob:// deep link"
 ```
+
+---
+
+### Task 4: Return to /connect/app after onboarding
+
+**Files:**
+- Modify: `Ohrbob.Web/Filters/OnboardingFilter.cs`
+- Modify: `Ohrbob.Web/Controllers/OnboardingController.cs`
+- Test: `Ohrbob.Web.Tests/OnboardingReturnUrlTests.cs`
+
+**Interfaces:**
+- `OnboardingFilter` records the request's path+query as a `returnUrl` when it redirects an authenticated, un-onboarded account to `Onboarding.Index`.
+- `OnboardingController` carries `returnUrl` through `Index` → `CreateProfile` → … → `Finish` and redirects to it at the end, but only when it is a **local** URL (`Url.IsLocalUrl`).
+
+- [ ] **Step 1: Write the failing tests**
+
+```csharp
+[Test]
+public async Task Filter_WhenAccountNeedsOnboarding_RedirectsToOnboardingWithReturnUrl()
+{
+    // account.NeedsOnboarding == true; request path "/connect/app"
+    // Assert the filter's RedirectToActionResult route values include
+    // returnUrl == "/connect/app".
+}
+
+[Test]
+public void Index_WhenReturnUrlGiven_CarriesItForward()
+{
+    var result = controller.Index(returnUrl: "/connect/app") as ViewResult;
+    Assert.That(result!.ViewData["ReturnUrl"] ?? /* model field */ null, Is.EqualTo("/connect/app"));
+}
+
+[Test]
+public async Task Finish_WhenReturnUrlIsLocal_RedirectsToIt()
+{
+    // Assert the returned redirect target is "/connect/app".
+}
+
+[Test]
+public async Task Finish_WhenReturnUrlIsExternal_IsIgnored()
+{
+    // returnUrl == "https://evil.example" → redirect MUST NOT target it.
+}
+```
+
+- [ ] **Step 2: Run tests to verify they fail**
+
+Run: `dotnet test /home/kaiwegner/Projects/ohrbob2/Ohrbob.Web.Tests --filter FullyQualifiedName~OnboardingReturnUrlTests`
+Expected: FAIL.
+
+- [ ] **Step 3: Implement**
+
+`OnboardingFilter`: when redirecting, add `returnUrl` = `context.HttpContext.Request.Path + QueryString` to the redirect route values (and to the `HX-Redirect` header value).
+`OnboardingController`: accept `string? returnUrl` on `Index`/`CreateProfile`/`Station`/`Feeds`/`Finish`, preserve it in `ViewData`/`TempData`, and at the end of `Finish` redirect to `returnUrl` only when `Url.IsLocalUrl(returnUrl)`, else to the existing default.
+
+- [ ] **Step 4: Run tests to verify they pass**
+
+Run: `dotnet test /home/kaiwegner/Projects/ohrbob2/Ohrbob.Web.Tests --filter FullyQualifiedName~OnboardingReturnUrlTests`
+Expected: PASS.
+
+- [ ] **Step 5: Run the whole web suite**
+
+Run: `dotnet test /home/kaiwegner/Projects/ohrbob2/Ohrbob.Web.Tests`
+Expected: PASS (existing onboarding tests still green).
+
+- [ ] **Step 6: Commit**
+
+```bash
+cd /home/kaiwegner/Projects/ohrbob2
+git add Ohrbob.Web/Filters/OnboardingFilter.cs Ohrbob.Web/Controllers/OnboardingController.cs Ohrbob.Web.Tests/OnboardingReturnUrlTests.cs
+git commit -m "feat(web): return new users to /connect/app after onboarding"
+```
