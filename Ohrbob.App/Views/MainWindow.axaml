@@ -7,7 +7,7 @@
         mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="600"
         x:Class="Ohrbob.App.Views.MainWindow"
         x:DataType="vm:MainViewModel"
-        Icon="/Assets/avalonia-logo.ico"
+        Icon="/Assets/ohrbob-logo.ico"
         Title="Ohrbob player"
         Width="950" Height="650"
         WindowStartupLocation="CenterScreen">

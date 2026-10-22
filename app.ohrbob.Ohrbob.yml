@@ -1,0 +1,37 @@
+app-id: app.ohrbob.Ohrbob
+runtime: org.freedesktop.Platform
+runtime-version: '24.08'
+sdk: org.freedesktop.Sdk
+command: app.ohrbob.Ohrbob
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.dotnet10
+build-options:
+  append-path: /usr/lib/sdk/dotnet10/bin
+  append-ld-library-path: /usr/lib/sdk/dotnet10/lib
+  build-args:
+    - --share=network
+  env:
+    DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+    DOTNET_ROOT: /usr/lib/sdk/dotnet10
+    XCURSOR_PATH: /run/host/user-share/icons:/run/host/share/icons
+finish-args:
+  - --share=ipc
+  - --socket=x11
+  - --socket=wayland
+  - --socket=pulseaudio
+  - --share=network
+  - --device=dri
+  - --own-name=org.mpris.MediaPlayer2.ohrbob
+  - --filesystem=xdg-data/icons:ro
+  - --filesystem=~/.icons:ro
+modules:
+  - name: ohrbob
+    buildsystem: simple
+    build-commands:
+      - dotnet publish Ohrbob.App.Desktop/Ohrbob.App.Desktop.csproj -c Release -r linux-x64 --self-contained true -o /app/bin/ohrbob
+      - ln -s /app/bin/ohrbob/Ohrbob.App.Desktop /app/bin/app.ohrbob.Ohrbob
+      - install -Dm644 app.ohrbob.Ohrbob.desktop -t /app/share/applications/
+      - install -Dm644 art/ohrbob-logo.svg /app/share/icons/hicolor/scalable/apps/app.ohrbob.Ohrbob.svg
+    sources:
+      - type: dir
+        path: .
