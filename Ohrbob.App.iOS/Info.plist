@@ -6,6 +6,17 @@
 	<string>Ohrbob.App</string>
 	<key>CFBundleIdentifier</key>
 	<string>companyName.Ohrbob.App</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>companyName.Ohrbob.App</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>ohrbob</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleShortVersionString</key>
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
