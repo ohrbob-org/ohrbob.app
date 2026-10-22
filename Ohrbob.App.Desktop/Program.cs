@@ -38,6 +38,22 @@ sealed class Program
             // 2. Register the SerilogLogSink with Avalonia's Logger
             Avalonia.Logging.Logger.Sink = new SerilogSink(Log.Logger);
 
+            // Windows delivers a registered ohrbob:// link by launching this
+            // same executable with the URL appended to argv (see
+            // DeepLinkArguments). Registering the scheme is best-effort: a
+            // locked-down account must still be able to start the app.
+            if (OperatingSystem.IsWindows())
+            {
+                try
+                {
+                    WindowsUriScheme.EnsureRegistered(Environment.ProcessPath!);
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning(ex, "Could not register the ohrbob:// scheme");
+                }
+            }
+
             // The OS delivers a registered ohrbob:// link as a command-line
             // argument (see the exported .desktop file's "%u").
             var deepLink = DeepLinkArguments.Find(args);

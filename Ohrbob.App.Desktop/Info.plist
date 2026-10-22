@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Info.plist for the macOS .app bundle (see build-macos-app.sh). CFBundleURLTypes
+  declares the ohrbob:// scheme, which is how Launch Services learns that a link
+  belongs to this app. An Avalonia desktop build does not produce a bundle by
+  itself, so this file is copied into Contents/ during packaging.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleName</key>
+	<string>Ohrbob</string>
+	<key>CFBundleDisplayName</key>
+	<string>Ohrbob</string>
+	<key>CFBundleIdentifier</key>
+	<string>app.ohrbob.Ohrbob</string>
+	<key>CFBundleExecutable</key>
+	<string>Ohrbob.App.Desktop</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>CFBundleVersion</key>
+	<string>1.0</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>11.0</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>app.ohrbob.Ohrbob</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>ohrbob</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>
