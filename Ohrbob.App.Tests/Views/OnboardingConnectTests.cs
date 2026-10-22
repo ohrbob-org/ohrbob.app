@@ -112,4 +112,25 @@ public class OnboardingConnectTests
 
         window.Close();
     }
+
+    // A failed "Connect with ohrbob.org" run leaves IsAdvancedMode false while
+    // ApplyConnection/InitializeAppAsync set ConnectionErrorMessage; the message
+    // must be visible on the normal screen or the failure is silent.
+    [AvaloniaTest]
+    public void ConnectionError_IsVisibleInNormalMode()
+    {
+        var (window, view, vm) = ShowOnboarding();
+
+        var error = view.FindControl<TextBlock>("ConnectionErrorTextBlock")!;
+        Assert.That(vm.IsAdvancedMode, Is.False);
+        Assert.That(error.IsEffectivelyVisible, Is.False, "no message should be shown until one is set");
+
+        vm.ConnectionErrorMessage = "Initialization error: the callback server is unreachable";
+        window.UpdateLayout();
+
+        Assert.That(error.IsEffectivelyVisible, Is.True, "a normal-mode connection failure must be visible");
+        Assert.That(error.Text, Is.EqualTo("Initialization error: the callback server is unreachable"));
+
+        window.Close();
+    }
 }

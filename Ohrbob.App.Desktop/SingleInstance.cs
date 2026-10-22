@@ -400,12 +400,27 @@ public sealed class SingleInstance : IDisposable
     {
         while (true)
         {
-            var server = new NamedPipeServerStream(
-                PipeName,
-                PipeDirection.InOut,
-                maxNumberOfServerInstances: 1,
-                PipeTransmissionMode.Byte,
-                PipeOptions.Asynchronous);
+            NamedPipeServerStream server;
+            try
+            {
+                // Allow the OS maximum number of concurrent server instances.
+                // The instance that serves a connection stays alive until its
+                // handler finishes, so a fixed limit of one makes the next
+                // construction throw "all pipe instances are busy" while the
+                // previous link is still being read — which would fault this
+                // loop after a single forwarded link.
+                server = new NamedPipeServerStream(
+                    PipeName,
+                    PipeDirection.InOut,
+                    NamedPipeServerStream.MaxAllowedServerInstances,
+                    PipeTransmissionMode.Byte,
+                    PipeOptions.Asynchronous);
+            }
+            catch (Exception ex)
+            {
+                Log.Debug(ex, "Failed to create a named-pipe server instance");
+                break;
+            }
 
             try
             {
@@ -538,7 +553,12 @@ public sealed class SingleInstance : IDisposable
 
     // --------------------------------------------------------------- Paths --
 
-    private string MutexName => "ohrbob-single-instance-" + ScopeKey;
+    // The named pipe always lives in the machine-global \\.\pipe\ namespace,
+    // so the mutex must be global too: an unprefixed Windows mutex is created
+    // in the caller's session namespace, which would let a second session of
+    // the same user acquire its own gate and become a second primary while the
+    // forwarders in either session race for the one global pipe.
+    private string MutexName => @"Global\ohrbob-single-instance-" + ScopeKey;
 
     private string PipeName => "ohrbob-single-instance-" + ScopeKey;
 

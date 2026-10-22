@@ -16,6 +16,11 @@
                 
                 <TextBlock Text="Connect Your Ohrbob App" Classes="h2" HorizontalAlignment="Center" />
 
+                <!-- Error Message — shown in both normal and advanced mode so a
+                     failed "Connect with ohrbob.org" is never silent. -->
+                <TextBlock x:Name="ConnectionErrorTextBlock" Text="{Binding ConnectionErrorMessage}" Foreground="{StaticResource ThemeDangerBrush}" FontSize="12" TextWrapping="Wrap" 
+                           HorizontalAlignment="Center" IsVisible="{Binding ConnectionErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+
                 <!-- Simple Mode: one primary action, advanced setup is opt-in -->
                 <StackPanel Spacing="15" IsVisible="{Binding !IsAdvancedMode}">
                     <TextBlock Text="Open ohrbob.org in your browser to connect this app to your Ohrbob server."
@@ -52,10 +57,6 @@
                     <TextBlock Text="API Stream Token" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource ThemeDarkBrush}" />
                     <TextBox x:Name="TokenTextBox" Text="{Binding TokenInput}" PlaceholderText="Your profile stream token" 
                              Background="{DynamicResource ThemeLightBrush}" BorderBrush="{StaticResource ThemeSecondaryBrush}" Foreground="{DynamicResource ThemeDarkBrush}" CornerRadius="6" Padding="10,8" />
-
-                    <!-- Error Message -->
-                    <TextBlock Text="{Binding ConnectionErrorMessage}" Foreground="{StaticResource ThemeDangerBrush}" FontSize="12" TextWrapping="Wrap" 
-                               HorizontalAlignment="Center" IsVisible="{Binding ConnectionErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
 
                     <!-- Connect Button -->
                     <Button Command="{Binding ConnectCommand}" Content="Connect Application" Classes="btn-primary"

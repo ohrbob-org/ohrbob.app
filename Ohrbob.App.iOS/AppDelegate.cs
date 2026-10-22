@@ -35,12 +35,12 @@ public partial class AppDelegate : AvaloniaAppDelegate<App>
 
     private static void OnActivated(object? sender, ActivatedEventArgs e)
     {
-        if (e is ProtocolActivatedEventArgs protocolArgs)
+        if (e is ProtocolActivatedEventArgs { Uri: { } uri })
         {
             // ohrbob://... arrives as an absolute URI. On a cold start the view
             // model may not have subscribed to DeepLinkRouter yet; the router
             // holds the URI as pending until it does.
-            DeepLinkRouter.Publish(protocolArgs.Uri.AbsoluteUri);
+            DeepLinkRouter.Publish(uri.AbsoluteUri);
         }
     }
 }
