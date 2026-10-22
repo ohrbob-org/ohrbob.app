@@ -418,11 +418,21 @@ public partial class MainViewModel : ViewModelBase
 
     private void ApplyConnection(string server, string token)
     {
-        _configService.Save(server, token);
-        ServerUrlInput = server;
-        TokenInput = token;
-        IsConnected = true;
-        _ = InitializeAppAsync();
+        ConnectionErrorMessage = null;
+
+        try
+        {
+            _configService.Save(server, token);
+            ServerUrlInput = server;
+            TokenInput = token;
+            IsConnected = true;
+            _ = InitializeAppAsync();
+        }
+        catch (Exception ex)
+        {
+            IsConnected = false;
+            ConnectionErrorMessage = $"Failed to connect to the server: {ex.Message}";
+        }
     }
 
     [RelayCommand]

@@ -124,4 +124,41 @@ public class ConnectFlowTests
 
         Assert.That(received, Is.EqualTo(uri));
     }
+
+    // Review Focus: a foreign/malformed link must be ignored — never crash, never
+    // wipe the saved connection.
+    [TestCase("http://example.com/x")]
+    [TestCase("ohrbob://other?server=https%3A%2F%2Fother.example&token=new")]
+    [TestCase("ohrbob://connect?server=x")]
+    public void ApplyDeepLink_WithForeignOrIncompleteUri_LeavesSavedConnectionUnchanged(string uri)
+    {
+        var config = new ConfigService(_tempConfigPath);
+        config.Save("https://player.ohrbob.org", "old");
+        var client = new OhrbobClient(config, new FakeHttpMessageHandler());
+        var vm = new MainViewModel(config, client, new RecordingUriLauncher());
+
+        vm.ApplyDeepLink(uri);
+
+        Assert.That(config.ServerUrl, Is.EqualTo("https://player.ohrbob.org"));
+        Assert.That(config.StreamToken, Is.EqualTo("old"));
+        Assert.That(vm.IsReplaceConfirmationVisible, Is.False);
+    }
+
+    // Receiving a link over an active connection must not replace the saved
+    // connection until the user confirms.
+    [Test]
+    public void ApplyDeepLink_WhileConnected_LeavesSavedConnectionUnchangedAndPrompts()
+    {
+        var config = new ConfigService(_tempConfigPath);
+        config.Save("https://player.ohrbob.org", "old");
+        var client = new OhrbobClient(config, new FakeHttpMessageHandler());
+        var vm = new MainViewModel(config, client, new RecordingUriLauncher());
+        vm.IsConnected = true;
+
+        vm.ApplyDeepLink("ohrbob://connect?server=https%3A%2F%2Fother.example&token=new");
+
+        Assert.That(config.ServerUrl, Is.EqualTo("https://player.ohrbob.org"));
+        Assert.That(config.StreamToken, Is.EqualTo("old"));
+        Assert.That(vm.IsReplaceConfirmationVisible, Is.True);
+    }
 }
