@@ -19,9 +19,15 @@ namespace Ohrbob.App.ViewModels;
 
 public partial class MainViewModel : ViewModelBase
 {
+    /// <summary>The hosted ohrbob.org page that starts the connect flow.</summary>
+    public const string HostedConnectUrl = "https://ohrbob.org/connect/app";
+
     private readonly ConfigService _configService;
     private readonly OhrbobClient _client;
     private readonly IAudioPlayer _player;
+    private readonly IUriLauncher _uriLauncher;
+    private string? _pendingServerUrl;
+    private string? _pendingStreamToken;
     private string? _loadedStreamUri;
     private int _lastSyncedPosition;
     private DispatcherTimer? _syncTimer;
@@ -32,10 +38,24 @@ public partial class MainViewModel : ViewModelBase
     private bool _isConnected;
 
     [ObservableProperty]
+    private bool _isAdvancedMode;
+
+    [ObservableProperty]
+    private bool _isReplaceConfirmationVisible;
+
+#if DEBUG
+    [ObservableProperty]
     private string _serverUrlInput = "http://10.0.2.2:5002";
 
     [ObservableProperty]
     private string _tokenInput = "00ef0bbf-8177-4f5d-b308-b2843ab09d0c";
+#else
+    [ObservableProperty]
+    private string _serverUrlInput = "https://player.ohrbob.org";
+
+    [ObservableProperty]
+    private string _tokenInput = "";
+#endif
 
     [ObservableProperty]
     private string _deepLinkInput = "";
@@ -94,13 +114,19 @@ public partial class MainViewModel : ViewModelBase
         IsSidebarOpen = !IsSidebarOpen;
     }
 
-    public MainViewModel() : this( new ConfigService(), null)
+    public MainViewModel() : this(new ConfigService(), null)
     {
     }
 
     public MainViewModel(ConfigService configService, OhrbobClient? client)
+        : this(configService, client, null)
+    {
+    }
+
+    public MainViewModel(ConfigService configService, OhrbobClient? client, IUriLauncher? uriLauncher = null)
     {
         _configService = configService;
+        _uriLauncher = uriLauncher ?? new AppUriLauncher();
         var handler = new HttpClientHandler();
 
         // Only bypass if running locally or in a specific dev environment
@@ -118,6 +144,10 @@ public partial class MainViewModel : ViewModelBase
         _player.PositionChanged += OnPlayerOnPositionChanged;
         _player.DurationChanged += OnPlayerOnDurationChanged;
         _player.PlaybackStateChanged += OnPlayerOnPlaybackStateChanged;
+
+        // Platform heads publish incoming ohrbob:// links here; marshal onto the
+        // UI thread because they arrive from non-UI sources (argv, intents).
+        DeepLinkRouter.Subscribe(uri => Dispatcher.UIThread.Post(() => ApplyDeepLink(uri)));
 
         if (Avalonia.Controls.Design.IsDesignMode)
             return;
@@ -322,6 +352,111 @@ public partial class MainViewModel : ViewModelBase
         return $"{(int)t.TotalMinutes:00}:{t.Seconds:00}";
     }
 
+    /// <summary>
+    /// Parses a fixed-shape connect deep link:
+    /// <c>ohrbob://connect?server=&lt;base-url&gt;&amp;token=&lt;token&gt;</c>.
+    /// Any other scheme/host or a missing part is rejected.
+    /// </summary>
+    public static bool TryParseConnectDeepLink(string uri, out string server, out string token)
+    {
+        server = "";
+        token = "";
+
+        if (string.IsNullOrWhiteSpace(uri))
+        {
+            return false;
+        }
+
+        if (!Uri.TryCreate(uri.Trim(), UriKind.Absolute, out var parsed))
+        {
+            return false;
+        }
+
+        if (!parsed.Scheme.Equals("ohrbob", StringComparison.OrdinalIgnoreCase) ||
+            !parsed.Host.Equals("connect", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var query = System.Web.HttpUtility.ParseQueryString(parsed.Query);
+        var qServer = query["server"];
+        var qToken = query["token"];
+
+        if (string.IsNullOrEmpty(qServer) || string.IsNullOrEmpty(qToken))
+        {
+            return false;
+        }
+
+        server = qServer;
+        token = qToken;
+        return true;
+    }
+
+    /// <summary>
+    /// Deterministic entry point for an incoming <c>ohrbob://</c> link. Applies
+    /// the connection silently when disconnected; when already connected it
+    /// parks the link and asks for confirmation before replacing (see
+    /// <see cref="ConfirmReplaceCommand"/> / <see cref="CancelReplaceCommand"/>).
+    /// </summary>
+    public void ApplyDeepLink(string uri)
+    {
+        if (!TryParseConnectDeepLink(uri, out var server, out var token))
+        {
+            return;
+        }
+
+        if (IsConnected)
+        {
+            _pendingServerUrl = server;
+            _pendingStreamToken = token;
+            IsReplaceConfirmationVisible = true;
+            return;
+        }
+
+        ApplyConnection(server, token);
+    }
+
+    private void ApplyConnection(string server, string token)
+    {
+        _configService.Save(server, token);
+        ServerUrlInput = server;
+        TokenInput = token;
+        IsConnected = true;
+        _ = InitializeAppAsync();
+    }
+
+    [RelayCommand]
+    private async Task OpenHostedConnectPage()
+    {
+        await _uriLauncher.LaunchAsync(new Uri(HostedConnectUrl));
+    }
+
+    [RelayCommand]
+    private void ConfirmReplace()
+    {
+        IsReplaceConfirmationVisible = false;
+
+        if (_pendingServerUrl is null || _pendingStreamToken is null)
+        {
+            return;
+        }
+
+        var server = _pendingServerUrl;
+        var token = _pendingStreamToken;
+        _pendingServerUrl = null;
+        _pendingStreamToken = null;
+
+        ApplyConnection(server, token);
+    }
+
+    [RelayCommand]
+    private void CancelReplace()
+    {
+        _pendingServerUrl = null;
+        _pendingStreamToken = null;
+        IsReplaceConfirmationVisible = false;
+    }
+
     [RelayCommand]
     private async Task ConnectAsync()
     {
@@ -330,28 +465,17 @@ public partial class MainViewModel : ViewModelBase
         var server = ServerUrlInput?.Trim();
         var token = TokenInput?.Trim();
 
-        // Check if deep link is provided
+        // Advanced mode allows pasting a deep link instead of entering fields.
         if (!string.IsNullOrWhiteSpace(DeepLinkInput))
         {
-            try
+            if (TryParseConnectDeepLink(DeepLinkInput, out var linkServer, out var linkToken))
             {
-                var uri = new Uri(DeepLinkInput.Trim());
-                if (uri.Scheme.Equals("ohrbob", StringComparison.OrdinalIgnoreCase))
-                {
-                    var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
-                    var qServer = query["server"];
-                    var qToken = query["token"];
-
-                    if (!string.IsNullOrEmpty(qServer) && !string.IsNullOrEmpty(qToken))
-                    {
-                        server = qServer;
-                        token = qToken;
-                    }
-                }
+                server = linkServer;
+                token = linkToken;
             }
-            catch (Exception ex)
+            else
             {
-                ConnectionErrorMessage = $"Invalid deep link URL: {ex.Message}";
+                ConnectionErrorMessage = "Invalid connect link. Expected ohrbob://connect?server=…&token=…";
                 return;
             }
         }
