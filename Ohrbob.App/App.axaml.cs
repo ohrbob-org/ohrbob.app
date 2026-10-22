@@ -2,6 +2,7 @@ using System;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Ohrbob.App.Services;
 using Ohrbob.App.Services.Media;
 using Ohrbob.App.ViewModels;
 using Ohrbob.App.Views;
@@ -24,6 +25,7 @@ public partial class App : Application
         {
             var viewModel = new MainViewModel();
             AttachMediaSession(viewModel);
+            AttachMacOsUriActivation();
             desktop.MainWindow = new MainWindow
             {
                 DataContext = viewModel,
@@ -40,6 +42,24 @@ public partial class App : Application
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    /// <summary>
+    /// On macOS a registered <c>ohrbob://</c> link arrives as an Apple Event
+    /// rather than on <c>argv</c>, so subscribe to the platform's activatable
+    /// lifetime and forward the link to <see cref="DeepLinkRouter"/>. Guarded to
+    /// macOS: Linux/Windows use the argv path in the desktop head, and the
+    /// mobile heads have their own delegates.
+    /// </summary>
+    private void AttachMacOsUriActivation()
+    {
+        if (!OperatingSystem.IsMacOS() ||
+            this.TryGetFeature<IActivatableLifetime>() is not { } activatable)
+        {
+            return;
+        }
+
+        MacOsUriActivation.Subscribe(activatable);
     }
 
     /// <summary>

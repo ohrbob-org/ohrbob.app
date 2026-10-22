@@ -19,8 +19,10 @@ dotnet publish Ohrbob.App.Desktop/Ohrbob.App.Desktop.csproj \
     -o "${BUNDLE}/Contents/MacOS"
 
 echo "=> Assembling the bundle..."
-install -Dm644 Ohrbob.App.Desktop/Info.plist "${BUNDLE}/Contents/Info.plist"
-install -Dm644 art/ohrbob-logo.svg "${BUNDLE}/Contents/Resources/ohrbob-logo.svg"
+mkdir -p "${BUNDLE}/Contents/Resources"
+install -m644 Ohrbob.App.Desktop/Info.plist "${BUNDLE}/Contents/Info.plist"
+# NOTE: a macOS app icon needs a .icns plus a CFBundleIconFile entry; the SVG
+# logo is not installed here because macOS does not use it.
 chmod +x "${BUNDLE}/Contents/MacOS/${EXECUTABLE}"
 
 echo "========================================================"
