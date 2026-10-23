@@ -54,6 +54,11 @@
   </screenshots>
 
   <releases>
+    <release version="0.0.10" date="2026-10-23">
+      <description>
+        <p>Publish an Android APK alongside the desktop releases, with scripts to build and run it locally.</p>
+      </description>
+    </release>
     <release version="0.0.5" date="2026-10-23">
       <description>
         <p>Initial release on Flathub. Tested on Fedora44 for now. </p>

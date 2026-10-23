@@ -22,6 +22,31 @@ The boilerplate code for this setup and some of its features have been written b
 
 Models used: DeepSeek v4.1 Flash via OpenCode CLI
 
+## Install
+
+Grab the latest build from the [releases page](https://github.com/ohrbob-org/ohrbob.app/releases/latest).
+
+### Linux
+
+Download `Ohrbob-<version>-x86_64.AppImage`, make it executable and run it:
+
+```bash
+chmod +x Ohrbob-*-x86_64.AppImage
+./Ohrbob-*-x86_64.AppImage
+```
+
+The AppImage needs FUSE 2. On distributions without `libfuse2`, run it with `--appimage-extract-and-run` instead.
+
+### Windows
+
+Download `OhrbobSetup-<version>.exe` and run it. Windows SmartScreen may warn about an unknown publisher — choose **More info** → **Run anyway**.
+
+### Android
+
+Download `Ohrbob-<version>.apk` on your device and open it. Android will ask you to allow installs from this source; allow it and continue.
+
+The APK is signed with the Android debug key, so it is meant for sideloading rather than the Play Store, and Android may warn about the developer.
+
 ## Self-Hosting
 
 The player can easily connect to your self-hosted ohrbob instance. You want to self-host ohrbob.server? You need to go here: https://github.com/ohrbob-org/ohrbob.server
