@@ -2,9 +2,9 @@
 #
 # Launch the Ohrbob Android emulator, optionally building/installing the app on it.
 #
-#   ./android-emu.sh                # just start the emulator
-#   ./android-emu.sh --deploy       # start it, then build + install + launch the app
-#   ./android-emu.sh -no-window     # anything else is passed straight to `emulator`
+#   ./scripts/android-emu.sh                # just start the emulator
+#   ./scripts/android-emu.sh --deploy       # start it, then build + install + launch the app
+#   ./scripts/android-emu.sh -no-window     # anything else is passed straight to `emulator`
 #
 # Notes for this machine (each of these cost real debugging time):
 #   * Use `-gpu auto`. With KVM the emulator segfaults on -gpu off /
@@ -16,7 +16,9 @@
 #     (/usr/lib/jvm/java-25-openjdk) has no `jar`. Set JAVA_HOME if it isn't found.
 set -euo pipefail
 
-DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# $DIR is the repository root: the Android project and APK paths below are
+# relative to it, not to this script.
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SDK="${ANDROID_HOME:-$HOME/Projects/android-emu/android-sdk}"
 export ANDROID_HOME="$SDK"
 export ANDROID_SDK_ROOT="$SDK"

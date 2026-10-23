@@ -30,7 +30,7 @@ This repository includes a script that builds the flatpak completely natively as
 
 ```bash
 # 1. Run the build script
-./build-flatpak.sh
+./scripts/build-flatpak.sh
 
 # 2. Launch the installed app!
 flatpak run org.ohrbob.ohrbob

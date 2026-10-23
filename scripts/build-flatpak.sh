@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+# Run from the repository root so the manifest and build-dir resolve.
+cd "$(dirname "$0")/.."
+
 echo "=> Building Flatpak using native Flatpak Builder..."
 # We run the host flatpak-builder binary directly, natively!
 # No docker, no root, no permission issues!

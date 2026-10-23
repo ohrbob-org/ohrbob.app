@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  Info.plist for the macOS .app bundle (see build-macos-app.sh). CFBundleURLTypes
+  Info.plist for the macOS .app bundle (see scripts/build-macos-app.sh). CFBundleURLTypes
   declares the ohrbob:// scheme, which is how Launch Services learns that a link
   belongs to this app. An Avalonia desktop build does not produce a bundle by
   itself, so this file is copied into Contents/ during packaging.

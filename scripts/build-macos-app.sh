@@ -7,6 +7,9 @@
 # so it cannot be cross-built from Linux/Windows.
 set -euo pipefail
 
+# Run from the repository root so the project and dist/ paths resolve.
+cd "$(dirname "$0")/.."
+
 RID="${1:-osx-arm64}" # pass osx-x64 for Intel Macs
 
 APP_NAME="Ohrbob"
