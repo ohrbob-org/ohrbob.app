@@ -10,8 +10,10 @@
 
   <description>
     <p>
-      Ohrbob is the cross-platform desktop and mobile player client for Ohrbob,
-      built with Avalonia UI.
+      The desktop client player for Ohrbob (ohrbob.org or self-hosted). Listen to your own podcast radio stations. 
+    </p>
+    <p>
+      Ohrbob is your free and open-source radio station manager. With ohrbob you build your own radio stations and listen to them anywhere.
     </p>
     <p>
       Browse and discover stations, manage profiles, and keep your playback
@@ -52,7 +54,7 @@
   </screenshots>
 
   <releases>
-    <release version="0.0.1" date="2026-10-23">
+    <release version="0.0.2" date="2026-10-23">
       <description>
         <p>First release.</p>
       </description>
