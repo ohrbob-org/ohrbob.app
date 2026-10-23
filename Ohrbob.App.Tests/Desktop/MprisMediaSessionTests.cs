@@ -217,7 +217,7 @@ public class MprisMediaSessionTests
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory != null)
         {
-            var candidate = Path.Combine(directory.FullName, "app.ohrbob.Ohrbob.desktop");
+            var candidate = Path.Combine(directory.FullName, "org.ohrbob.ohrbob.desktop");
             if (File.Exists(candidate))
             {
                 return candidate;
@@ -226,7 +226,7 @@ public class MprisMediaSessionTests
             directory = directory.Parent;
         }
 
-        Assert.Fail($"could not locate app.ohrbob.Ohrbob.desktop above {AppContext.BaseDirectory}");
+        Assert.Fail($"could not locate org.ohrbob.ohrbob.desktop above {AppContext.BaseDirectory}");
         return string.Empty;
     }
 

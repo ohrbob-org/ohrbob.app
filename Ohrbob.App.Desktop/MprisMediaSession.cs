@@ -219,9 +219,9 @@ public sealed class MprisMediaSession : IMediaSessionService
                     case "Identity":
                         return VariantValue.String("Ohrbob");
                     case "DesktopEntry":
-                        // Must match the shipped .desktop file id (app.ohrbob.Ohrbob)
+                        // Must match the shipped .desktop file id (org.ohrbob.ohrbob)
                         // so GNOME Shell can resolve the app and show its icon.
-                        return VariantValue.String("app.ohrbob.Ohrbob");
+                        return VariantValue.String("org.ohrbob.ohrbob");
                     case "SupportedUriSchemes":
                         return VariantValue.Array(Array.Empty<string>());
                     case "SupportedMimeTypes":
