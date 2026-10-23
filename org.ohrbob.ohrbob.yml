@@ -7,15 +7,12 @@ sdk-extensions:
   - org.freedesktop.Sdk.Extension.dotnet10
 finish-args:
   - --share=ipc
-  - --socket=x11
   - --socket=wayland
+  - --socket=fallback-x11
   - --socket=pulseaudio
   - --share=network
   - --device=dri
-  - --own-name=org.mpris.MediaPlayer2.ohrbob
-  - --filesystem=xdg-data/icons:ro
 cleanup:
-  - /lib/debug
   - '*.a'
 build-options:
   append-path: /usr/lib/sdk/dotnet10/bin
@@ -28,16 +25,7 @@ modules:
   - name: ohrbob
     buildsystem: simple
     build-commands:
-      - |
-        RID="linux-x64"
-        if [ "$FLATPAK_ARCH" = "aarch64" ]; then RID="linux-arm64"; fi
-        dotnet restore Ohrbob.App.Desktop/Ohrbob.App.Desktop.csproj -r "$RID" --source nuget-sources
-        dotnet publish Ohrbob.App.Desktop/Ohrbob.App.Desktop.csproj -c Release -r "$RID" --self-contained true --no-restore -o /app/bin/ohrbob
-      - ln -s /app/bin/ohrbob/Ohrbob.App.Desktop /app/bin/org.ohrbob.ohrbob
-      - install -Dm644 org.ohrbob.ohrbob.desktop -t /app/share/applications/
-      - install -Dm644 org.ohrbob.ohrbob.metainfo.xml -t /app/share/metainfo/
-      - install -Dm644 art/ohrbob-logo.svg /app/share/icons/hicolor/scalable/apps/org.ohrbob.ohrbob.svg
-      - install -Dm644 LICENSE -t /app/share/licenses/org.ohrbob.ohrbob/
+      - bash scripts/build-flatpak-app.sh
     sources:
       - type: dir
         path: .

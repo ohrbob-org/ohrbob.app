@@ -14,7 +14,10 @@ namespace Ohrbob.App.Desktop;
 /// </summary>
 public sealed class MprisMediaSession : IMediaSessionService
 {
-    private const string BusName = "org.mpris.MediaPlayer2.ohrbob";
+    // Flatpak grants org.mpris.MediaPlayer2.<app-id> automatically, so the bus
+    // name must match the app id exactly; otherwise the manifest would need a
+    // --own-name permission for a name Flatpak already lets us own.
+    private const string BusName = "org.mpris.MediaPlayer2.org.ohrbob.ohrbob";
     private const string ObjectPathValue = "/org/mpris/MediaPlayer2";
     private const string RootInterface = "org.mpris.MediaPlayer2";
     private const string PlayerInterface = "org.mpris.MediaPlayer2.Player";

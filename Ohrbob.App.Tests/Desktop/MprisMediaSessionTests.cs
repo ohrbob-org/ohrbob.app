@@ -25,7 +25,7 @@ namespace Ohrbob.App.Tests.Desktop;
 [TestFixture]
 public class MprisMediaSessionTests
 {
-    private const string BusName = "org.mpris.MediaPlayer2.ohrbob";
+    private const string BusName = "org.mpris.MediaPlayer2.org.ohrbob.ohrbob";
 
     private string _busAddress = string.Empty;
     private int _busPid;
