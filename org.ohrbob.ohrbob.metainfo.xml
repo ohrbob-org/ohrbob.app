@@ -36,6 +36,21 @@
 
   <content_rating type="oars-1.1"/>
 
+  <screenshots>
+    <screenshot type="default">
+      <image>https://raw.githubusercontent.com/ohrbob-org/ohrbob.app/v0.0.1/desktop-screenshots/launch.png</image>
+      <caption>Connect the app to your Ohrbob server</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/ohrbob-org/ohrbob.app/v0.0.1/desktop-screenshots/desktop-wide.png</image>
+      <caption>Playing a station</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/ohrbob-org/ohrbob.app/v0.0.1/desktop-screenshots/desktop-narrow.png</image>
+      <caption>The player in a narrow window</caption>
+    </screenshot>
+  </screenshots>
+
   <releases>
     <release version="0.0.1" date="2026-10-23">
       <description>
