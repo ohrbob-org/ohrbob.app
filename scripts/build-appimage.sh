@@ -23,6 +23,11 @@ cd "$(dirname "$0")/.."
 RID="linux-x64"
 EXECUTABLE="Ohrbob.App.Desktop"
 APP_ID="org.ohrbob.ohrbob"
+# The desktop entry this AppImage ships is its own, not the Flatpak's
+# org.ohrbob.ohrbob.desktop, so the two installs can coexist. See
+# packaging/linux/org.ohrbob.ohrbob.appimage.desktop.
+DESKTOP_ID="org.ohrbob.ohrbob.appimage"
+DESKTOP_FILE="packaging/linux/$DESKTOP_ID.desktop"
 APPIMAGETOOL_URL="https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage"
 
 WORK="build-dir/appimage"
@@ -59,12 +64,12 @@ mkdir -p \
 
 cp -a "$WORK/publish/." "$APPDIR/usr/bin/"
 
-# The .desktop file is shared with the Flatpak build and launches
-# org.ohrbob.ohrbob, so expose that name next to the real binary.
+# The desktop entry's Exec is org.ohrbob.ohrbob, so expose that name next to
+# the real binary; AppRun puts usr/bin on PATH for the AppImage itself.
 ln -s "$EXECUTABLE" "$APPDIR/usr/bin/$APP_ID"
 
-install -Dm644 "$APP_ID.desktop" \
-    "$APPDIR/usr/share/applications/$APP_ID.desktop"
+install -Dm644 "$DESKTOP_FILE" \
+    "$APPDIR/usr/share/applications/$DESKTOP_ID.desktop"
 install -Dm644 art/ohrbob-logo.svg \
     "$APPDIR/usr/share/icons/hicolor/scalable/apps/$APP_ID.svg"
 install -Dm644 art/ohrbob-logo.png \
@@ -73,7 +78,7 @@ install -Dm755 packaging/linux/AppRun "$APPDIR/AppRun"
 
 # appimagetool reads the desktop file, the icon and .DirIcon from the top
 # level of the AppDir.
-ln -s "usr/share/applications/$APP_ID.desktop" "$APPDIR/$APP_ID.desktop"
+ln -s "usr/share/applications/$DESKTOP_ID.desktop" "$APPDIR/$DESKTOP_ID.desktop"
 ln -s "usr/share/icons/hicolor/512x512/apps/$APP_ID.png" "$APPDIR/$APP_ID.png"
 ln -s "$APP_ID.png" "$APPDIR/.DirIcon"
 

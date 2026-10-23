@@ -1,0 +1,21 @@
+# The AppImage's own desktop entry.
+#
+# It deliberately uses a different id from the Flatpak's
+# org.ohrbob.ohrbob.desktop so the two installs can coexist instead of fighting
+# over one id. scripts/install-appimage.sh rewrites Exec= to the AppImage's
+# absolute path when it installs this entry, since the copy embedded in the
+# AppImage cannot know where the user will keep it.
+#
+# Icon= stays the shared org.ohrbob.ohrbob: it is the same application, so the
+# logo and the AppStream id are the same.
+
+[Desktop Entry]
+Name=Ohrbob
+Comment=Cross-platform desktop & mobile player client for Ohrbob
+Exec=org.ohrbob.ohrbob %u
+Icon=org.ohrbob.ohrbob
+Terminal=false
+Type=Application
+Categories=AudioVideo;Player;
+StartupWMClass=Ohrbob.App.Desktop
+MimeType=x-scheme-handler/ohrbob;
