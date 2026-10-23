@@ -6,4 +6,5 @@ Icon=org.ohrbob.ohrbob
 Terminal=false
 Type=Application
 Categories=AudioVideo;Player;
+StartupWMClass=Ohrbob.App.Desktop
 MimeType=x-scheme-handler/ohrbob;
