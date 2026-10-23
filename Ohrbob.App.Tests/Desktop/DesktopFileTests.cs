@@ -18,7 +18,7 @@ public class DesktopFileTests
         // (X11PlatformOptions.WmClass), which for the desktop app is
         // "Ohrbob.App.Desktop" - not the application id. Without StartupWMClass
         // the desktop shell cannot associate the running window with this
-        // .desktop file, so the launcher/dock icon is wrong (see ISSUES.md #1).
+        // .desktop file, so the launcher/dock icon is wrong.
         var line = File.ReadAllLines(FindShippedDesktopFile())
             .FirstOrDefault(l => l.StartsWith("StartupWMClass="));
 

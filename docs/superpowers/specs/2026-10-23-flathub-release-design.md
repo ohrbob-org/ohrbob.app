@@ -40,9 +40,9 @@ yields `ohrbob.org`.
 ## Non-goals
 
 - Other stores/archives; Windows, macOS, iOS, Android packaging.
-- Fixing the runtime UX bugs in `ISSUES.md` (icon, cursor size, MPRIS) beyond what
-  packaging forces. The cursor item **is** touched because it drives the `--filesystem`
-  question.
+- Fixing the runtime UX bugs found while testing the Flatpak build (wrong launcher
+  icon, tiny cursor, MPRIS registration) beyond what packaging forces. The cursor item
+  **is** touched because it drives the `--filesystem` question.
 
 ## Anti-goals
 
