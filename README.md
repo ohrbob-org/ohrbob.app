@@ -26,7 +26,6 @@ Models used: DeepSeek v4.1 Flash via OpenCode CLI
 
 The player can easily connect to your self-hosted ohrbob instance. You want to self-host ohrbob.server? You need to go here: https://github.com/ohrbob-org/ohrbob.server
 
-
 ## Building it yourself
 
 ### Prerequisites
@@ -54,7 +53,3 @@ dotnet run --project Ohrbob.App.Android -p:AndroidSdkDirectory=/home/kaiwegner/P
 ```
 
 ---
-
-## Connection Format
-When connecting via a QR code or deep link, use this URI format:
-`ohrbob://connect?server={Server_URL}&token={Your_Stream_Token}`
