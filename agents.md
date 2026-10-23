@@ -9,3 +9,10 @@
 ## General Workflow
 - **Validation:** Always verify changes by running the build and the test suite (`dotnet test`). Even simple UI/ViewModel changes can break bindings or existing tests.
 - **Testing:** Always add tests for everything being implemented. New features and fixes must be covered by the test suite.
+
+## Publishing & Remotes
+- **Development mirror:** Gogs, `ssh://git@gogs.qwirl.de:8622/ohrbob/ohrbob.app.git` (git remote `origin`).
+- **Public repository:** `https://github.com/ohrbob-org/ohrbob.app.git`. `main` is published there automatically on every commit (Gogs push mirror).
+- **Consequence — treat every commit as public:** whatever lands on `main` is world-readable immediately. Never commit secrets, tokens, credentials, `.env`/`.envrc` contents, or personal data. This is also why the git history was rewritten to remove a personal email address.
+- **The Flatpak manifest builds from the public repo:** its `git` source points at `github.com/ohrbob-org/ohrbob.app` (pinned to a tag/commit). Work is only buildable from the manifest once it is committed to `main` and reachable there.
+- **Tags publish too:** release tags (`vX.Y.Z`) are what the manifest and AppStream screenshot URLs pin to, so a tag must be pushed for those URLs to resolve.
