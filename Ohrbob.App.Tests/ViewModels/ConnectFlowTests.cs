@@ -74,7 +74,12 @@ public class ConnectFlowTests
 
         await vm.OpenHostedConnectPageCommand.ExecuteAsync(null);
 
-        Assert.That(launcher.Last, Is.EqualTo(new Uri("https://ohrbob.org/connect/app")));
+        // The hosted page is told which machine is connecting so onboarding can
+        // pre-fill the name; the value is this machine's, escaped the same way.
+        var expected = new Uri(
+            $"https://ohrbob.org/connect/app?name={Uri.EscapeDataString(Environment.MachineName)}");
+
+        Assert.That(launcher.Last, Is.EqualTo(expected));
     }
 
     [Test]
