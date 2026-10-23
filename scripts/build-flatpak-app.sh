@@ -30,8 +30,9 @@ dotnet publish "$project" -c Release -r "$rid" --self-contained true --no-restor
 # binary under that name.
 ln -sf "$dest/bin/ohrbob/Ohrbob.App.Desktop" "$dest/bin/org.ohrbob.ohrbob"
 
-# Desktop entry, AppStream metadata, icon and license.
+# Desktop entry, AppStream metadata and icon. The license is not installed
+# here: flatpak-builder records LICENSE (a common name in the source root)
+# automatically to "$dest/share/licenses/org.ohrbob.ohrbob/ohrbob/".
 install -Dm644 org.ohrbob.ohrbob.desktop -t "$dest/share/applications/"
 install -Dm644 org.ohrbob.ohrbob.metainfo.xml -t "$dest/share/metainfo/"
 install -Dm644 art/ohrbob-logo.svg "$dest/share/icons/hicolor/scalable/apps/org.ohrbob.ohrbob.svg"
-install -Dm644 LICENSE -t "$dest/share/licenses/org.ohrbob.ohrbob/"

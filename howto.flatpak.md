@@ -22,6 +22,22 @@ sources:
 
 If you add another dot-folder or dot-file that shouldn't be bundled, add it here too. The same paths are also listed in `.gitignore` so they stay out of version control. Note that `skip` on `dir` sources requires flatpak-builder >= 1.4.0.
 
+## Build Recipe
+
+The steps that run *inside* the Flatpak sandbox live in `scripts/build-flatpak-app.sh`, and the manifest only calls it:
+
+```yaml
+modules:
+  - name: ohrbob
+    buildsystem: simple
+    build-commands:
+      - bash scripts/build-flatpak-app.sh
+```
+
+Keeping the recipe in the repository instead of inline in the manifest gives the packaging a single source of truth: the same script builds the app for local `flatpak-builder` runs and for the Flathub submission. It maps the Flatpak architecture to a .NET RID, restores NuGet packages from the vendored `nuget-sources.json`, publishes a self-contained build, and installs the desktop file, AppStream metadata and icon. The license is not installed by the script — flatpak-builder records `LICENSE` from the source root automatically.
+
+Note that `scripts/build-flatpak.sh` is a different, host-side helper: it only drives `flatpak-builder` against the manifest (see below).
+
 ## How to Build and Launch Locally
 
 ### Native Build (Recommended)
@@ -52,7 +68,7 @@ flatpak install flathub org.freedesktop.Sdk.Extension.dotnet10//26.08
 
 Flathub builds in a fully-enforced sandbox with **no network access during the build**, so every dependency must be declared as a source and fetched beforehand. This manifest is already set up for that: `nuget-sources.json` carries every NuGet package (for both `linux-x64` and `linux-arm64`), and the build restores with `--source nuget-sources` and publishes with `--no-restore`.
 
-> **Note:** the manifest in this repository is local development scaffolding, built from the working tree (`type: dir`). The copy submitted to Flathub is authored by hand and replaces the `dir` source with a pinned `git` source (tag + commit) pointing at the public repository.
+> **Note:** the manifest in this repository is local development scaffolding, built from the working tree (`type: dir`). The copy submitted to Flathub is authored by hand and replaces the `dir` source with a pinned `git` source (tag + commit) pointing at the public repository. It calls the same `scripts/build-flatpak-app.sh`, so the build recipe stays in one place.
 
 ### 1. Offline Dependencies
 
