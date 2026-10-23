@@ -1,0 +1,112 @@
+name: Release
+
+# Builds the Linux AppImage and the Windows installer for every tag push and
+# attaches both to a draft GitHub Release.
+#
+# The tag is the version (the leading "v" is stripped): the Flatpak manifest
+# and the AppStream screenshot URLs pin to these tags, so a tag must be pushed
+# for those URLs to resolve.
+
+on:
+  push:
+    tags:
+      - '**'
+
+# Creating and updating a Release needs write access to the repository
+# contents; everything else is read-only.
+permissions:
+  contents: write
+
+jobs:
+  version:
+    name: Resolve version
+    runs-on: ubuntu-latest
+    outputs:
+      value: ${{ steps.version.outputs.value }}
+    steps:
+      - name: Strip the leading "v" from the tag
+        id: version
+        run: echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+  linux-appimage:
+    name: Linux AppImage
+    runs-on: ubuntu-latest
+    needs: version
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      # The same script you can run locally, so the two cannot drift.
+      - name: Build the AppImage
+        run: ./scripts/build-appimage.sh "${{ needs.version.outputs.value }}"
+
+      - name: Upload the AppImage
+        uses: actions/upload-artifact@v7
+        with:
+          name: linux-appimage
+          path: dist/Ohrbob-*-x86_64.AppImage
+          if-no-files-found: error
+
+  windows-installer:
+    name: Windows installer
+    runs-on: windows-latest
+    needs: version
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish the desktop head (win-x64)
+        run: >
+          dotnet publish Ohrbob.App.Desktop/Ohrbob.App.Desktop.csproj
+          --configuration Release
+          --runtime win-x64
+          --self-contained true
+          -p:Version=${{ needs.version.outputs.value }}
+          --output publish/win
+
+      # Inno Setup 6 is preinstalled on the windows-latest image.
+      - name: Compile the installer
+        run: >
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          /DAppVersion=${{ needs.version.outputs.value }}
+          /DAppDir=${{ github.workspace }}\publish\win
+          installer\ohrbob.iss
+
+      - name: Upload the installer
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-installer
+          path: dist/win/OhrbobSetup-*.exe
+          if-no-files-found: error
+
+  release:
+    name: Draft release
+    needs:
+      - linux-appimage
+      - windows-installer
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download the build artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create the draft release
+        uses: softprops/action-gh-release@v3
+        with:
+          # Draft so a human can review the notes and files before publishing.
+          draft: true
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: artifacts/*

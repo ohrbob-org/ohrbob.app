@@ -1,0 +1,17 @@
+#!/bin/sh
+# AppImage entry point for the Ohrbob desktop client.
+#
+# The AppImage runtime runs this with the user's arguments, so an ohrbob://
+# deep link arrives as a plain argument and is handled by the app (see
+# Ohrbob.App.Desktop/DeepLinkArguments.cs).
+set -eu
+
+here="$(dirname "$(readlink -f "$0")")"
+
+# Put the bundled binary on PATH so the shared .desktop file's
+# `Exec=org.ohrbob.ohrbob` resolves, and keep the bundled native libraries
+# findable next to the apphost.
+export PATH="$here/usr/bin:${PATH:-}"
+export LD_LIBRARY_PATH="$here/usr/bin:${LD_LIBRARY_PATH:-}"
+
+exec "$here/usr/bin/Ohrbob.App.Desktop" "$@"
