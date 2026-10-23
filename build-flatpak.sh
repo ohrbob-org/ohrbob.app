@@ -6,9 +6,9 @@ echo "=> Building Flatpak using native Flatpak Builder..."
 # No docker, no root, no permission issues!
 # (The sandboxed org.flatpak.Builder flatpak is only needed if it is installed;
 #  it is not required here since /usr/bin/flatpak-builder is present.)
-flatpak-builder --user --install --force-clean build-dir app.ohrbob.Ohrbob.yml
+flatpak-builder --user --install --force-clean build-dir org.ohrbob.ohrbob.yml
 
 echo "========================================================"
 echo "=> Build & Install successful!"
 echo "=> You can now launch the Flatpak app natively by running:"
-echo "   flatpak run app.ohrbob.Ohrbob"
+echo "   flatpak run org.ohrbob.ohrbob"
