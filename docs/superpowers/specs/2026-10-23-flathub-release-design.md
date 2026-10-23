@@ -20,6 +20,11 @@ sources, so several things have to change.
 | Public source | `https://github.com/ohrbob-org/ohrbob.app` (private now; made public before submitting) |
 | App ID | `org.ohrbob.ohrbob` |
 | Domain for verification | `ohrbob.org` (owned; resolves and serves HTTPS) |
+| Manifest authorship | The manifest is **local-only** (mine, for testing). kai.wegner writes the submitted copy. |
+| Versioning | Git tags from now on; SemVer, starting at `0.0.1` |
+| Architectures | `x86_64` **and** `aarch64` |
+| Source of truth | Gogs stays the development mirror; GitHub becomes the public source |
+| Screenshots | Need new Linux desktop captures (to be made) |
 
 `org.ohrbob.ohrbob` is a legal Flathub ID: it has 3 components, the domain portion
 (`org.ohrbob`) is lowercase, and it does **not** end in a generic term (the earlier
@@ -35,7 +40,6 @@ yields `ohrbob.org`.
 ## Non-goals
 
 - Other stores/archives; Windows, macOS, iOS, Android packaging.
-- `aarch64` support in the first submission (see builder calls).
 - Fixing the runtime UX bugs in `ISSUES.md` (icon, cursor size, MPRIS) beyond what
   packaging forces. The cursor item **is** touched because it drives the `--filesystem`
   question.
@@ -43,7 +47,8 @@ yields `ohrbob.org`.
 ## Anti-goals
 
 - Shipping a manifest that contains AI-generated or AI-assisted content — Flathub's
-  Generative AI policy forbids it ("disclosure does not exempt"). See Open items.
+  Generative AI policy forbids it ("disclosure does not exempt"). See the authorship
+  split in section H.
 
 ## Constraints (external, non-negotiable)
 
@@ -114,70 +119,78 @@ use the new command name.
 
 New `org.ohrbob.ohrbob.metainfo.xml`, installed to `/app/share/metainfo/`. Needs:
 component `<id>`, name, summary, description, `project_license` = `GPL-3.0-or-later`,
-developer, `launchable`, `provides` (the `ohrbob://` scheme), screenshots (the
-`web-screenshots/*.png` set exists locally and must be hosted at stable public URLs),
-`releases` (needs a tagged release), and an OARS `content_rating`. Must pass
-`appstreamcli validate`.
+developer, `launchable`, `provides` (the `ohrbob://` scheme), screenshots (new Linux
+desktop window captures, hosted at stable public URLs), `releases` (needs a tagged
+release), and an OARS `content_rating`. Must pass `appstreamcli validate`.
 
 ### F. Architecture
 
-`-r linux-x64` is hardcoded and the app is self-contained. Flathub builds `x86_64` and
-`aarch64` by default; add a `flathub.json` to limit to `x86_64` for the first submission.
+Both `x86_64` and `aarch64` are built (no `flathub.json` arch limit). The publish command
+is hardcoded `-r linux-x64`, so it must become architecture-aware — flatpak-builder exposes
+`$FLATPAK_ARCH` (`x86_64` / `aarch64`), which maps to the .NET RID (`linux-x64` /
+`linux-arm64`). Consequences:
+
+- The single `nuget-sources.json` must carry the **runtime packs for both RIDs**.
+- Per-arch differences, if any, use `only-arches` rather than duplicating modules.
+- The app is self-contained, so each arch's output must include its own runtime.
+
+Verified: `org.freedesktop.Sdk.Extension.dotnet10` exists for `aarch64` on `26.08`.
 
 ### G. Releases and updates
 
-- The repo has **no git tags**, and Flathub expects standard tagged releases. Create a
-  version tag and point the manifest git source at it.
-- Consider `x-checker-data` in the git source so Flathub can propose updates.
+- Git tags from now on, SemVer, starting at `0.0.1`. Tag the commit the manifest pins, and
+  keep the AppStream `<release>` in step.
+- The manifest git source pins tag + commit; add `x-checker-data` so Flathub can propose
+  updates.
+- Periodic bumps: new tag → update the manifest ref → update the AppStream release entry.
 
 ### H. Submission mechanics
 
 Fork `flathub/flathub`, add a folder `org.ohrbob.ohrbob/` containing the manifest,
 metainfo, desktop file, icon, and `nuget-sources.json`, open a PR, let the test build run.
 
+**Authorship split:** the manifest I produce is local-only scaffolding for building and
+testing. kai.wegner writes the copy that goes into the submission PR, so the submitted
+manifest is human-authored per Flathub's policy. Everything else here (metainfo, desktop
+file, rename, source lists, screenshots) is mine to prepare.
+
 ## Builder calls (my judgement — changeable, flagged for review)
 
 1. **Runtime:** use the latest Freedesktop runtime available at submission (currently
    `26.08`); the `dotnet10` extension exists for it.
-2. **Arch:** `x86_64` only via `flathub.json` in the first submission; add `aarch64`
-   later if wanted.
+2. **Arch:** build both `x86_64` and `aarch64` (no `flathub.json` limit). Publish becomes
+   `$FLATPAK_ARCH`-aware; the NuGet source list carries both RIDs' runtime packs.
 3. **Cursor-theme permissions:** drop `--filesystem=~/.icons:ro`; keep the XDG location
    (`--filesystem=xdg-data/icons:ro`) and adjust `XCURSOR_PATH` accordingly. This is the
    narrowest option that still addresses the cursor bug; local build + a reviewer opinion
    will confirm.
 4. **Screen updates:** add `x-checker-data` for automatic update PRs.
 5. **Self-contained publish (not framework-dependent).** Keep
-   `dotnet publish -r linux-x64 --self-contained true`. Consequence: `nuget-sources.json`
-   must also capture the **runtime packs** (`Microsoft.NETCore.App.Runtime.linux-x64`,
-   `Microsoft.AspNetCore.App.Runtime.linux-x64`, …), so generate it against a restore that
-   carries the RID (`flatpak-dotnet-generator.py … --runtime linux-x64`). If offline
-   restore still misses packs, the fallback is framework-dependent publish against the
-   runtime the `dotnet10` extension provides — that changes the build command, the source
-   list, `cleanup`, and app size, so it is a deliberate fallback, not the default.
+   `dotnet publish … --self-contained true`, but the RID is chosen from `$FLATPAK_ARCH`
+   (`linux-x64` / `linux-arm64`). Consequence: `nuget-sources.json` must capture the
+   **runtime packs** for *both* RIDs (`Microsoft.NETCore.App.Runtime.linux-x64` and
+   `…linux-arm64`, plus the AspNetCore equivalents), so generate it against restores for
+   both. If offline restore still misses packs, the fallback is framework-dependent
+   publish against the runtime the `dotnet10` extension provides — that changes the build
+   command, the source list, `cleanup`, and app size, so it is a deliberate fallback, not
+   the default.
 
 Grounding (verified): `org.freedesktop.Sdk.Extension.dotnet10` exists on `26.08` for
 x86_64, and every declared NuGet dependency (including `SoundFlow 1.4.1`) is on
 nuget.org — so runtime choice and public package availability are settled.
 
-## Open items (yours)
+## Action items
 
-1. **Who authors the submitted manifest.** Flathub forbids AI-generated/AI-assisted
-   manifest content. If I write `org.ohrbob.ohrbob.yml`, it can't be the submitted
-   artifact. Options: you author it from this design, or we treat my manifest as
-   local-only and you write the submission copy.
-2. **Release version and tag scheme.** The repo has no tags and no version string
-   anywhere. The manifest's pinned git ref, the AppStream `<release version=… date=…>`,
-   and the update flow all hang off the exact tag. There may be an existing convention
-   from the Windows/macOS/Android builds to match.
-3. **Source of truth and publishing.** Confirm GitHub `ohrbob-org/ohrbob.app` is the
-   publication target the manifest sources from, and decide whether the self-hosted Gogs
-   stays the dev mirror. The history must be reviewed/scrubbed for secrets before the
-   GitHub repo is made public.
-4. **Desktop screenshots.** The existing `web-screenshots/*.png` are portrait
-   mobile-shaped (≈782×1706), not Linux desktop window captures, so they can't be the
-   AppStream screenshots. Need proper window screenshots, plus a public hosting location
-   (repo branch, `ohrbob.org`, or GitHub raw).
-5. **Arch scope** — confirm x86_64-only is acceptable for v1.
+All design questions are answered (see the decisions table). The remaining actions, by
+owner:
+
+| Action | Owner |
+| --- | --- |
+| Scrub secrets from git history | kai.wegner |
+| Make the GitHub repo public | kai.wegner |
+| Capture Linux desktop screenshots | to schedule |
+| Author the submitted manifest copy | kai.wegner |
+| Everything under "The work" | agent (local-only) |
 
 ## Verification plan
 
