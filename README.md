@@ -16,6 +16,11 @@ Ohrbob is your free and open-source radio station manager. With ohrbob you build
 
 This is still really early and a lot of features are missing - but the basic functionality is there and I want to test how to deploy this to flatpak. 
 
+## Disclosure Note on Generative AI
+
+The boilerplate code for this setup and some of its features have been written by generative AI. 
+
+Models used: DeepSeek v4.1 Flash via OpenCode CLI
 
 ## Self-Hosting
 
