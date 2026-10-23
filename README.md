@@ -1,16 +1,28 @@
 # Ohrbob App
 
-The cross-platform desktop & mobile player client for **Ohrbob**, built with **Avalonia UI** and **CommunityToolkit.Mvvm**.
+The cross-platform desktop (Linux, Windows, Mac) & mobile (iOS, Android) player client for **[Ohrbob](https://ohrbob.org)**, built with **Avalonia UI** and **CommunityToolkit.Mvvm**.
+
+Ohrbob is your free and open-source radio station manager. With ohrbob you build your own radio stations and listen to them anywhere. 
+
+![The Ohrbob player showing a station playing](desktop-screenshots/desktop-wide.png)
 
 ## Features
-- **Modern Dark UI**: Fluid and responsive design mimicking professional audio players.
-- **Onboarding Flow**: Quick-connection using standard QR code deep links (`ohrbob://connect`) or manual input.
-- **Persistent State Syncing**: Syncs your playback progress with the Ohrbob Server every 10 seconds.
-- **Full Media Controls**: Toggle play/pause, seek back 15s, seek forward 30s, or skip to the next episode in your station queue.
-
+- **Easy Setup**: You setup the Player with your ohrbob.org with a single click
+- **Theme**: The player automatically adjust according to your system theme (dark and light mode are available)
+- **Responsive**: The player window can work in tiny window in portrait mode or take full landscape mode size on your desktop
+- **Persistent Sync**: The player is syncing your playback state so you can continue to listen anywhere exactly where you were
+- **Media API**: On mobile and desktop the player registers correctly as a media player so you see and can control it via lock screens (eg. android) and notifications (eg. gnome)
 ---
 
-## Getting Started
+This is still really early and a lot of features are missing - but the basic functionality is there and I want to test how to deploy this to flatpak. 
+
+
+## Self-Hosting
+
+The player can easily connect to your self-hosted ohrbob instance. You want to self-host ohrbob.server? You need to go here: https://github.com/ohrbob-org/ohrbob.server
+
+
+## Building it yourself
 
 ### Prerequisites
 - .NET 10.0 SDK
