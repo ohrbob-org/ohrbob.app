@@ -54,9 +54,9 @@
   </screenshots>
 
   <releases>
-    <release version="0.0.4" date="2026-10-23">
+    <release version="0.0.5" date="2026-10-23">
       <description>
-        <p>First release.</p>
+        <p>Initial release on Flathub. Tested on Fedora44 for now. </p>
       </description>
     </release>
   </releases>
