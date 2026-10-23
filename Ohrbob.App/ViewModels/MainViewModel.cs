@@ -20,7 +20,7 @@ namespace Ohrbob.App.ViewModels;
 public partial class MainViewModel : ViewModelBase
 {
     /// <summary>The hosted ohrbob.org page that starts the connect flow.</summary>
-    public const string HostedConnectUrl = "https://ohrbob.org/connect/app";
+    public const string AppConnectPath = "/connect/app";
 
     private readonly ConfigService _configService;
     private readonly OhrbobClient _client;
@@ -438,7 +438,11 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand]
     private async Task OpenHostedConnectPage()
     {
-        await _uriLauncher.LaunchAsync(new Uri(HostedConnectUrl));
+        var hostName = Environment.MachineName;
+        var uriBuilder = new UriBuilder(new Uri("https://ohrbob.org"));
+        uriBuilder.Path = AppConnectPath;
+        uriBuilder.Query = $"name={Uri.EscapeDataString(hostName)}";
+        await _uriLauncher.LaunchAsync(uriBuilder.Uri);
     }
 
     [RelayCommand]
