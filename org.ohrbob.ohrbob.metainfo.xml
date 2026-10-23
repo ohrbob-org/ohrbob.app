@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>org.ohrbob.ohrbob</id>
+
+  <name>Ohrbob</name>
+  <summary>Player client for Ohrbob</summary>
+
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+
+  <description>
+    <p>
+      Ohrbob is the cross-platform desktop and mobile player client for Ohrbob,
+      built with Avalonia UI.
+    </p>
+    <p>
+      Browse and discover stations, manage profiles, and keep your playback
+      progress in sync with the Ohrbob server. The client offers a modern,
+      theme-aware interface, quick connection by QR code or deep link, and full
+      media controls including play/pause, seeking, and skipping within the
+      station queue.
+    </p>
+  </description>
+
+  <launchable type="desktop-id">org.ohrbob.ohrbob.desktop</launchable>
+
+  <provides>
+    <binary>org.ohrbob.ohrbob</binary>
+  </provides>
+
+  <url type="homepage">https://ohrbob.org</url>
+
+  <developer id="org.ohrbob">
+    <name>Ohrbob</name>
+  </developer>
+
+  <content_rating type="oars-1.1"/>
+</component>
