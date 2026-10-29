@@ -76,6 +76,9 @@ public partial class MainViewModel : ViewModelBase
     private string _currentEpisodeTitle = "No Track Selected";
 
     [ObservableProperty]
+    private string _profileName = "";
+
+    [ObservableProperty]
     private string _currentEpisodeDescription = "Please choose a station to start listening.";
 
     [ObservableProperty]
@@ -534,6 +537,7 @@ public partial class MainViewModel : ViewModelBase
         Stations.Clear();
         SelectedStation = null;
         CurrentEpisodeId = "";
+        ProfileName = "";
         CurrentEpisodeTitle = "No Track Selected";
         CurrentEpisodeDescription = "Please choose a station to start listening.";
         CurrentEpisodeCoverUrl = null;
@@ -583,6 +587,9 @@ public partial class MainViewModel : ViewModelBase
             var status = await _client.GetStatusAsync();
             if (status.ValueKind == JsonValueKind.Object)
             {
+                if (status.TryGetProperty("profileName", out var profileNameProp))
+                    ProfileName = profileNameProp.GetString() ?? "";
+
                 if (status.TryGetProperty("stationId", out var stationIdProp))
                 {
                     var stationId = stationIdProp.GetString();
@@ -657,6 +664,29 @@ public partial class MainViewModel : ViewModelBase
         catch
         {
             // Handle error switching station
+        }
+    }
+
+    [RelayCommand]
+    private async Task OpenStationSettingsAsync()
+    {
+        if (SelectedStation?.Station?.Id == null) return;
+        var webUri = await _client.GetWebUriAsync();
+        if (!string.IsNullOrEmpty(webUri))
+        {
+            var url = $"{webUri.TrimEnd('/')}/Stations/Edit/{SelectedStation.Station.Id}";
+            await _uriLauncher.LaunchAsync(new Uri(url));
+        }
+    }
+
+    [RelayCommand]
+    private async Task OpenProfileSettingsAsync()
+    {
+        var webUri = await _client.GetWebUriAsync();
+        if (!string.IsNullOrEmpty(webUri))
+        {
+            var url = $"{webUri.TrimEnd('/')}/Profiles";
+            await _uriLauncher.LaunchAsync(new Uri(url));
         }
     }
 

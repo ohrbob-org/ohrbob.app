@@ -90,6 +90,29 @@ public class OhrbobClient
         return status;
     }
 
+    public async Task<string?> GetWebUriAsync()
+    {
+        var serverUrl = _configService.ServerUrl?.TrimEnd('/');
+        if (string.IsNullOrEmpty(serverUrl))
+            return null;
+
+        var url = $"{serverUrl}/weburi";
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        ApplyHeaders(request);
+
+        using var response = await _httpClient.SendAsync(request);
+        if (response.IsSuccessStatusCode)
+        {
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var result = await response.Content.ReadFromJsonAsync<WebUriResponse>(options);
+            return result?.Uri;
+        }
+
+        return null;
+    }
+
+    private record WebUriResponse(string Uri);
+
     public async Task PlayStationAsync(string stationId)
     {
         var serverUrl = _configService.ServerUrl?.TrimEnd('/');

@@ -106,10 +106,12 @@
                     <!-- Sidebar Footer (Settings / Disconnect) -->
                     <Border Grid.Row="2" Background="{DynamicResource AppSurfaceBrush}" Padding="16" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,1,0,0">
                         <Grid ColumnDefinitions="*, Auto">
-                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                <TextBlock Text="Connected Stream" FontSize="11" Foreground="{DynamicResource AppMutedTextBrush}" FontWeight="SemiBold" />
-                                <TextBlock Text="Active Profile" FontSize="13" Foreground="{DynamicResource AppForegroundBrush}" FontWeight="SemiBold" />
-                            </StackPanel>
+                            <Button Grid.Column="0" Command="{Binding OpenProfileSettingsCommand}" Background="Transparent" Padding="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Listening as" FontSize="11" Foreground="{DynamicResource AppMutedTextBrush}" FontWeight="SemiBold" />
+                                    <TextBlock Text="{Binding ProfileName}" FontSize="13" Foreground="{DynamicResource AppForegroundBrush}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </Button>
                             <Button Grid.Column="1" Command="{Binding DisconnectCommand}" Content="Disconnect"
                                     Background="{DynamicResource AppBorderBrush}" Foreground="{DynamicResource AppForegroundBrush}" FontSize="11" CornerRadius="12" Padding="12,6" />
                         </Grid>
