@@ -8,13 +8,13 @@
              x:DataType="vm:MainViewModel">
 
     <!-- Onboarding Screen (Displayed when not connected) -->
-    <Grid Background="{DynamicResource ThemeLightBrush}" HorizontalAlignment="Center" VerticalAlignment="Center">
-        <Border Width="450" Background="{DynamicResource AppBackgroundBrush}" CornerRadius="12" BoxShadow="0 4 20 0 #40000000" Padding="30">
+    <Grid Background="{DynamicResource AppBackgroundBrush}">
+        <Border MaxWidth="450" Margin="16" HorizontalAlignment="Center" VerticalAlignment="Center" Background="{DynamicResource AppSurfaceBrush}" CornerRadius="12" BoxShadow="0 4 20 0 #40000000" Padding="30">
             <StackPanel Spacing="15">
                 <!-- Stylized Logo/Title -->
                 <Image Source="avares://Ohrbob.App/Assets/ohrbob-logo.png" Height="60" Margin="0,0,0,10" HorizontalAlignment="Center" />
                 
-                <TextBlock Text="Connect Your Ohrbob App" Classes="h2" HorizontalAlignment="Center" />
+                <TextBlock Text="Connect to Ohrbob" Classes="h2" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" />
 
                 <!-- Error Message — shown in both normal and advanced mode so a
                      failed "Connect with ohrbob.org" is never silent. -->

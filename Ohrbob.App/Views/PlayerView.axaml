@@ -135,7 +135,7 @@
                     <ScrollViewer Grid.Row="1" Margin="0,0,0,24" Padding="32" VerticalScrollBarVisibility="Auto">
                     <WrapPanel Orientation="Horizontal" HorizontalAlignment="Center">
                         <!-- Album Art Block -->
-                        <Grid Width="320" VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <Grid MaxWidth="320" VerticalAlignment="Center" HorizontalAlignment="Center">
                             <Border Width="280" Height="280" Background="{DynamicResource AppSurfaceBrush}" CornerRadius="16" BoxShadow="0 8 30 0 #20000000">
                                 <!-- Placeholder or Image -->
                                 <Panel>
@@ -155,7 +155,7 @@
                         </Grid>
 
                         <!-- Text Details Box -->
-                        <Grid Width="360" RowDefinitions="Auto, *, Auto" Margin="24,12,0,12">
+                        <Grid MaxWidth="360" RowDefinitions="Auto, *, Auto" Margin="24,12,0,12">
                             <!-- Station & Episode Title -->
                             <StackPanel Grid.Row="0" Spacing="6">
                                 <StackPanel Orientation="Horizontal" Spacing="8">

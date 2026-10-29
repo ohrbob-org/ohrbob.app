@@ -9,7 +9,7 @@ using Ohrbob.App.Services;
 namespace Ohrbob.App.Android;
 
 [Activity(
-    Label = "Ohrbob Player",
+    Label = "Ohrbob",
     Theme = "@style/MyTheme.NoActionBar",
     Icon = "@mipmap/ic_launcher",
     MainLauncher = true,

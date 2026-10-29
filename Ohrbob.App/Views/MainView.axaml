@@ -35,7 +35,7 @@
 
         <!-- Replace-connection confirmation (shown when a link arrives while connected) -->
         <Border Background="#80000000" IsVisible="{Binding IsReplaceConfirmationVisible}">
-            <Border x:Name="ReplaceConfirmationDialog" Width="360" Padding="24" CornerRadius="12"
+            <Border x:Name="ReplaceConfirmationDialog" MaxWidth="360" Margin="16" Padding="24" CornerRadius="12"
                     HorizontalAlignment="Center" VerticalAlignment="Center"
                     Background="{DynamicResource AppBackgroundBrush}"
                     BoxShadow="0 4 20 0 #40000000">
