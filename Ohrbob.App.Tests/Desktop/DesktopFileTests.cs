@@ -23,7 +23,7 @@ public class DesktopFileTests
             .FirstOrDefault(l => l.StartsWith("StartupWMClass="));
 
         Assert.That(line, Is.Not.Null, "the desktop file must declare StartupWMClass");
-        Assert.That(line, Is.EqualTo("StartupWMClass=Ohrbob.App.Desktop"));
+        Assert.That(line, Is.EqualTo("StartupWMClass=org.ohrbob.ohrbob"));
     }
 
     private static string FindShippedDesktopFile()
