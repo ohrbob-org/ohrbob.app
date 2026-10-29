@@ -20,4 +20,14 @@
   <ItemGroup>
     <ProjectReference Include="..\Ohrbob.App\Ohrbob.App.csproj" />
   </ItemGroup>
+
+  <!-- On Linux, desktop shells (like GNOME) strictly rely on .desktop files to show dock/taskbar icons. 
+       This target automatically installs the .desktop file and icon to the developer's local environment 
+       during debug builds, so Rider / dotnet run shows the correct application logo. -->
+  <Target Name="InstallDevDesktopFile" AfterTargets="Build" Condition="$([MSBuild]::IsOSPlatform('Linux')) And '$(Configuration)' == 'Debug'">
+    <Exec Command="mkdir -p ~/.local/share/applications ~/.local/share/icons/hicolor/scalable/apps" />
+    <Exec Command="cp $(MSBuildProjectDirectory)/../org.ohrbob.ohrbob.desktop ~/.local/share/applications/" />
+    <Exec Command="cp $(MSBuildProjectDirectory)/../art/ohrbob-logo.svg ~/.local/share/icons/hicolor/scalable/apps/org.ohrbob.ohrbob.svg" />
+    <Exec Command="update-desktop-database ~/.local/share/applications || true" />
+  </Target>
 </Project>
