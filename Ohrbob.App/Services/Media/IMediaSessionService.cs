@@ -23,4 +23,7 @@ public interface IMediaSessionService : IDisposable
 
     /// <summary>Seek relative to the current position, in seconds (may be negative).</summary>
     event EventHandler<int>? SeekByRequested;
+
+    /// <summary>Play a specific media item by its ID.</summary>
+    event EventHandler<string?>? PlayFromMediaIdRequested;
 }

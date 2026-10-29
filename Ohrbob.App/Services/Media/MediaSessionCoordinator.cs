@@ -34,6 +34,7 @@ public sealed class MediaSessionCoordinator : IDisposable
         _service.PreviousRequested += OnPreviousRequested;
         _service.SeekToRequested += OnSeekToRequested;
         _service.SeekByRequested += OnSeekByRequested;
+        _service.PlayFromMediaIdRequested += OnPlayFromMediaIdRequested;
 
         Publish();
     }
@@ -86,6 +87,21 @@ public sealed class MediaSessionCoordinator : IDisposable
     private void OnSeekByRequested(object? sender, int offset) =>
         _dispatch(() => _viewModel.PositionSeconds = Clamp(_viewModel.PositionSeconds + offset));
 
+    private void OnPlayFromMediaIdRequested(object? sender, string? mediaId) =>
+        _dispatch(() => 
+        {
+            if (!string.IsNullOrEmpty(mediaId))
+            {
+                // Find and set station by id
+                var station = System.Linq.Enumerable.FirstOrDefault(_viewModel.Stations, s => s.Station?.Id?.ToString() == mediaId || s.Station?.Name == mediaId);
+                if (station != null)
+                {
+                    _viewModel.SelectedStation = station;
+                    _viewModel.IsPlaying = true;
+                }
+            }
+        });
+
     private int Clamp(int seconds)
     {
         var max = _viewModel.DurationSeconds > 0 ? _viewModel.DurationSeconds : int.MaxValue;
@@ -105,5 +121,6 @@ public sealed class MediaSessionCoordinator : IDisposable
         _service.PreviousRequested -= OnPreviousRequested;
         _service.SeekToRequested -= OnSeekToRequested;
         _service.SeekByRequested -= OnSeekByRequested;
+        _service.PlayFromMediaIdRequested -= OnPlayFromMediaIdRequested;
     }
 }

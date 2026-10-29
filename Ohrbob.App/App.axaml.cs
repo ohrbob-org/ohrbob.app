@@ -14,6 +14,8 @@ public partial class App : Application
 {
     private MediaSessionCoordinator? _mediaSession;
 
+    public static MainViewModel? SharedViewModel { get; set; }
+
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
@@ -21,10 +23,14 @@ public partial class App : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
+        var viewModel = SharedViewModel ??= new MainViewModel();
+        if (_mediaSession == null)
+        {
+            AttachMediaSession(viewModel);
+        }
+
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            var viewModel = new MainViewModel();
-            AttachMediaSession(viewModel);
             AttachMacOsUriActivation();
             desktop.MainWindow = new MainWindow
             {
@@ -33,8 +39,6 @@ public partial class App : Application
         }
         else if (ApplicationLifetime is ISingleViewApplicationLifetime singleViewPlatform)
         {
-            var viewModel = new MainViewModel();
-            AttachMediaSession(viewModel);
             singleViewPlatform.MainView = new MainView
             {
                 DataContext = viewModel,

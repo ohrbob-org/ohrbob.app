@@ -5,5 +5,7 @@
 	<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 	<uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
 	<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-	<application android:label="Ohrbob Player" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round" android:networkSecurityConfig="@xml/network_security_config" />
+	<application android:label="Ohrbob Player" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round" android:networkSecurityConfig="@xml/network_security_config">
+		<meta-data android:name="com.google.android.gms.car.application" android:resource="@xml/automotive_app_desc" />
+	</application>
 </manifest>

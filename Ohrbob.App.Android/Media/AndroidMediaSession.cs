@@ -1,6 +1,7 @@
 using System;
 using Android.App;
 using Android.Content;
+using Android.OS;
 using Android.Support.V4.Media;
 using Android.Support.V4.Media.Session;
 using AndroidX.Core.App;
@@ -31,6 +32,8 @@ public sealed class AndroidMediaSession : IMediaSessionService
     private const string MetadataKeyDuration = "android.media.metadata.DURATION";
 
     public static AndroidMediaSession? Current { get; private set; }
+
+    public MediaSessionCompat.Token SessionToken => _session.SessionToken!;
 
     private readonly Context _context;
     private readonly MediaSessionCompat _session;
@@ -233,6 +236,7 @@ public sealed class AndroidMediaSession : IMediaSessionService
     public event EventHandler? PreviousRequested;
     public event EventHandler<int>? SeekToRequested;
     public event EventHandler<int>? SeekByRequested;
+    public event EventHandler<string?>? PlayFromMediaIdRequested;
 
     public void Dispose()
     {
@@ -269,5 +273,7 @@ public sealed class AndroidMediaSession : IMediaSessionService
         public override void OnRewind() => _owner.SeekByRequested?.Invoke(_owner, -15);
 
         public override void OnFastForward() => _owner.SeekByRequested?.Invoke(_owner, 30);
+
+        public override void OnPlayFromMediaId(string? mediaId, Bundle? extras) => _owner.PlayFromMediaIdRequested?.Invoke(_owner, mediaId);
     }
 }
