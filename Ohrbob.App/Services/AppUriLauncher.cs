@@ -15,6 +15,19 @@ public class AppUriLauncher : IUriLauncher
 {
     public async Task LaunchAsync(Uri uri)
     {
+        try
+        {
+            if (OperatingSystem.IsWindows() || OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(uri.ToString()) { UseShellExecute = true });
+                return;
+            }
+        }
+        catch
+        {
+            // Fallback to Avalonia's launcher if Process.Start fails
+        }
+
         var topLevel = ResolveTopLevel();
         if (topLevel?.Launcher is null)
         {
