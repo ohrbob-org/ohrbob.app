@@ -70,6 +70,9 @@ public partial class MainViewModel : ViewModelBase
     private StationWithFeedsDto? _selectedStation;
 
     [ObservableProperty]
+    private string _currentEpisodeId = "";
+
+    [ObservableProperty]
     private string _currentEpisodeTitle = "No Track Selected";
 
     [ObservableProperty]
@@ -219,9 +222,9 @@ public partial class MainViewModel : ViewModelBase
                 try
                 {
                     // Call the API sync endpoint
-                    if (SelectedStation?.Station?.Id != null)
+                    if (SelectedStation?.Station?.Id != null && !string.IsNullOrEmpty(CurrentEpisodeId))
                     {
-                        await _client.SyncStatusAsync(CurrentEpisodeTitle, SelectedStation.Station.Id, PositionSeconds);
+                        await _client.SyncStatusAsync(CurrentEpisodeId, SelectedStation.Station.Id, PositionSeconds);
                     }
                 }
                 catch
@@ -267,6 +270,7 @@ public partial class MainViewModel : ViewModelBase
             
             if (PositionSeconds > 0)
             {
+                Log.Information("Seeking player to saved position: {PositionSeconds}", PositionSeconds);
                 _player.Seek(PositionSeconds);
             }
             
@@ -529,6 +533,7 @@ public partial class MainViewModel : ViewModelBase
         _configService.Save("", "");
         Stations.Clear();
         SelectedStation = null;
+        CurrentEpisodeId = "";
         CurrentEpisodeTitle = "No Track Selected";
         CurrentEpisodeDescription = "Please choose a station to start listening.";
         CurrentEpisodeCoverUrl = null;
@@ -589,6 +594,9 @@ public partial class MainViewModel : ViewModelBase
 
                 if (status.TryGetProperty("current", out var currentProp) && currentProp.ValueKind == JsonValueKind.Object)
                 {
+                    if (currentProp.TryGetProperty("episodeId", out var idProp))
+                        CurrentEpisodeId = idProp.GetString() ?? "";
+
                     if (currentProp.TryGetProperty("title", out var titleProp))
                         CurrentEpisodeTitle = titleProp.GetString() ?? "Unknown Title";
 

@@ -213,7 +213,7 @@ public class SoundFlowAudioPlayer : IAudioPlayer
     {
         if (_player != null)
         {
-            _player.Seek(positionSeconds);
+            _player.Seek((float)positionSeconds);
             PositionChanged?.Invoke(this, PositionSeconds);
         }
     }
