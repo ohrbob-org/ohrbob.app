@@ -274,6 +274,7 @@ public sealed class MprisMediaSession : IMediaSessionService
     public event EventHandler? PreviousRequested;
     public event EventHandler<int>? SeekToRequested;
     public event EventHandler<int>? SeekByRequested;
+    public event EventHandler<string?>? PlayFromMediaIdRequested;
 
     public void Dispose()
     {
