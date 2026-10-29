@@ -146,13 +146,13 @@ public class SoundFlowAudioPlayer : IAudioPlayer
             // Execute SoundFlow initialization on a background thread.
             await Task.Run(() => 
             {
-                var format = new AudioFormat { Format = SampleFormat.F32, Channels = 2, SampleRate = 44100 };
+                _provider = new StreamDataProvider(_engine, _bufferStream, new SoundFlow.Metadata.Models.ReadOptions());
                 
-                _provider = new StreamDataProvider(_engine, format, _bufferStream);
-                
-                format.Format = _provider.SampleFormat == SampleFormat.Unknown ? SampleFormat.F32 : _provider.SampleFormat;
-                format.Channels = _provider.FormatInfo?.ChannelCount ?? 2;
-                format.SampleRate = _provider.FormatInfo?.SampleRate ?? 44100;
+                var format = new AudioFormat {
+                    Format = _provider.SampleFormat == SampleFormat.Unknown ? SampleFormat.F32 : _provider.SampleFormat,
+                    Channels = _provider.FormatInfo?.ChannelCount ?? 2,
+                    SampleRate = _provider.FormatInfo?.SampleRate ?? 44100
+                };
 
                 _device = _engine.InitializePlaybackDevice(null, format, new MiniAudioDeviceConfig());
                 _player = new SoundPlayer(_engine, format, _provider);
