@@ -161,6 +161,10 @@ public class SoundFlowAudioPlayer : IAudioPlayer
                 _device.Start();
                 
             }, ct);
+            
+            // Fire an initial duration and position update so UI is correct even if paused
+            DurationChanged?.Invoke(this, DurationSeconds);
+            PositionChanged?.Invoke(this, PositionSeconds);
         }
         catch(Exception e)
         {

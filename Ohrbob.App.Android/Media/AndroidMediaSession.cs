@@ -113,7 +113,7 @@ public sealed class AndroidMediaSession : IMediaSessionService
 
     private void UpdatePlaybackState()
     {
-        var state = new PlaybackStateCompat.Builder()
+        var stateBuilder = new PlaybackStateCompat.Builder()
             .SetActions(
                 PlaybackStateCompat.ActionPlay |
                 PlaybackStateCompat.ActionPause |
@@ -126,9 +126,24 @@ public sealed class AndroidMediaSession : IMediaSessionService
             .SetState(
                 _info.IsPlaying ? PlaybackStateCompat.StatePlaying : PlaybackStateCompat.StatePaused,
                 _info.PositionSeconds * 1000L,
-                1.0f)
-            .Build()!;
-        _session.SetPlaybackState(state);
+                1.0f);
+
+        // Android Auto needs custom actions to explicitly show fast forward / rewind buttons
+        stateBuilder.AddCustomAction(
+            new PlaybackStateCompat.CustomAction.Builder(
+                "ACTION_REWIND",
+                "Rewind",
+                global::Android.Resource.Drawable.IcMediaRew // standard Android rewind icon
+            ).Build());
+
+        stateBuilder.AddCustomAction(
+            new PlaybackStateCompat.CustomAction.Builder(
+                "ACTION_FAST_FORWARD",
+                "Fast Forward",
+                global::Android.Resource.Drawable.IcMediaFf // standard Android fast-forward icon
+            ).Build());
+
+        _session.SetPlaybackState(stateBuilder.Build()!);
     }
 
     private void UpdateNotification()
@@ -287,5 +302,13 @@ public sealed class AndroidMediaSession : IMediaSessionService
         public override void OnFastForward() => _owner.SeekByRequested?.Invoke(_owner, 30);
 
         public override void OnPlayFromMediaId(string? mediaId, Bundle? extras) => _owner.PlayFromMediaIdRequested?.Invoke(_owner, mediaId);
+
+        public override void OnCustomAction(string? action, Bundle? extras)
+        {
+            if (action == "ACTION_REWIND")
+                _owner.SeekByRequested?.Invoke(_owner, -1);
+            else if (action == "ACTION_FAST_FORWARD")
+                _owner.SeekByRequested?.Invoke(_owner, 1);
+        }
     }
 }

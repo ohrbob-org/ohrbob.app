@@ -149,10 +149,19 @@ public sealed class AutoMediaBrowserService : MediaBrowserServiceCompat
                         .SetTitle(title)
                         .SetExtras(extras);
                         
+                    // Android Auto needs an absolute icon URI but sometimes fails to load them directly.
+                    // Or the API might expect a scheme like content:// or http:// if it's missing.
                     var coverUrl = station.Station?.DisplayCoverUrl;
+                    if (string.IsNullOrEmpty(coverUrl) && station.Feeds != null && station.Feeds.Count > 0)
+                    {
+                        // Fallback to first feed image if station image is missing
+                        coverUrl = station.Feeds[0].ImageUrl;
+                    }
+                    
                     if (!string.IsNullOrEmpty(coverUrl))
                     {
-                        builder.SetIconUri(global::Android.Net.Uri.Parse(coverUrl));
+                        var uri = global::Android.Net.Uri.Parse(coverUrl);
+                        builder.SetIconUri(uri);
                     }
 
                     asyncItems.Add(new MediaBrowserCompat.MediaItem(builder.Build(), MediaBrowserCompat.MediaItem.FlagPlayable));
@@ -183,6 +192,11 @@ public sealed class AutoMediaBrowserService : MediaBrowserServiceCompat
                 .SetExtras(extras);
                 
             var coverUrl = station.Station?.DisplayCoverUrl;
+            if (string.IsNullOrEmpty(coverUrl) && station.Feeds != null && station.Feeds.Count > 0)
+            {
+                coverUrl = station.Feeds[0].ImageUrl;
+            }
+
             if (!string.IsNullOrEmpty(coverUrl))
             {
                 builder.SetIconUri(global::Android.Net.Uri.Parse(coverUrl));

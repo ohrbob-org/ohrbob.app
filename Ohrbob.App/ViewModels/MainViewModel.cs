@@ -100,13 +100,13 @@ public partial class MainViewModel : ViewModelBase
     private int _positionSeconds;
 
     [ObservableProperty]
-    private int _durationSeconds = 1800; // default 30 minutes
+    private int _durationSeconds;
 
     [ObservableProperty]
     private string _positionText = "00:00";
 
     [ObservableProperty]
-    private string _durationText = "30:00";
+    private string _durationText = "00:00";
 
     [ObservableProperty]
     private bool _isPortrait;
@@ -199,6 +199,8 @@ public partial class MainViewModel : ViewModelBase
     {
         Dispatcher.UIThread.Post(() =>
         {
+            if (IsBuffering && !state) return; // Ignore internal stops during load
+
             _isUpdatingStateFromPlayer = true;
             try
             {
@@ -277,7 +279,7 @@ public partial class MainViewModel : ViewModelBase
                 _player.Seek(PositionSeconds);
             }
             
-            if (!_configService.DoNotAutoPlay)
+            if (IsPlaying)
             {
                 _player.Play();
             }
@@ -329,17 +331,13 @@ public partial class MainViewModel : ViewModelBase
         {
             _player.Stop();
             _loadedStreamUri = null;
+            DurationSeconds = 0; // Clear duration to prevent stale time display
+
             if (!string.IsNullOrEmpty(value))
             {
-                bool shouldPlay = !_configService.DoNotAutoPlay;
-                if (IsPlaying != shouldPlay)
-                {
-                    IsPlaying = shouldPlay;
-                }
-                else
-                {
-                    _ = LoadAudioUrlAsync(value);
-                }
+                // We keep the global IsPlaying state. Load the audio.
+                // It will auto-play if IsPlaying is true.
+                _ = LoadAudioUrlAsync(value);
             }
         }
         catch

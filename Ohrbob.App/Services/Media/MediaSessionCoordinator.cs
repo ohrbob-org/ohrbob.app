@@ -85,7 +85,13 @@ public sealed class MediaSessionCoordinator : IDisposable
         _dispatch(() => _viewModel.PositionSeconds = Clamp(seconds));
 
     private void OnSeekByRequested(object? sender, int offset) =>
-        _dispatch(() => _viewModel.PositionSeconds = Clamp(_viewModel.PositionSeconds + offset));
+        _dispatch(() => 
+        {
+            if (offset < 0)
+                _viewModel.SeekBackCommand.Execute(null);
+            else if (offset > 0)
+                _viewModel.SeekForwardCommand.Execute(null);
+        });
 
     private void OnPlayFromMediaIdRequested(object? sender, string? mediaId) =>
         _dispatch(() => 
