@@ -111,6 +111,11 @@ public sealed class AndroidMediaSession : IMediaSessionService
         _session.SetMetadata(metadata);
     }
 
+    private const string ActionSkipBack = "com.ohrbob.app.action.SKIP_BACK";
+    private const string ActionSeekBack = "com.ohrbob.app.action.SEEK_BACK";
+    private const string ActionSeekForward = "com.ohrbob.app.action.SEEK_FORWARD";
+    private const string ActionSkipForward = "com.ohrbob.app.action.SKIP_FORWARD";
+
     private void UpdatePlaybackState()
     {
         var stateBuilder = new PlaybackStateCompat.Builder()
@@ -118,30 +123,24 @@ public sealed class AndroidMediaSession : IMediaSessionService
                 PlaybackStateCompat.ActionPlay |
                 PlaybackStateCompat.ActionPause |
                 PlaybackStateCompat.ActionPlayPause |
-                PlaybackStateCompat.ActionSkipToNext |
-                PlaybackStateCompat.ActionSkipToPrevious |
-                PlaybackStateCompat.ActionRewind |
-                PlaybackStateCompat.ActionFastForward |
                 PlaybackStateCompat.ActionSeekTo)
             .SetState(
                 _info.IsPlaying ? PlaybackStateCompat.StatePlaying : PlaybackStateCompat.StatePaused,
                 _info.PositionSeconds * 1000L,
                 1.0f);
 
-        // Android Auto needs custom actions to explicitly show fast forward / rewind buttons
-        stateBuilder.AddCustomAction(
-            new PlaybackStateCompat.CustomAction.Builder(
-                "ACTION_REWIND",
-                "Rewind",
-                global::Android.Resource.Drawable.IcMediaRew // standard Android rewind icon
-            ).Build());
-
-        stateBuilder.AddCustomAction(
-            new PlaybackStateCompat.CustomAction.Builder(
-                "ACTION_FAST_FORWARD",
-                "Fast Forward",
-                global::Android.Resource.Drawable.IcMediaFf // standard Android fast-forward icon
-            ).Build());
+        // Android Auto fills the two inner flanking slots with the first custom actions and the
+        // two outer slots with the ones added after them. To end up with
+        // skip back | seek back | play/pause | seek forward | skip forward,
+        // the inner pair is added first and the outer pair afterwards.
+        stateBuilder.AddCustomAction(new PlaybackStateCompat.CustomAction.Builder(
+            ActionSeekBack, "Seek back", global::Android.Resource.Drawable.IcMediaRew).Build());
+        stateBuilder.AddCustomAction(new PlaybackStateCompat.CustomAction.Builder(
+            ActionSeekForward, "Seek forward", global::Android.Resource.Drawable.IcMediaFf).Build());
+        stateBuilder.AddCustomAction(new PlaybackStateCompat.CustomAction.Builder(
+            ActionSkipBack, "Skip back", global::Android.Resource.Drawable.IcMediaPrevious).Build());
+        stateBuilder.AddCustomAction(new PlaybackStateCompat.CustomAction.Builder(
+            ActionSkipForward, "Skip forward", global::Android.Resource.Drawable.IcMediaNext).Build());
 
         _session.SetPlaybackState(stateBuilder.Build()!);
     }
@@ -305,10 +304,21 @@ public sealed class AndroidMediaSession : IMediaSessionService
 
         public override void OnCustomAction(string? action, Bundle? extras)
         {
-            if (action == "ACTION_REWIND")
-                _owner.SeekByRequested?.Invoke(_owner, -1);
-            else if (action == "ACTION_FAST_FORWARD")
-                _owner.SeekByRequested?.Invoke(_owner, 1);
+            switch (action)
+            {
+                case ActionSkipBack:
+                    _owner.PreviousRequested?.Invoke(_owner, EventArgs.Empty);
+                    break;
+                case ActionSeekBack:
+                    _owner.SeekByRequested?.Invoke(_owner, -1);
+                    break;
+                case ActionSeekForward:
+                    _owner.SeekByRequested?.Invoke(_owner, 1);
+                    break;
+                case ActionSkipForward:
+                    _owner.NextRequested?.Invoke(_owner, EventArgs.Empty);
+                    break;
+            }
         }
     }
 }
