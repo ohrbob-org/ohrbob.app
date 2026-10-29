@@ -30,6 +30,9 @@ public sealed class AndroidMediaSession : IMediaSessionService
     private const string MetadataKeyArtist = "android.media.metadata.ARTIST";
     private const string MetadataKeyAlbum = "android.media.metadata.ALBUM";
     private const string MetadataKeyDuration = "android.media.metadata.DURATION";
+    private const string MetadataKeyAlbumArtUri = "android.media.metadata.ALBUM_ART_URI";
+    private const string MetadataKeyDisplayIconUri = "android.media.metadata.DISPLAY_ICON_URI";
+    private const string MetadataKeyArtUri = "android.media.metadata.ART_URI";
 
     public static AndroidMediaSession? Current { get; private set; }
 
@@ -79,7 +82,7 @@ public sealed class AndroidMediaSession : IMediaSessionService
     private bool ContentChanged(MediaSessionInfo info)
     {
         var key = string.Join(
-            '\u0000', info.Title, info.Artist, info.IsPlaying, info.DurationSeconds);
+            '\u0000', info.Title, info.Artist, info.CoverUrl, info.IsPlaying, info.DurationSeconds);
         if (key == _lastContentKey)
         {
             return false;
@@ -91,12 +94,20 @@ public sealed class AndroidMediaSession : IMediaSessionService
 
     private void UpdateMetadata()
     {
-        var metadata = new MediaMetadataCompat.Builder()
+        var metadataBuilder = new MediaMetadataCompat.Builder()
             .PutString(MetadataKeyTitle, _info.Title)
             .PutString(MetadataKeyArtist, _info.Artist)
             .PutString(MetadataKeyAlbum, _info.Artist)
-            .PutLong(MetadataKeyDuration, _info.DurationSeconds * 1000L)
-            .Build()!;
+            .PutLong(MetadataKeyDuration, _info.DurationSeconds * 1000L);
+
+        if (!string.IsNullOrEmpty(_info.CoverUrl))
+        {
+            metadataBuilder.PutString(MetadataKeyAlbumArtUri, _info.CoverUrl)
+                           .PutString(MetadataKeyArtUri, _info.CoverUrl)
+                           .PutString(MetadataKeyDisplayIconUri, _info.CoverUrl);
+        }
+
+        var metadata = metadataBuilder.Build()!;
         _session.SetMetadata(metadata);
     }
 
@@ -108,6 +119,7 @@ public sealed class AndroidMediaSession : IMediaSessionService
                 PlaybackStateCompat.ActionPause |
                 PlaybackStateCompat.ActionPlayPause |
                 PlaybackStateCompat.ActionSkipToNext |
+                PlaybackStateCompat.ActionSkipToPrevious |
                 PlaybackStateCompat.ActionRewind |
                 PlaybackStateCompat.ActionFastForward |
                 PlaybackStateCompat.ActionSeekTo)
@@ -270,7 +282,7 @@ public sealed class AndroidMediaSession : IMediaSessionService
 
         public override void OnSeekTo(long pos) => _owner.SeekToRequested?.Invoke(_owner, (int)(pos / 1000));
 
-        public override void OnRewind() => _owner.SeekByRequested?.Invoke(_owner, -15);
+        public override void OnRewind() => _owner.SeekByRequested?.Invoke(_owner, -30);
 
         public override void OnFastForward() => _owner.SeekByRequested?.Invoke(_owner, 30);
 

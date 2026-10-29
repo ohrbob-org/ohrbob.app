@@ -40,7 +40,19 @@ public sealed class AutoMediaBrowserService : MediaBrowserServiceCompat
                 var viewModel = App.SharedViewModel ??= new ViewModels.MainViewModel();
                 var coordinator = new Ohrbob.App.Services.Media.MediaSessionCoordinator(viewModel, AndroidMediaSession.Current!);
                 _coordinator = coordinator;
+
+                viewModel.Stations.CollectionChanged += (s, e) =>
+                {
+                    NotifyChildrenChanged(RootId);
+                };
             });
+        }
+        else if (App.SharedViewModel != null)
+        {
+            App.SharedViewModel.Stations.CollectionChanged += (s, e) =>
+            {
+                NotifyChildrenChanged(RootId);
+            };
         }
 
         SessionToken = AndroidMediaSession.Current!.SessionToken;
@@ -61,7 +73,11 @@ public sealed class AutoMediaBrowserService : MediaBrowserServiceCompat
             return new BrowserRoot(ErrorSetupRequiredId, extras);
         }
 
-        return new BrowserRoot(RootId, null);
+        var rootExtras = new Bundle();
+        rootExtras.PutInt("android.media.browse.CONTENT_STYLE_BROWSABLE_HINT", 2);
+        rootExtras.PutInt("android.media.browse.CONTENT_STYLE_PLAYABLE_HINT", 2);
+
+        return new BrowserRoot(RootId, rootExtras);
     }
 
     public override void OnLoadChildren(string parentId, Result result)
@@ -115,13 +131,11 @@ public sealed class AutoMediaBrowserService : MediaBrowserServiceCompat
                 foreach (var station in viewModel.Stations)
                 {
                     var title = station.Station?.Name ?? "Unknown Station";
-                    var description = station.Station?.AccountId ?? "";
                     var id = station.Station?.Id?.ToString() ?? title;
 
                     var builder = new MediaDescriptionCompat.Builder()
                         .SetMediaId(id)
-                        .SetTitle(title)
-                        .SetSubtitle(description);
+                        .SetTitle(title);
                         
                     var coverUrl = station.Station?.DisplayCoverUrl;
                     if (!string.IsNullOrEmpty(coverUrl))
@@ -131,6 +145,12 @@ public sealed class AutoMediaBrowserService : MediaBrowserServiceCompat
 
                     asyncItems.Add(new MediaBrowserCompat.MediaItem(builder.Build(), MediaBrowserCompat.MediaItem.FlagPlayable));
                 }
+                if (asyncItems.Count == 0)
+                {
+                    asyncItems.Add(new MediaBrowserCompat.MediaItem(
+                        new MediaDescriptionCompat.Builder().SetMediaId("dummy").SetTitle("Loading...").Build(),
+                        MediaBrowserCompat.MediaItem.FlagPlayable));
+                }
                 result.SendResult(new Java.Util.ArrayList(asyncItems));
             });
             return;
@@ -139,13 +159,11 @@ public sealed class AutoMediaBrowserService : MediaBrowserServiceCompat
         foreach (var station in viewModel.Stations)
         {
             var title = station.Station?.Name ?? "Unknown Station";
-            var description = station.Station?.AccountId ?? "";
             var id = station.Station?.Id?.ToString() ?? title;
 
             var builder = new MediaDescriptionCompat.Builder()
                 .SetMediaId(id)
-                .SetTitle(title)
-                .SetSubtitle(description);
+                .SetTitle(title);
                 
             var coverUrl = station.Station?.DisplayCoverUrl;
             if (!string.IsNullOrEmpty(coverUrl))
@@ -154,6 +172,13 @@ public sealed class AutoMediaBrowserService : MediaBrowserServiceCompat
             }
 
             items.Add(new MediaBrowserCompat.MediaItem(builder.Build(), MediaBrowserCompat.MediaItem.FlagPlayable));
+        }
+
+        if (items.Count == 0)
+        {
+            items.Add(new MediaBrowserCompat.MediaItem(
+                new MediaDescriptionCompat.Builder().SetMediaId("dummy2").SetTitle("No Stations").Build(),
+                MediaBrowserCompat.MediaItem.FlagPlayable));
         }
 
         result.SendResult(new Java.Util.ArrayList(items));
