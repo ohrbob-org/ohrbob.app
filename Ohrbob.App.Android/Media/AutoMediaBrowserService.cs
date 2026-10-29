@@ -74,7 +74,7 @@ public sealed class AutoMediaBrowserService : MediaBrowserServiceCompat
         }
 
         var rootExtras = new Bundle();
-        rootExtras.PutInt("android.media.browse.CONTENT_STYLE_BROWSABLE_HINT", 2);
+        rootExtras.PutInt("android.media.browse.CONTENT_STYLE_BROWSABLE_HINT", 2); // 2 = CONTENT_STYLE_GRID_ITEM_HINT
         rootExtras.PutInt("android.media.browse.CONTENT_STYLE_PLAYABLE_HINT", 2);
 
         return new BrowserRoot(RootId, rootExtras);
@@ -113,6 +113,13 @@ public sealed class AutoMediaBrowserService : MediaBrowserServiceCompat
             return;
         }
 
+        // To make Android Auto apply the hint from OnGetRoot, the parentId must be the RootId.
+        if (parentId != RootId)
+        {
+            result.SendResult(new Java.Util.ArrayList(items));
+            return;
+        }
+
         if (viewModel.Stations.Count == 0)
         {
             // If the view model is still initializing, we can detach and complete later
@@ -133,9 +140,14 @@ public sealed class AutoMediaBrowserService : MediaBrowserServiceCompat
                     var title = station.Station?.Name ?? "Unknown Station";
                     var id = station.Station?.Id?.ToString() ?? title;
 
+                    var extras = new Bundle();
+                    extras.PutInt("android.media.browse.CONTENT_STYLE_BROWSABLE_HINT", 2);
+                    extras.PutInt("android.media.browse.CONTENT_STYLE_PLAYABLE_HINT", 2);
+
                     var builder = new MediaDescriptionCompat.Builder()
                         .SetMediaId(id)
-                        .SetTitle(title);
+                        .SetTitle(title)
+                        .SetExtras(extras);
                         
                     var coverUrl = station.Station?.DisplayCoverUrl;
                     if (!string.IsNullOrEmpty(coverUrl))
@@ -161,9 +173,14 @@ public sealed class AutoMediaBrowserService : MediaBrowserServiceCompat
             var title = station.Station?.Name ?? "Unknown Station";
             var id = station.Station?.Id?.ToString() ?? title;
 
+            var extras = new Bundle();
+            extras.PutInt("android.media.browse.CONTENT_STYLE_BROWSABLE_HINT", 2);
+            extras.PutInt("android.media.browse.CONTENT_STYLE_PLAYABLE_HINT", 2);
+
             var builder = new MediaDescriptionCompat.Builder()
                 .SetMediaId(id)
-                .SetTitle(title);
+                .SetTitle(title)
+                .SetExtras(extras);
                 
             var coverUrl = station.Station?.DisplayCoverUrl;
             if (!string.IsNullOrEmpty(coverUrl))
