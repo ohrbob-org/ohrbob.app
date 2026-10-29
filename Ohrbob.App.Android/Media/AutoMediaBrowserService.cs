@@ -31,11 +31,16 @@ public sealed class AutoMediaBrowserService : MediaBrowserServiceCompat
                 Ohrbob.App.Services.Media.MediaSessionHost.Factory = () => new AndroidMediaSession(app);
             }
             
-            // Create the shared view model headlessly to hook up playback logic
-            var viewModel = App.SharedViewModel ??= new ViewModels.MainViewModel();
-            var coordinator = new Ohrbob.App.Services.Media.MediaSessionCoordinator(viewModel, Ohrbob.App.Services.Media.MediaSessionHost.Factory());
-            // Keep it alive
-            _coordinator = coordinator;
+            // Just instantiate AndroidMediaSession immediately so we have the SessionToken
+            _ = Ohrbob.App.Services.Media.MediaSessionHost.Factory();
+
+            // Kick off the heavy MainViewModel & audio player init in the background
+            System.Threading.Tasks.Task.Run(() => 
+            {
+                var viewModel = App.SharedViewModel ??= new ViewModels.MainViewModel();
+                var coordinator = new Ohrbob.App.Services.Media.MediaSessionCoordinator(viewModel, AndroidMediaSession.Current!);
+                _coordinator = coordinator;
+            });
         }
 
         SessionToken = AndroidMediaSession.Current!.SessionToken;
