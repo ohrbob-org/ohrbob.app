@@ -13,6 +13,7 @@ namespace Ohrbob.App;
 public partial class App : Application
 {
     private MediaSessionCoordinator? _mediaSession;
+    private IDisposable? _audioFocus;
 
     public static MainViewModel? SharedViewModel { get; set; }
 
@@ -27,6 +28,11 @@ public partial class App : Application
         if (_mediaSession == null)
         {
             AttachMediaSession(viewModel);
+        }
+
+        if (_audioFocus == null)
+        {
+            AttachAudioFocus(viewModel);
         }
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
@@ -85,6 +91,28 @@ public partial class App : Application
         catch (Exception ex)
         {
             Log.Error(ex, "Failed to attach the OS media session");
+        }
+    }
+
+    /// <summary>
+    /// Connects the view model to the platform's audio-focus / interruption handler
+    /// (Android audio focus, so calls pause playback), if the platform registered one.
+    /// </summary>
+    private void AttachAudioFocus(MainViewModel viewModel)
+    {
+        var factory = AudioFocusHost.Factory;
+        if (factory == null)
+        {
+            return;
+        }
+
+        try
+        {
+            _audioFocus = factory(viewModel);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to attach audio focus handling");
         }
     }
 }

@@ -24,6 +24,9 @@ namespace Ohrbob.App.Android
             // media browser service; reuse it so both sides share one session token.
             MediaSessionHost.Factory = () => Media.AndroidMediaSession.Current ?? new Media.AndroidMediaSession(this);
 
+            // Audio focus lets Android interrupt playback for incoming calls.
+            AudioFocusHost.Factory = viewModel => new Media.AndroidAudioFocus(this, viewModel);
+
             base.OnCreate();
         }
 
