@@ -40,7 +40,7 @@ ADB="$ANDROID_HOME/platform-tools/adb"
 
 AVD="${OHRBOB_AVD:-Pixel_API_34}"
 SYSTEM_IMAGE="system-images;android-34;google_apis;x86_64"
-PKG="com.CompanyName.Ohrbob.App"
+PKG="org.ohrbob.App"
 
 # A bare argument (no leading "-") is a version; everything else is passed
 # straight to `emulator`.

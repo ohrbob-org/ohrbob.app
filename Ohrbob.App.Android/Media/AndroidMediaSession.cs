@@ -1,6 +1,9 @@
 using System;
+using System.Net.Http;
+using System.Threading.Tasks;
 using Android.App;
 using Android.Content;
+using Android.Graphics;
 using Android.OS;
 using Android.Support.V4.Media;
 using Android.Support.V4.Media.Session;
@@ -30,9 +33,13 @@ public sealed class AndroidMediaSession : IMediaSessionService
     private const string MetadataKeyArtist = "android.media.metadata.ARTIST";
     private const string MetadataKeyAlbum = "android.media.metadata.ALBUM";
     private const string MetadataKeyDuration = "android.media.metadata.DURATION";
+    private const string MetadataKeyAlbumArt = "android.media.metadata.ALBUM_ART";
     private const string MetadataKeyAlbumArtUri = "android.media.metadata.ALBUM_ART_URI";
+    private const string MetadataKeyArt = "android.media.metadata.ART";
     private const string MetadataKeyDisplayIconUri = "android.media.metadata.DISPLAY_ICON_URI";
     private const string MetadataKeyArtUri = "android.media.metadata.ART_URI";
+
+    private static readonly HttpClient ArtworkClient = new();
 
     public static AndroidMediaSession? Current { get; private set; }
 
@@ -40,9 +47,14 @@ public sealed class AndroidMediaSession : IMediaSessionService
 
     private readonly Context _context;
     private readonly MediaSessionCompat _session;
+    private readonly Handler _mainHandler = new(Looper.MainLooper!);
     private MediaSessionInfo _info = new("Ohrbob", "Ohrbob", null, false, 0, 0);
     private bool _serviceStarted;
+    private bool _disposed;
     private string _lastContentKey = string.Empty;
+    private Bitmap? _artwork;
+    private string? _artworkUrl;
+    private string? _pendingArtworkUrl;
 
     public AndroidMediaSession(Context context)
     {
@@ -66,6 +78,14 @@ public sealed class AndroidMediaSession : IMediaSessionService
 
         if (contentChanged)
         {
+            // Drop the previous episode's artwork immediately; leaving it in place
+            // would show the wrong cover until the new download finishes.
+            if (_artworkUrl != info.CoverUrl)
+            {
+                _artwork = null;
+                _artworkUrl = null;
+            }
+
             UpdateMetadata();
         }
 
@@ -76,6 +96,7 @@ public sealed class AndroidMediaSession : IMediaSessionService
         if (contentChanged)
         {
             UpdateNotification();
+            _ = LoadArtworkAsync(info.CoverUrl);
         }
     }
 
@@ -105,10 +126,102 @@ public sealed class AndroidMediaSession : IMediaSessionService
             metadataBuilder.PutString(MetadataKeyAlbumArtUri, _info.CoverUrl)
                            .PutString(MetadataKeyArtUri, _info.CoverUrl)
                            .PutString(MetadataKeyDisplayIconUri, _info.CoverUrl);
+
+            if (_artwork != null && _artworkUrl == _info.CoverUrl)
+            {
+                metadataBuilder.PutBitmap(MetadataKeyAlbumArt, _artwork)
+                               .PutBitmap(MetadataKeyArt, _artwork);
+            }
         }
 
         var metadata = metadataBuilder.Build()!;
         _session.SetMetadata(metadata);
+    }
+
+    private async Task LoadArtworkAsync(string? coverUrl)
+    {
+        if (_disposed || string.IsNullOrEmpty(coverUrl))
+        {
+            return;
+        }
+
+        if (_artworkUrl == coverUrl || _pendingArtworkUrl == coverUrl)
+        {
+            return;
+        }
+
+        _pendingArtworkUrl = coverUrl;
+
+        Bitmap? bitmap = null;
+        try
+        {
+            var bytes = await ArtworkClient.GetByteArrayAsync(coverUrl);
+            bitmap = DecodeArtwork(bytes);
+        }
+        catch (Exception ex)
+        {
+            global::Android.Util.Log.Warn("Ohrbob", $"Cover art load failed: {ex.Message}");
+        }
+
+        _mainHandler.Post(() =>
+        {
+            if (_pendingArtworkUrl == coverUrl)
+            {
+                _pendingArtworkUrl = null;
+            }
+
+            if (_disposed || bitmap == null || _info.CoverUrl != coverUrl)
+            {
+                bitmap?.Recycle();
+                return;
+            }
+
+            _artwork = bitmap;
+            _artworkUrl = coverUrl;
+            UpdateMetadata();
+            UpdateNotification();
+        });
+    }
+
+    private static Bitmap? DecodeArtwork(byte[] bytes)
+    {
+        // Keep the bitmap small: the copy in the media session crosses a Binder
+        // transaction, and oversized art makes the system drop the metadata.
+        const int maxSize = 256;
+
+        var bounds = new BitmapFactory.Options { InJustDecodeBounds = true };
+        BitmapFactory.DecodeByteArray(bytes, 0, bytes.Length, bounds);
+
+        var sample = 1;
+        while (bounds.OutWidth / sample > maxSize * 2 || bounds.OutHeight / sample > maxSize * 2)
+        {
+            sample *= 2;
+        }
+
+        var bitmap = BitmapFactory.DecodeByteArray(bytes, 0, bytes.Length, new BitmapFactory.Options
+        {
+            InSampleSize = sample,
+        });
+
+        if (bitmap == null || (bitmap.Width <= maxSize && bitmap.Height <= maxSize))
+        {
+            return bitmap;
+        }
+
+        var scale = Math.Min((float)maxSize / bitmap.Width, (float)maxSize / bitmap.Height);
+        var scaled = Bitmap.CreateScaledBitmap(
+            bitmap,
+            Math.Max(1, (int)(bitmap.Width * scale)),
+            Math.Max(1, (int)(bitmap.Height * scale)),
+            true);
+
+        if (scaled != null)
+        {
+            bitmap.Recycle();
+            return scaled;
+        }
+
+        return bitmap;
     }
 
     private const string ActionSkipBack = "com.ohrbob.app.action.SKIP_BACK";
@@ -134,13 +247,13 @@ public sealed class AndroidMediaSession : IMediaSessionService
         // skip back | seek back | play/pause | seek forward | skip forward,
         // the inner pair is added first and the outer pair afterwards.
         stateBuilder.AddCustomAction(new PlaybackStateCompat.CustomAction.Builder(
-            ActionSeekBack, "Seek back", global::Android.Resource.Drawable.IcMediaRew).Build());
+            ActionSeekBack, "Seek back", Resource.Drawable.ic_media_seek_back).Build());
         stateBuilder.AddCustomAction(new PlaybackStateCompat.CustomAction.Builder(
-            ActionSeekForward, "Seek forward", global::Android.Resource.Drawable.IcMediaFf).Build());
+            ActionSeekForward, "Seek forward", Resource.Drawable.ic_media_seek_forward).Build());
         stateBuilder.AddCustomAction(new PlaybackStateCompat.CustomAction.Builder(
-            ActionSkipBack, "Skip back", global::Android.Resource.Drawable.IcMediaPrevious).Build());
+            ActionSkipBack, "Skip back", Resource.Drawable.ic_media_skip_previous).Build());
         stateBuilder.AddCustomAction(new PlaybackStateCompat.CustomAction.Builder(
-            ActionSkipForward, "Skip forward", global::Android.Resource.Drawable.IcMediaNext).Build());
+            ActionSkipForward, "Skip forward", Resource.Drawable.ic_media_skip_next).Build());
 
         _session.SetPlaybackState(stateBuilder.Build()!);
     }
@@ -185,10 +298,10 @@ public sealed class AndroidMediaSession : IMediaSessionService
             .SetShowActionsInCompactView(0, 1);
 
         var playPauseIcon = _info.IsPlaying
-            ? global::Android.Resource.Drawable.IcMediaPause
-            : global::Android.Resource.Drawable.IcMediaPlay;
+            ? Resource.Drawable.ic_media_pause
+            : Resource.Drawable.ic_media_play;
 
-        return new NotificationCompat.Builder(_context, ChannelId)
+        var builder = new NotificationCompat.Builder(_context, ChannelId)
             .SetContentTitle(_info.Title)
             .SetContentText(_info.Artist)
             .SetSmallIcon(Resource.Drawable.ic_stat_ohrbob)
@@ -199,8 +312,14 @@ public sealed class AndroidMediaSession : IMediaSessionService
             .SetShowWhen(false)
             .SetStyle(style)
             .AddAction(BuildAction(playPauseIcon, _info.IsPlaying ? "Pause" : "Play", MediaPlaybackService.ActionTogglePlayPause))
-            .AddAction(BuildAction(global::Android.Resource.Drawable.IcMediaNext, "Next", MediaPlaybackService.ActionNext))
-            .Build()!;
+            .AddAction(BuildAction(Resource.Drawable.ic_media_skip_next, "Next", MediaPlaybackService.ActionNext));
+
+        if (_artwork != null && _artworkUrl == _info.CoverUrl)
+        {
+            builder.SetLargeIcon(_artwork);
+        }
+
+        return builder.Build()!;
     }
 
     private NotificationCompat.Action BuildAction(int icon, string title, string action)
@@ -266,6 +385,7 @@ public sealed class AndroidMediaSession : IMediaSessionService
 
     public void Dispose()
     {
+        _disposed = true;
         if (Current == this)
         {
             Current = null;

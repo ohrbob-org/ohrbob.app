@@ -25,7 +25,7 @@ set -euo pipefail
 # Run from the repository root so the project and dist/ paths resolve.
 cd "$(dirname "$0")/.."
 
-APP_ID="com.CompanyName.Ohrbob.App"
+APP_ID="org.ohrbob.App"
 PROJECT="Ohrbob.App.Android/Ohrbob.App.Android.csproj"
 
 if [ "$#" -ge 1 ]; then

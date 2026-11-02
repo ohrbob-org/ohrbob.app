@@ -36,7 +36,7 @@ if [ -n "${JAVA_HOME:-}" ]; then
 fi
 
 AVD="${OHRBOB_AVD:-Pixel_API_34}"
-PKG="com.CompanyName.Ohrbob.App"
+PKG="org.ohrbob.App"
 APK="$DIR/Ohrbob.App.Android/bin/Debug/net10.0-android/$PKG-Signed.apk"
 
 DEPLOY=0

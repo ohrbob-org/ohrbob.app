@@ -71,6 +71,38 @@ dotnet test Ohrbob.App.Tests/Ohrbob.App.Tests.csproj
 ```
 
 
+### Build the Android APK
+
+`scripts/build-android-apk.sh` builds the release APK; the release workflow uses the same script, so a local build matches CI.
+
+Prerequisites:
+- .NET 10.0 SDK with the Android workload: `dotnet workload install android`
+- A full JDK (`javac` and `jar`, not just a JRE)
+- Android SDK with platform-tools and build-tools
+
+Point the build at your SDK/JDK if they are not in the default locations:
+
+```bash
+export ANDROID_HOME=/path/to/android-sdk
+export JAVA_HOME=/path/to/jdk
+```
+
+Build the APK (the version defaults to the latest git tag, or `0.0.0` when there is none):
+
+```bash
+./scripts/build-android-apk.sh
+# or set the version explicitly
+./scripts/build-android-apk.sh 1.2.3
+```
+
+The result is written to `dist/android/Ohrbob-<version>.apk`. Install it with:
+
+```bash
+adb install -r dist/android/Ohrbob-<version>.apk
+```
+
+The APK is signed with the .NET for Android debug key, so it is for sideloading and emulator testing, not the Play Store.
+
 ### Launch the Android App
 
 ```bash
