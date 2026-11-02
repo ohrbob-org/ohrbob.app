@@ -20,7 +20,9 @@ namespace Ohrbob.App.Android
             // app and wires up whatever MediaSessionHost.Factory returns — so the
             // factory must be set first, otherwise the media session is never
             // created and nothing shows on the lock screen / in notifications.
-            MediaSessionHost.Factory = () => new Media.AndroidMediaSession(this);
+            // Android Auto may already have created the session while starting the
+            // media browser service; reuse it so both sides share one session token.
+            MediaSessionHost.Factory = () => Media.AndroidMediaSession.Current ?? new Media.AndroidMediaSession(this);
 
             base.OnCreate();
         }

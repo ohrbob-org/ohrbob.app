@@ -41,6 +41,7 @@ public class SoundFlowAudioPlayer : IAudioPlayer
     public event EventHandler<int>? PositionChanged;
     public event EventHandler<int>? DurationChanged;
     public event EventHandler<bool>? PlaybackStateChanged;
+    public event EventHandler? PlaybackEnded;
 
     public SoundFlowAudioPlayer()
     {
@@ -56,6 +57,16 @@ public class SoundFlowAudioPlayer : IAudioPlayer
             PositionChanged?.Invoke(this, PositionSeconds);
             DurationChanged?.Invoke(this, DurationSeconds);
         }
+    }
+
+    private void OnPlaybackEnded(object? sender, EventArgs e)
+    {
+        // SoundFlow stops decoding at EOF but keeps reporting the final position.
+        // Without clearing the playing flag the position timer would keep firing at
+        // the end of the stream forever.
+        _isPlaying = false;
+        PlaybackStateChanged?.Invoke(this, false);
+        PlaybackEnded?.Invoke(this, EventArgs.Empty);
     }
 
     public async Task Load(string url)
@@ -79,6 +90,7 @@ public class SoundFlowAudioPlayer : IAudioPlayer
             bool isReady = false;
             int maxRetries = 3;
             long contentLength = 100 * 1024 * 1024;
+            TaskCompletionSource? downloadDone = null;
 
             for (int attempt = 1; attempt <= maxRetries; attempt++)
             {
@@ -89,7 +101,7 @@ public class SoundFlowAudioPlayer : IAudioPlayer
                     response.EnsureSuccessStatusCode();
                     
                     contentLength = response.Content.Headers.ContentLength ?? 100 * 1024 * 1024;
-                    bool downloadComplete = false;
+                    var attemptDone = downloadDone = new TaskCompletionSource();
                     
                     // Start background download stream
                     var backgroundDownload = Task.Run(async () => {
@@ -104,22 +116,21 @@ public class SoundFlowAudioPlayer : IAudioPlayer
                             }
                         } catch { /* Ignore cancellation or network errors in background */ }
                         finally {
-                            downloadComplete = true;
-                            _bufferStream?.MarkComplete();
+                            attemptDone.TrySetResult();
                         }
                     }, ct);
 
                     // Wait until we have enough data (at least 1KB) to ensure headers exist for SoundFlow
                     var fileInfo = new FileInfo(_tempFilePath);
                     int retry = 0;
-                    while (fileInfo.Length < 1000 && !downloadComplete && retry < 50 && !ct.IsCancellationRequested)
+                    while (fileInfo.Length < 1000 && !attemptDone.Task.IsCompleted && retry < 50 && !ct.IsCancellationRequested)
                     {
                         await Task.Delay(100, ct);
                         fileInfo.Refresh();
                         retry++;
                     }
 
-                    if (fileInfo.Length >= 1000 || downloadComplete)
+                    if (fileInfo.Length >= 1000 || attemptDone.Task.IsCompleted)
                     {
                         isReady = true;
                         break;
@@ -141,7 +152,19 @@ public class SoundFlowAudioPlayer : IAudioPlayer
                 return; // Failed to stream after retries
             }
 
-            _bufferStream = new HttpBufferingStream(_tempFilePath, contentLength);
+            var bufferStream = new HttpBufferingStream(_tempFilePath, contentLength);
+            _bufferStream = bufferStream;
+
+            // The download may have finished before the buffer stream existed; in that
+            // case nobody can call MarkComplete later, and reads would spin forever at EOF.
+            if (downloadDone!.Task.IsCompleted)
+            {
+                bufferStream.MarkComplete();
+            }
+            else
+            {
+                _ = downloadDone.Task.ContinueWith(_ => bufferStream.MarkComplete(), TaskScheduler.Default);
+            }
             
             // Execute SoundFlow initialization on a background thread.
             await Task.Run(() => 
@@ -155,7 +178,9 @@ public class SoundFlowAudioPlayer : IAudioPlayer
                 };
 
                 _device = _engine.InitializePlaybackDevice(null, format, new MiniAudioDeviceConfig());
-                _player = new SoundPlayer(_engine, format, _provider);
+                var player = new SoundPlayer(_engine, format, _provider);
+                player.PlaybackEnded += OnPlaybackEnded;
+                _player = player;
                 
                 _device.MasterMixer.AddComponent(_player);
                 _device.Start();
@@ -195,7 +220,11 @@ public class SoundFlowAudioPlayer : IAudioPlayer
     public void Stop()
     {
         _cts?.Cancel();
-        _player?.Dispose();
+        if (_player != null)
+        {
+            _player.PlaybackEnded -= OnPlaybackEnded;
+            _player.Dispose();
+        }
         _player = null;
         _device?.Dispose();
         _device = null;

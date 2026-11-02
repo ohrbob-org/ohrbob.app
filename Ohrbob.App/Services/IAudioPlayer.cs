@@ -19,4 +19,7 @@ public interface IAudioPlayer : IDisposable
     event EventHandler<int>? PositionChanged;
     event EventHandler<int>? DurationChanged;
     event EventHandler<bool>? PlaybackStateChanged;
+
+    /// <summary>Raised once when the loaded stream reaches its end.</summary>
+    event EventHandler? PlaybackEnded;
 }

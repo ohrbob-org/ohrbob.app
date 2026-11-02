@@ -310,10 +310,10 @@ public sealed class AndroidMediaSession : IMediaSessionService
                     _owner.PreviousRequested?.Invoke(_owner, EventArgs.Empty);
                     break;
                 case ActionSeekBack:
-                    _owner.SeekByRequested?.Invoke(_owner, -1);
+                    _owner.SeekByRequested?.Invoke(_owner, -30);
                     break;
                 case ActionSeekForward:
-                    _owner.SeekByRequested?.Invoke(_owner, 1);
+                    _owner.SeekByRequested?.Invoke(_owner, 30);
                     break;
                 case ActionSkipForward:
                     _owner.NextRequested?.Invoke(_owner, EventArgs.Empty);

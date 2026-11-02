@@ -125,19 +125,20 @@ public class MainViewModelTests
     {
         var configService = new ConfigService(_tempConfigPath);
         var client = new OhrbobClient(configService, new FakeHttpMessageHandler());
-        var vm = new MainViewModel(configService, client);
-
-        // Setting CurrentEpisodeStreamUri to null
+        var vm = new MainViewModel(configService, client, null, new TestAudioPlayer());
         vm.CurrentEpisodeStreamUri = null;
         vm.IsPlaying = false;
         vm.TogglePlayCommand.Execute(null);
         Assert.That(vm.IsPlaying, Is.False);
 
-        // Set CurrentEpisodeStreamUri to "http://stream.mp3"
-        // This will now autoplay (IsPlaying = true)
+        // Loading a stream does not change the playback intent on its own;
+        // pressing play is what starts it.
         vm.CurrentEpisodeStreamUri = "http://stream.mp3";
+        Assert.That(vm.IsPlaying, Is.False);
+
+        vm.TogglePlayCommand.Execute(null);
         Assert.That(vm.IsPlaying, Is.True);
-        
+
         vm.TogglePlayCommand.Execute(null);
         Assert.That(vm.IsPlaying, Is.False);
 

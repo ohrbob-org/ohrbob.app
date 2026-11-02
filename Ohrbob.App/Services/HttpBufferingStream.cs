@@ -8,7 +8,7 @@ public class HttpBufferingStream : Stream
 {
     private readonly FileStream _fileStream;
     private readonly long _contentLength;
-    private bool _isDownloadComplete;
+    private volatile bool _isDownloadComplete;
     private readonly object _lock = new object();
     private readonly Action<bool>? _onBufferingChanged;
     private bool _isBufferingEventFired;

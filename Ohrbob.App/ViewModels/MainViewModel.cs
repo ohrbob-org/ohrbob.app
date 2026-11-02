@@ -26,13 +26,16 @@ public partial class MainViewModel : ViewModelBase
     private readonly OhrbobClient _client;
     private readonly IAudioPlayer _player;
     private readonly IUriLauncher _uriLauncher;
+    private readonly Action<Action> _dispatch;
     private string? _pendingServerUrl;
     private string? _pendingStreamToken;
     private string? _loadedStreamUri;
+    private string? _loadingStreamUri;
     private int _lastSyncedPosition;
     private DispatcherTimer? _syncTimer;
     private bool _isUpdatingPositionFromPlayer;
     private bool _isUpdatingStateFromPlayer;
+    private bool _isSkipping;
 
     [ObservableProperty]
     private bool _isConnected;
@@ -102,6 +105,12 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     private int _durationSeconds;
 
+    // The slider's upper bound. It may exceed DurationSeconds while the player
+    // reports a position past a stale/unknown duration; clamping there would
+    // write the clamped value back into PositionSeconds and seek in a loop.
+    [ObservableProperty]
+    private int _seekMaximum;
+
     [ObservableProperty]
     private string _positionText = "00:00";
 
@@ -129,10 +138,11 @@ public partial class MainViewModel : ViewModelBase
     {
     }
 
-    public MainViewModel(ConfigService configService, OhrbobClient? client, IUriLauncher? uriLauncher = null)
+    public MainViewModel(ConfigService configService, OhrbobClient? client, IUriLauncher? uriLauncher = null, IAudioPlayer? player = null, Action<Action>? dispatch = null)
     {
         _configService = configService;
         _uriLauncher = uriLauncher ?? new AppUriLauncher();
+        _dispatch = dispatch ?? (action => Dispatcher.UIThread.Post(action));
         var handler = new HttpClientHandler();
 
         // Only bypass if running locally or in a specific dev environment
@@ -146,10 +156,11 @@ public partial class MainViewModel : ViewModelBase
         
         _client = client ?? new OhrbobClient(_configService, handler);
 
-        _player = new SoundFlowAudioPlayer();
+        _player = player ?? new SoundFlowAudioPlayer();
         _player.PositionChanged += OnPlayerOnPositionChanged;
         _player.DurationChanged += OnPlayerOnDurationChanged;
         _player.PlaybackStateChanged += OnPlayerOnPlaybackStateChanged;
+        _player.PlaybackEnded += OnPlayerPlaybackEnded;
 
         // Platform heads publish incoming ohrbob:// links here; marshal onto the
         // UI thread because they arrive from non-UI sources (argv, intents).
@@ -171,7 +182,7 @@ public partial class MainViewModel : ViewModelBase
 
     private void OnPlayerOnPositionChanged(object? s, int pos)
     {
-        Dispatcher.UIThread.Post(() =>
+        _dispatch(() =>
         {
             _isUpdatingPositionFromPlayer = true;
             try
@@ -182,22 +193,17 @@ public partial class MainViewModel : ViewModelBase
             {
                 _isUpdatingPositionFromPlayer = false;
             }
-
-            if (IsPlaying && pos > 0 && DurationSeconds > 0 && pos >= DurationSeconds)
-            {
-                _ = SkipToNextAsync();
-            }
         });
     }
 
     private void OnPlayerOnDurationChanged(object? s, int dur)
     {
-        Dispatcher.UIThread.Post(() => { DurationSeconds = dur; });
+        _dispatch(() => { DurationSeconds = dur; });
     }
 
     private void OnPlayerOnPlaybackStateChanged(object? s, bool state)
     {
-        Dispatcher.UIThread.Post(() =>
+        _dispatch(() =>
         {
             if (IsBuffering && !state) return; // Ignore internal stops during load
 
@@ -211,6 +217,21 @@ public partial class MainViewModel : ViewModelBase
                 _isUpdatingStateFromPlayer = false;
             }
         });
+    }
+
+    private void OnPlayerPlaybackEnded(object? s, EventArgs e)
+    {
+        _dispatch(() => _ = ContinueAfterEndAsync());
+    }
+
+    private async Task ContinueAfterEndAsync()
+    {
+        var previousUri = CurrentEpisodeStreamUri;
+        await SkipToNextAsync();
+
+        // If the server moved us on to another stream, start it. Otherwise stop
+        // here: the old stream has ended and there is nothing left to play.
+        IsPlaying = !string.IsNullOrEmpty(CurrentEpisodeStreamUri) && CurrentEpisodeStreamUri != previousUri;
     }
 
     private void SetupTimers()
@@ -243,6 +264,7 @@ public partial class MainViewModel : ViewModelBase
     partial void OnPositionSecondsChanged(int value)
     {
         PositionText = FormatTime(value);
+        SeekMaximum = Math.Max(DurationSeconds, value);
 
         if (!_isUpdatingPositionFromPlayer)
         {
@@ -264,8 +286,9 @@ public partial class MainViewModel : ViewModelBase
 
     private async Task LoadAudioUrlAsync(string url)
     {
-        if (string.IsNullOrEmpty(url)) return;
+        if (string.IsNullOrEmpty(url) || _loadingStreamUri == url) return;
 
+        _loadingStreamUri = url;
         try
         {
             IsBuffering = true;
@@ -287,9 +310,11 @@ public partial class MainViewModel : ViewModelBase
         catch (Exception ex)
         {
             Log.Error($"Failed to load audio stream: {ex.Message}");
+            if (_loadingStreamUri == url) IsPlaying = false;
         }
         finally
         {
+            if (_loadingStreamUri == url) _loadingStreamUri = null;
             IsBuffering = false;
         }
     }
@@ -349,6 +374,7 @@ public partial class MainViewModel : ViewModelBase
     partial void OnDurationSecondsChanged(int value)
     {
         DurationText = FormatTime(value);
+        SeekMaximum = Math.Max(value, PositionSeconds);
     }
 
     private string FormatTime(int seconds)
@@ -573,8 +599,12 @@ public partial class MainViewModel : ViewModelBase
             ConnectionErrorMessage = $"Initialization error: {ex.Message}";
             Log.Error($"Initialization error: {ex.Message}");
             Log.Fatal(ex, "App initialization failed");
-            
-            Disconnect();
+
+            // A transient failure (network not up yet, server briefly unavailable)
+            // must not discard the saved connection: the user would have to connect
+            // again on every start. Only an explicit Disconnect clears the config.
+            IsConnected = false;
+            _syncTimer?.Stop();
         }
     }
 
@@ -705,12 +735,22 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand]
     private void SeekForward()
     {
-        PositionSeconds = Math.Min(DurationSeconds, PositionSeconds + 30);
+        // Duration is 0 until the stream has been probed; don't clamp a forward
+        // seek to the start in that window.
+        PositionSeconds = DurationSeconds > 0
+            ? Math.Min(DurationSeconds, PositionSeconds + 30)
+            : PositionSeconds + 30;
     }
 
     [RelayCommand]
     private async Task SkipToNextAsync()
     {
+        // Playback-end and media-control events can both ask for the next episode;
+        // only one request at a time may run, otherwise a failed skip can pile up
+        // overlapping network calls and audio loads.
+        if (_isSkipping) return;
+        _isSkipping = true;
+
         try
         {
             await _client.NextAsync();
@@ -719,6 +759,10 @@ public partial class MainViewModel : ViewModelBase
         catch
         {
             // Handle network skip error
+        }
+        finally
+        {
+            _isSkipping = false;
         }
     }
 }
