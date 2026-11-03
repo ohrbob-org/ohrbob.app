@@ -57,6 +57,28 @@ public class PlaybackEndFlowTests
             Task.FromResult(new HttpResponseMessage(HttpStatusCode.InternalServerError));
     }
 
+    private class SwitchableHttpHandler : HttpMessageHandler
+    {
+        public bool Online { get; set; }
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var path = request.RequestUri?.AbsolutePath ?? "";
+            if (!Online)
+            {
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.InternalServerError));
+            }
+
+            var body = path.EndsWith("/stream/stations")
+                ? "[{\"station\":{\"id\":\"s1\",\"name\":\"Test Station\"},\"feeds\":[]}]"
+                : "{}";
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json"),
+            });
+        }
+    }
+
     private MainViewModel CreateViewModel(HttpMessageHandler handler, out ConfigService config, out TestAudioPlayer player)
     {
         config = new ConfigService(_tempConfigPath);
@@ -78,6 +100,39 @@ public class PlaybackEndFlowTests
         Assert.That(vm.ConnectionErrorMessage, Is.Not.Null.And.Not.Empty);
         Assert.That(config.ServerUrl, Is.EqualTo("https://example.com"));
         Assert.That(config.StreamToken, Is.EqualTo("secret"));
+    }
+
+    [Test]
+    public async Task RetryConnection_KeepsPlayerVisibleWhenServerIsStillUnreachable()
+    {
+        var vm = CreateViewModel(new FailingHttpHandler(), out var config, out _);
+        config.Save("https://example.com", "secret");
+        vm.IsConnected = true;
+
+        await vm.RetryConnectionAsync();
+
+        Assert.That(vm.IsConnected, Is.True);
+        Assert.That(vm.ConnectionErrorMessage, Is.Not.Null.And.Not.Empty);
+        Assert.That(config.ServerUrl, Is.EqualTo("https://example.com"));
+        Assert.That(config.StreamToken, Is.EqualTo("secret"));
+    }
+
+    [Test]
+    public async Task RetryConnection_LoadsStationsOnceTheServerIsBack()
+    {
+        var handler = new SwitchableHttpHandler();
+        var vm = CreateViewModel(handler, out var config, out _);
+        config.Save("https://example.com", "secret");
+        vm.IsConnected = true;
+
+        await vm.RetryConnectionAsync();
+        Assert.That(vm.Stations, Is.Empty);
+
+        handler.Online = true;
+        await vm.RetryConnectionAsync();
+
+        Assert.That(vm.Stations.Count, Is.EqualTo(1));
+        Assert.That(vm.ConnectionErrorMessage, Is.Null.Or.Empty);
     }
 
     [Test]

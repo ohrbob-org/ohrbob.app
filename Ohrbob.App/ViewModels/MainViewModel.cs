@@ -174,7 +174,7 @@ public partial class MainViewModel : ViewModelBase
             ServerUrlInput = _configService.ServerUrl;
             TokenInput = _configService.StreamToken;
             IsConnected = true;
-            _ = InitializeAppAsync();
+            _ = InitializeAppAsync(keepConnectedOnFailure: true);
         }
 
         SetupTimers();
@@ -457,7 +457,7 @@ public partial class MainViewModel : ViewModelBase
             ServerUrlInput = server;
             TokenInput = token;
             IsConnected = true;
-            _ = InitializeAppAsync();
+            _ = InitializeAppAsync(keepConnectedOnFailure: true);
         }
         catch (Exception ex)
         {
@@ -579,7 +579,7 @@ public partial class MainViewModel : ViewModelBase
         }
     }
 
-    private async Task InitializeAppAsync()
+    private async Task InitializeAppAsync(bool keepConnectedOnFailure = false)
     {
         try
         {
@@ -593,6 +593,7 @@ public partial class MainViewModel : ViewModelBase
 
             await RefreshStatusAsync();
             _syncTimer?.Start();
+            ConnectionErrorMessage = null;
         }
         catch (Exception ex)
         {
@@ -603,10 +604,16 @@ public partial class MainViewModel : ViewModelBase
             // A transient failure (network not up yet, server briefly unavailable)
             // must not discard the saved connection: the user would have to connect
             // again on every start. Only an explicit Disconnect clears the config.
-            IsConnected = false;
+            if (!keepConnectedOnFailure) IsConnected = false;
             _syncTimer?.Stop();
         }
     }
+
+    /// <summary>
+    /// Retries the initial sync without leaving the player. Used when Android Auto
+    /// starts the app before the network is up and later asks for content again.
+    /// </summary>
+    public Task RetryConnectionAsync() => InitializeAppAsync(keepConnectedOnFailure: true);
 
     private async Task RefreshStatusAsync()
     {

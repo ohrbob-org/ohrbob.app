@@ -130,6 +130,13 @@
                             Background="Transparent" Margin="8,8,0,8">
                         <PathIcon Data="M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z" Foreground="{DynamicResource AppForegroundBrush}" Width="24" Height="24" />
                     </Button>
+                    
+                    <!-- Error Message Banner -->
+                    <Border Grid.Row="0" Background="{StaticResource ThemeDangerBrush}" Margin="48,8,8,8" Padding="12,8" CornerRadius="6"
+                            VerticalAlignment="Top" HorizontalAlignment="Stretch"
+                            IsVisible="{Binding ConnectionErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                        <TextBlock Text="{Binding ConnectionErrorMessage}" Foreground="White" FontSize="12" TextWrapping="Wrap" />
+                    </Border>
 
                     <!-- Center Info Pane (Episode details, Cover Art, Description) -->
                     <ScrollViewer Grid.Row="1" Margin="0,0,0,24" Padding="32" VerticalScrollBarVisibility="Auto">

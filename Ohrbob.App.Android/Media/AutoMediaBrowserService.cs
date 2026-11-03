@@ -127,11 +127,22 @@ public sealed class AutoMediaBrowserService : MediaBrowserServiceCompat
             System.Threading.Tasks.Task.Run(async () =>
             {
                 // Wait briefly for stations to load
-                for (int i = 0; i < 20; i++)
+                for (int i = 0; i < 20 && viewModel.Stations.Count == 0; i++)
                 {
-                    if (viewModel.Stations.Count > 0)
-                        break;
                     await System.Threading.Tasks.Task.Delay(100);
+                }
+
+                // If the last sync failed (e.g. Android Auto started the app before
+                // the network was up), retry now that the head unit is asking for
+                // content. Without this the car is stuck on "No Track Selected".
+                if (viewModel.Stations.Count == 0 && !string.IsNullOrEmpty(viewModel.ConnectionErrorMessage))
+                {
+                    _ = viewModel.RetryConnectionAsync();
+
+                    for (int i = 0; i < 50 && viewModel.Stations.Count == 0; i++)
+                    {
+                        await System.Threading.Tasks.Task.Delay(100);
+                    }
                 }
 
                 var asyncItems = new List<MediaBrowserCompat.MediaItem>();
