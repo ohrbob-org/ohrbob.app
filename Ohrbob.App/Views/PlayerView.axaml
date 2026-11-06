@@ -13,6 +13,10 @@
         <SolidColorBrush x:Key="OhrbobOrange" Color="{StaticResource OhrbobStrongOrange}" />
     </UserControl.Resources>
 
+    <UserControl.KeyBindings>
+        <KeyBinding Gesture="F5" Command="{Binding RefreshAllCommand}" />
+    </UserControl.KeyBindings>
+
     <UserControl.Styles>
         <!-- Desktop / Wide (default) styles -->
         <Style Selector="SplitView#MainSplitView">
@@ -123,7 +127,7 @@
             <SplitView.Content>
             <!-- Right Detail Player View wrapped in Border for padding & styling -->
             <Border Background="{StaticResource AppBackgroundBrush}">
-                <Grid RowDefinitions="Auto, *, Auto">
+                <Grid RowDefinitions="Auto, *">
                     
                     <Button Name="MenuButton" Grid.Row="0" Command="{Binding ToggleSidebarCommand}" 
                             HorizontalAlignment="Left" VerticalAlignment="Top"
@@ -138,8 +142,10 @@
                         <TextBlock Text="{Binding ConnectionErrorMessage}" Foreground="White" FontSize="12" TextWrapping="Wrap" />
                     </Border>
 
-                    <!-- Center Info Pane (Episode details, Cover Art, Description) -->
-                    <ScrollViewer Grid.Row="1" Margin="0,0,0,0" Padding="32, 32, 32, 0" VerticalScrollBarVisibility="Auto">
+                    <!-- Center Info Pane (Episode details, Cover Art, Description).
+                         The widget floats over it so the backdrop can be blurred. -->
+                    <Panel Grid.Row="1">
+                    <ScrollViewer Name="EpisodeScroll" Margin="0,0,0,0" Padding="32,32,32,120" VerticalScrollBarVisibility="Auto">
                     <WrapPanel Orientation="Horizontal" HorizontalAlignment="Center">
                         <!-- Album Art Block -->
                         <Grid MaxWidth="320" VerticalAlignment="Center" HorizontalAlignment="Center">
@@ -189,9 +195,19 @@
                     </WrapPanel>
                     </ScrollViewer>
 
-                    <!-- Bottom Controller Deck (Audio Widget) -->
-                    <views:AudioWidget Grid.Row="2" />
-                    
+                    <!-- Bottom Controller Deck, floating over the scroll content -->
+                    <views:AudioWidget VerticalAlignment="Bottom"
+                                       BackdropSource="{Binding #EpisodeScroll}" />
+
+                    <!-- Refresh result toast -->
+                    <Border IsVisible="{Binding IsRefreshIndicatorVisible}"
+                            HorizontalAlignment="Center" VerticalAlignment="Top"
+                            Margin="0,12,0,0" Padding="14,6" CornerRadius="14"
+                            Background="#198754" IsHitTestVisible="False">
+                        <TextBlock Text="Updated" Foreground="White" FontSize="12" FontWeight="SemiBold" />
+                    </Border>
+                    </Panel>
+
                 </Grid>
             </Border>
             </SplitView.Content>

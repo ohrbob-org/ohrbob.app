@@ -53,6 +53,11 @@ public class AudioWidgetLayoutTests
         Assert.That(play.Bounds.Width, Is.EqualTo(48));
         Assert.That(play.Command, Is.SameAs(((MainViewModel)widget.DataContext!).TogglePlayCommand));
 
+        var back = widget.FindControl<Button>("BackButton")!;
+        Assert.That(back.Command, Is.SameAs(((MainViewModel)widget.DataContext!).SkipToPreviousCommand));
+        var forward = widget.FindControl<Button>("ForwardButton")!;
+        Assert.That(forward.Command, Is.SameAs(((MainViewModel)widget.DataContext!).SkipToNextCommand));
+
         window.Close();
     }
 
@@ -78,17 +83,18 @@ public class AudioWidgetLayoutTests
     }
 
     [AvaloniaTest]
-    public void FrostedBackdrop_IsBlurredAndDoesNotInflateBar()
+    public void FrostedBackdrop_UsesBlurredVisualBrush()
     {
         var (window, widget) = Show(1200);
 
-        var backdrop = widget.FindControl<Image>("FrostBackdrop")!;
-        Assert.That(backdrop.Effect, Is.TypeOf<BlurEffect>());
+        var frost = widget.FindControl<Border>("FrostLayer")!;
+        Assert.That(frost.Effect, Is.TypeOf<BlurEffect>());
+        Assert.That(frost.Background, Is.TypeOf<VisualBrush>());
 
         // The backdrop layer must stay out of the layout measure; otherwise the
-        // image's natural size stretches the bar over the whole content area.
+        // brush stretches the bar over the whole content area.
         var root = widget.FindControl<Border>("RootBorder")!;
-        Assert.That(root.Bounds.Height, Is.LessThan(120));
+        Assert.That(root.Bounds.Height, Is.LessThan(150));
 
         window.Close();
     }

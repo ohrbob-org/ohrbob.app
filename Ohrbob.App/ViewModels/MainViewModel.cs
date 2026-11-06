@@ -33,6 +33,9 @@ public partial class MainViewModel : ViewModelBase
     private string? _loadingStreamUri;
     private int _lastSyncedPosition;
     private DispatcherTimer? _syncTimer;
+    private DispatcherTimer? _refreshIndicatorTimer;
+    private DateTime _lastRefreshAt = DateTime.MinValue;
+    private static readonly TimeSpan RefreshCooldown = TimeSpan.FromSeconds(10);
     private bool _isUpdatingPositionFromPlayer;
     private bool _isUpdatingStateFromPlayer;
     private bool _isSkipping;
@@ -92,6 +95,9 @@ public partial class MainViewModel : ViewModelBase
 
     [ObservableProperty]
     private string? _nextEpisodeTitle;
+
+    [ObservableProperty]
+    private bool _isRefreshIndicatorVisible;
 
     [ObservableProperty]
     private bool _isPlaying;
@@ -264,6 +270,16 @@ public partial class MainViewModel : ViewModelBase
                     // Ignore transient syncing errors
                 }
             }
+        };
+
+        _refreshIndicatorTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(2)
+        };
+        _refreshIndicatorTimer.Tick += (s, e) =>
+        {
+            IsRefreshIndicatorVisible = false;
+            _refreshIndicatorTimer.Stop();
         };
     }
 
@@ -621,6 +637,23 @@ public partial class MainViewModel : ViewModelBase
     /// </summary>
     public Task RetryConnectionAsync() => InitializeAppAsync(keepConnectedOnFailure: true);
 
+    /// <summary>Reloads stations and the current playback state from the server.</summary>
+    [RelayCommand]
+    public async Task RefreshAllAsync()
+    {
+        if (DateTime.UtcNow - _lastRefreshAt < RefreshCooldown) return;
+        _lastRefreshAt = DateTime.UtcNow;
+
+        await InitializeAppAsync(keepConnectedOnFailure: true);
+
+        if (string.IsNullOrEmpty(ConnectionErrorMessage))
+        {
+            IsRefreshIndicatorVisible = true;
+            _refreshIndicatorTimer?.Stop();
+            _refreshIndicatorTimer?.Start();
+        }
+    }
+
     private async Task RefreshStatusAsync()
     {
         try
@@ -756,17 +789,22 @@ public partial class MainViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private async Task SkipToNextAsync()
+    private Task SkipToNextAsync() => SkipAsync(_client.NextAsync);
+
+    [RelayCommand]
+    private Task SkipToPreviousAsync() => SkipAsync(_client.PreviousAsync);
+
+    private async Task SkipAsync(Func<Task> navigate)
     {
-        // Playback-end and media-control events can both ask for the next episode;
-        // only one request at a time may run, otherwise a failed skip can pile up
+        // Playback-end, buttons and media controls can all ask for a skip; only
+        // one request at a time may run, otherwise a failed skip can pile up
         // overlapping network calls and audio loads.
         if (_isSkipping) return;
         _isSkipping = true;
 
         try
         {
-            await _client.NextAsync();
+            await navigate();
             await RefreshStatusAsync();
         }
         catch

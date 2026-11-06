@@ -34,6 +34,8 @@ public class PlaybackEndFlowTests
     private class CountingHttpHandler : HttpMessageHandler
     {
         public int NextRequests;
+        public int StationRequests;
+        public int StatusRequests;
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
@@ -41,6 +43,16 @@ public class PlaybackEndFlowTests
             if (request.Method == HttpMethod.Post && path.EndsWith("/stream/next"))
             {
                 Interlocked.Increment(ref NextRequests);
+            }
+
+            if (request.Method == HttpMethod.Get && path.EndsWith("/stream/stations"))
+            {
+                Interlocked.Increment(ref StationRequests);
+            }
+
+            if (request.Method == HttpMethod.Get && path.EndsWith("/stream/status"))
+            {
+                Interlocked.Increment(ref StatusRequests);
             }
 
             var body = path.EndsWith("/stream/stations") ? "[]" : "{}";
@@ -166,6 +178,34 @@ public class PlaybackEndFlowTests
         await Task.Delay(200);
 
         Assert.That(handler.NextRequests, Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task RefreshAll_ReloadsStationsAndStatusThenShowsIndicator()
+    {
+        var handler = new CountingHttpHandler();
+        var vm = CreateViewModel(handler, out var config, out _);
+        config.Save("https://example.com", "token");
+
+        await vm.RefreshAllCommand.ExecuteAsync(null);
+
+        Assert.That(handler.StationRequests, Is.EqualTo(1));
+        Assert.That(handler.StatusRequests, Is.EqualTo(1));
+        Assert.That(vm.IsRefreshIndicatorVisible, Is.True);
+    }
+
+    [Test]
+    public async Task RefreshAll_IgnoresTriggersWithinTenSeconds()
+    {
+        var handler = new CountingHttpHandler();
+        var vm = CreateViewModel(handler, out var config, out _);
+        config.Save("https://example.com", "token");
+
+        await vm.RefreshAllAsync();
+        await vm.RefreshAllAsync();
+
+        Assert.That(handler.StationRequests, Is.EqualTo(1));
+        Assert.That(handler.StatusRequests, Is.EqualTo(1));
     }
 
     [AvaloniaTest]

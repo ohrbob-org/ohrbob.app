@@ -76,10 +76,8 @@ public sealed class MediaSessionCoordinator : IDisposable
     private void OnNextRequested(object? sender, EventArgs e) =>
         _dispatch(() => _viewModel.SkipToNextCommand.Execute(null));
 
-    private void OnPreviousRequested(object? sender, EventArgs e)
-    {
-        // The server exposes no previous-episode command yet.
-    }
+    private void OnPreviousRequested(object? sender, EventArgs e) =>
+        _dispatch(() => _viewModel.SkipToPreviousCommand.Execute(null));
 
     private void OnSeekToRequested(object? sender, int seconds) =>
         _dispatch(() => _viewModel.PositionSeconds = Clamp(seconds));

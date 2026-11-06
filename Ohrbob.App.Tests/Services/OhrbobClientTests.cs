@@ -148,6 +148,26 @@ public class OhrbobClientTests
         var headerVal = handler.LastRequest.Headers.GetValues("X-Stream-Token");
         Assert.That(headerVal, Contains.Item(StreamToken));
     }
+
+    [Test]
+    public async Task PreviousAsync_SendsCorrectRequest()
+    {
+        var handler = new MockHttpMessageHandler(req =>
+        {
+            return new HttpResponseMessage(HttpStatusCode.OK);
+        });
+
+        var client = new OhrbobClient(_mockConfig, handler);
+        await client.PreviousAsync();
+
+        Assert.That(handler.LastRequest, Is.Not.Null);
+        Assert.That(handler.LastRequest.Method, Is.EqualTo(HttpMethod.Post));
+        Assert.That(handler.LastRequest.RequestUri?.ToString(), Is.EqualTo($"{ServerUrl}/stream/prev"));
+        Assert.That(handler.LastRequest.Headers.Contains("X-Stream-Token"), Is.True);
+
+        var headerVal = handler.LastRequest.Headers.GetValues("X-Stream-Token");
+        Assert.That(headerVal, Contains.Item(StreamToken));
+    }
 }
 
 public class MockHttpMessageHandler : HttpMessageHandler

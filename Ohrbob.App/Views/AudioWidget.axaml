@@ -69,26 +69,27 @@
             Margin="16"
             BoxShadow="0 8 32 0 #1A001957">
         <Panel>
-            <!-- Frosted layer: Avalonia has no backdrop-filter, so the blur is
-                 fed by the episode cover instead of the page behind the bar. -->
-            <Canvas Name="FrostCanvas" IsHitTestVisible="False">
-                <Border CornerRadius="15" ClipToBounds="True"
-                        Width="{Binding #FrostCanvas.Bounds.Width}"
-                        Height="{Binding #FrostCanvas.Bounds.Height}">
-                    <Panel>
-                        <Image Name="FrostBackdrop" Opacity="0.55" Stretch="UniformToFill"
-                               services:ImageLoader.Source="{Binding CurrentEpisodeCoverUrl}"
-                               IsVisible="{Binding CurrentEpisodeCoverUrl, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                            <Image.Effect>
-                                <BlurEffect Radius="48" />
-                            </Image.Effect>
-                        </Image>
-                        <!-- Lavender veil keeps the Bootstrap glass colour over the blur;
-                             kept strong so bright cover areas don't wash over the text. -->
-                        <Border Background="#E6E9E8FD" />
-                    </Panel>
-                </Border>
-            </Canvas>
+            <!-- Frosted layer: Avalonia has no backdrop-filter, so we paint the
+                 scroll content behind the bar and clip it to the bar's rounded
+                 corners. The source-sized layer sits bottom-left so the brush
+                 shows the slice that is actually behind the floating bar. -->
+            <Border Name="FrostClip" CornerRadius="15" ClipToBounds="True" IsHitTestVisible="False">
+                <Canvas ClipToBounds="True">
+                    <Border Name="FrostLayer" Canvas.Left="0" Canvas.Bottom="0"
+                            Width="{Binding $parent[views:AudioWidget].BackdropSource.Bounds.Width}"
+                            Height="{Binding $parent[views:AudioWidget].BackdropSource.Bounds.Height}">
+                        <Border.Effect>
+                            <BlurEffect Radius="12" />
+                        </Border.Effect>
+                        <Border.Background>
+                            <VisualBrush Visual="{Binding $parent[views:AudioWidget].BackdropSource}" Stretch="None" />
+                        </Border.Background>
+                    </Border>
+                </Canvas>
+            </Border>
+
+            <!-- Lavender veil keeps the Bootstrap glass colour over the blur. -->
+            <Border CornerRadius="15" Background="#73E9E8FD" IsHitTestVisible="False" />
 
             <Panel Margin="16,10">
             <!-- Desktop / landscape bar -->
@@ -125,7 +126,8 @@
 
                 <!-- Transport -->
                 <StackPanel Name="ControlsPanel" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Spacing="8">
-                    <Button Name="BackButton" Width="32" Height="32" CornerRadius="16" Padding="0"
+                    <Button Name="BackButton" Command="{Binding SkipToPreviousCommand}"
+                            Width="32" Height="32" CornerRadius="16" Padding="0"
                             Background="{StaticResource GlassControlBackground}" BorderBrush="{StaticResource GlassBarBorder}"
                             BorderThickness="1"
                             ToolTip.Tip="Previous episode">

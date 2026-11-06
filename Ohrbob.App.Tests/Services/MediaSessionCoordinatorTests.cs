@@ -75,6 +75,7 @@ public class MediaSessionCoordinatorTests
         public void RaisePause() => PauseRequested?.Invoke(this, EventArgs.Empty);
         public void RaiseToggle() => TogglePlayPauseRequested?.Invoke(this, EventArgs.Empty);
         public void RaiseNext() => NextRequested?.Invoke(this, EventArgs.Empty);
+        public void RaisePrevious() => PreviousRequested?.Invoke(this, EventArgs.Empty);
         public void RaiseSeekTo(int seconds) => SeekToRequested?.Invoke(this, seconds);
         public void RaiseSeekBy(int seconds) => SeekByRequested?.Invoke(this, seconds);
     }
@@ -179,6 +180,24 @@ public class MediaSessionCoordinatorTests
 
         Assert.That(handler.RequestPaths, Has.Some.Contains("/next"),
             "the next command should reach the server");
+    }
+
+    [AvaloniaTest]
+    public async Task PreviousRequested_AsksTheServerForThePreviousEpisode()
+    {
+        var (vm, service, _, handler, config) = Create();
+        config.ServerUrl = "https://example.com";
+        config.StreamToken = "token";
+
+        service.RaisePrevious();
+        var execution = vm.SkipToPreviousCommand.ExecutionTask;
+        if (execution != null)
+        {
+            await execution;
+        }
+
+        Assert.That(handler.RequestPaths, Has.Some.Contains("/prev"),
+            "the previous command should reach the server");
     }
 
     [AvaloniaTest]

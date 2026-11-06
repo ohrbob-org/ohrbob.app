@@ -168,4 +168,20 @@ public class OhrbobClient
         using var response = await _httpClient.SendAsync(request);
         response.EnsureSuccessStatusCode();
     }
+
+    public async Task PreviousAsync()
+    {
+        var serverUrl = _configService.ServerUrl?.TrimEnd('/');
+        if (string.IsNullOrEmpty(serverUrl))
+        {
+            throw new InvalidOperationException("Server URL is not configured.");
+        }
+
+        var url = $"{serverUrl}/stream/prev";
+        using var request = new HttpRequestMessage(HttpMethod.Post, url);
+        ApplyHeaders(request);
+
+        using var response = await _httpClient.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+    }
 }
