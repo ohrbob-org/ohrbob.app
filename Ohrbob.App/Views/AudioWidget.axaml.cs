@@ -17,29 +17,53 @@ public partial class AudioWidget : UserControl
         set => SetValue(BackdropSourceProperty, value);
     }
 
+    private ScrollViewer? _backdropScroll;
+    private bool _frostRefreshPending;
+
     public AudioWidget()
     {
         InitializeComponent();
-        Loaded += (_, _) => RefreshFrost();
+        Loaded += (_, _) => AttachBackdrop();
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
         if (change.Property == BackdropSourceProperty)
-            RefreshFrost();
+            AttachBackdrop();
     }
 
-    // A VisualBrush snapshots its source when the brush is first created, which
-    // happens before the source has any layout to draw. Re-assigning the visual
-    // once layout has run fills in the snapshot.
-    private void RefreshFrost()
+    private void AttachBackdrop()
     {
-        if (FrostLayer.Background is not VisualBrush brush || BackdropSource is null)
-            return;
+        if (!ReferenceEquals(_backdropScroll, BackdropSource))
+        {
+            if (_backdropScroll != null)
+                _backdropScroll.ScrollChanged -= OnBackdropScrollChanged;
+
+            _backdropScroll = BackdropSource as ScrollViewer;
+            if (_backdropScroll != null)
+                _backdropScroll.ScrollChanged += OnBackdropScrollChanged;
+        }
+
+        ScheduleFrostRefresh();
+    }
+
+    private void OnBackdropScrollChanged(object? sender, ScrollChangedEventArgs e) =>
+        ScheduleFrostRefresh();
+
+    // A VisualBrush snapshots its source when the brush is created. Layout and
+    // scrolling change that snapshot, so re-assign the visual to refresh it.
+    private void ScheduleFrostRefresh()
+    {
+        if (_frostRefreshPending) return;
+        _frostRefreshPending = true;
 
         Dispatcher.UIThread.Post(() =>
         {
+            _frostRefreshPending = false;
+            if (FrostLayer.Background is not VisualBrush brush || BackdropSource is null)
+                return;
+
             brush.Visual = null;
             brush.Visual = BackdropSource;
         }, DispatcherPriority.Background);

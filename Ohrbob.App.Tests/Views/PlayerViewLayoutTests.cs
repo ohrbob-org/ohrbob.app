@@ -33,6 +33,33 @@ public class PlayerViewLayoutTests
     }
 
     [AvaloniaTest]
+    public void ScrollingRefreshesFrostSnapshot()
+    {
+        var vm = new MainViewModel { IsPortrait = false, IsSidebarOpen = false };
+        var view = new PlayerView { DataContext = vm };
+        var window = new Window { Width = 1200, Height = 400, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var scroll = view.FindControl<ScrollViewer>("EpisodeScroll")!;
+        var widget = view.GetVisualDescendants().OfType<AudioWidget>().Single();
+        var brush = (VisualBrush)widget.FindControl<Border>("FrostLayer")!.Background!;
+
+        var visualChanges = 0;
+        brush.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == VisualBrush.VisualProperty) visualChanges++;
+        };
+
+        scroll.RaiseEvent(new ScrollChangedEventArgs(new Vector(), new Vector(0, 100), new Vector()));
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(visualChanges, Is.GreaterThan(0),
+            "scrolling must re-assign the brush visual so the blur follows the content");
+        window.Hide();
+    }
+
+    [AvaloniaTest]
     public void WidgetFloatsOverScrollContent()
     {
         var vm = new MainViewModel { IsPortrait = false, IsSidebarOpen = false };
