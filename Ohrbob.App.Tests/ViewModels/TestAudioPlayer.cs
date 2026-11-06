@@ -11,6 +11,7 @@ internal sealed class TestAudioPlayer : IAudioPlayer
     public int PositionSeconds { get; private set; }
     public int DurationSeconds { get; private set; }
     public string? CurrentUrl { get; private set; }
+    public float Volume { get; set; } = 1f;
 
     public Task Load(string url)
     {

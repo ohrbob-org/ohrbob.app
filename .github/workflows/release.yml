@@ -1,7 +1,7 @@
 name: Release
 
 # Builds the Linux AppImage, the Windows installer and the Android APK for
-# every tag push and attaches all three to a draft GitHub Release.
+# every tag push and attaches all three to a GitHub Release.
 #
 # The tag is the version (the leading "v" is stripped): the Flatpak manifest
 # and the AppStream screenshot URLs pin to these tags, so a tag must be pushed
@@ -117,7 +117,7 @@ jobs:
           if-no-files-found: error
 
   release:
-    name: Draft release
+    name: Release
     needs:
       - linux-appimage
       - windows-installer
@@ -130,11 +130,10 @@ jobs:
           path: artifacts
           merge-multiple: true
 
-      - name: Create the draft release
+      - name: Create the release
         uses: softprops/action-gh-release@v3
         with:
-          # Draft so a human can review the notes and files before publishing.
-          draft: true
+          draft: false
           generate_release_notes: true
           fail_on_unmatched_files: true
           files: artifacts/*

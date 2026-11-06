@@ -10,6 +10,9 @@ public interface IAudioPlayer : IDisposable
     int DurationSeconds { get; }
     string? CurrentUrl { get; }
 
+    /// <summary>Linear volume in the range 0..1.</summary>
+    float Volume { get; set; }
+
     Task Load(string url);
     void Play();
     void Pause();

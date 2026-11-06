@@ -121,6 +121,19 @@ public class MainViewModelTests
     }
 
     [Test]
+    public void Volume_WhenChanged_AppliesToAudioPlayer()
+    {
+        var configService = new ConfigService(_tempConfigPath);
+        var client = new OhrbobClient(configService, new FakeHttpMessageHandler());
+        var player = new TestAudioPlayer();
+        var vm = new MainViewModel(configService, client, null, player);
+
+        vm.Volume = 40;
+
+        Assert.That(player.Volume, Is.EqualTo(0.4f).Within(0.001f));
+    }
+
+    [Test]
     public void TogglePlay_WhenStreamUriExists_TogglesIsPlaying()
     {
         var configService = new ConfigService(_tempConfigPath);

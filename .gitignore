@@ -10,3 +10,7 @@ logs/*
 .envrc
 .cache/
 .local/
+googleplaydeploymentkey.json
+play-store-key.json
+*.keystore
+release.keystore

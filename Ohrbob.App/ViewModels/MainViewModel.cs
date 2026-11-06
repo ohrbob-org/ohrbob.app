@@ -102,6 +102,12 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     private int _positionSeconds;
 
+    // 0..100 for the slider; the player expects 0..1.
+    [ObservableProperty]
+    private int _volume = 100;
+
+    partial void OnVolumeChanged(int value) => _player.Volume = Math.Clamp(value, 0, 100) / 100f;
+
     [ObservableProperty]
     private int _durationSeconds;
 

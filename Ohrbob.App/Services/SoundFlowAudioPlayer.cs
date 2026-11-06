@@ -34,6 +34,17 @@ public class SoundFlowAudioPlayer : IAudioPlayer
     public int PositionSeconds => _player != null ? (int)_player.Time : 0;
     public int DurationSeconds => _player != null ? (int)_player.Duration : 0;
     public string? CurrentUrl { get; private set; }
+
+    private float _volume = 1f;
+    public float Volume
+    {
+        get => _volume;
+        set
+        {
+            _volume = Math.Clamp(value, 0f, 1f);
+            if (_player != null) _player.Volume = _volume;
+        }
+    }
     
     // We don't need LibVlc anymore, this is for backwards compatibility with the interface
     public bool IsLibVlcInstalled => true; 
@@ -179,6 +190,7 @@ public class SoundFlowAudioPlayer : IAudioPlayer
 
                 _device = _engine.InitializePlaybackDevice(null, format, new MiniAudioDeviceConfig());
                 var player = new SoundPlayer(_engine, format, _provider);
+                player.Volume = _volume;
                 player.PlaybackEnded += OnPlaybackEnded;
                 _player = player;
                 
