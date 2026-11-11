@@ -1,15 +1,20 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 
 namespace Ohrbob.App.Services;
 
 public class ConfigService
 {
+    private static readonly int[] AllowedBufferMinutes = { 0, 10, 15, 30, 60, 120 };
+
     public string? ServerUrl { get; set; }
     public string? StreamToken { get; set; }
     public bool DoNotAutoPlay { get; set; }
 
+    private Dictionary<string, int> _bufferMinutesByStation = new();
     private readonly string? _customPath;
 
     public ConfigService()
@@ -63,6 +68,7 @@ public class ConfigService
                 ServerUrl = data.ServerUrl;
                 StreamToken = data.StreamToken;
                 DoNotAutoPlay = data.DoNotAutoPlay;
+                _bufferMinutesByStation = data.BufferMinutesByStation ?? new();
             }
         }
         catch
@@ -71,12 +77,31 @@ public class ConfigService
         }
     }
 
+    public int GetBufferMinutes(string stationId) =>
+        _bufferMinutesByStation.TryGetValue(stationId, out var minutes) &&
+        AllowedBufferMinutes.Contains(minutes)
+            ? minutes
+            : 0;
+
+    public void SetBufferMinutes(string stationId, int minutes)
+    {
+        if (string.IsNullOrEmpty(stationId)) return;
+        var normalized = AllowedBufferMinutes.Contains(minutes) ? minutes : 0;
+        if (normalized == 0) _bufferMinutesByStation.Remove(stationId);
+        else _bufferMinutesByStation[stationId] = normalized;
+        Persist();
+    }
+
     public void Save(string serverUrl, string streamToken, bool? doNotAutoPlay = null)
     {
         ServerUrl = serverUrl;
         StreamToken = streamToken;
         if (doNotAutoPlay.HasValue) DoNotAutoPlay = doNotAutoPlay.Value;
+        Persist();
+    }
 
+    private void Persist()
+    {
         var path = GetConfigFilePath();
         try
         {
@@ -86,8 +111,7 @@ public class ConfigService
                 Directory.CreateDirectory(dir);
             }
 
-            var data = new ConfigData { ServerUrl = ServerUrl, StreamToken = StreamToken, DoNotAutoPlay = DoNotAutoPlay };
-            var json = JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true });
+            var json = Serialize();
             File.WriteAllText(path, json);
         }
         catch
@@ -96,9 +120,7 @@ public class ConfigService
             try
             {
                 var fallbackPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "config.json");
-                var data = new ConfigData { ServerUrl = ServerUrl, StreamToken = StreamToken, DoNotAutoPlay = DoNotAutoPlay };
-                var json = JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true });
-                File.WriteAllText(fallbackPath, json);
+                File.WriteAllText(fallbackPath, Serialize());
             }
             catch
             {
@@ -107,10 +129,23 @@ public class ConfigService
         }
     }
 
+    private string Serialize()
+    {
+        var data = new ConfigData
+        {
+            ServerUrl = ServerUrl,
+            StreamToken = StreamToken,
+            DoNotAutoPlay = DoNotAutoPlay,
+            BufferMinutesByStation = _bufferMinutesByStation,
+        };
+        return JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true });
+    }
+
     private class ConfigData
     {
         public string? ServerUrl { get; set; }
         public string? StreamToken { get; set; }
         public bool DoNotAutoPlay { get; set; }
+        public Dictionary<string, int>? BufferMinutesByStation { get; set; }
     }
 }

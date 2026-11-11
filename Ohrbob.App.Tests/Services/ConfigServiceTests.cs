@@ -58,4 +58,32 @@ public class ConfigServiceTests
         Assert.That(loadService.ServerUrl, Is.EqualTo(expectedUrl));
         Assert.That(loadService.StreamToken, Is.EqualTo(expectedToken));
     }
+
+    [Test]
+    public void BufferMinutes_AreIndependentPerStation_AndRoundTrip()
+    {
+        var service = new ConfigService(_tempFilePath);
+        service.SetBufferMinutes("station-a", 30);
+        service.SetBufferMinutes("station-b", 10);
+
+        var reloaded = new ConfigService(_tempFilePath);
+
+        Assert.That(reloaded.GetBufferMinutes("station-a"), Is.EqualTo(30));
+        Assert.That(reloaded.GetBufferMinutes("station-b"), Is.EqualTo(10));
+        Assert.That(reloaded.GetBufferMinutes("station-c"), Is.EqualTo(0));
+    }
+
+    [Test]
+    public void SetBufferMinutes_ZeroRemovesStation_AndInvalidValueReadsAsZero()
+    {
+        var service = new ConfigService(_tempFilePath);
+        service.SetBufferMinutes("station-a", 60);
+        service.SetBufferMinutes("station-a", 0);
+        service.SetBufferMinutes("station-b", 17);
+
+        var reloaded = new ConfigService(_tempFilePath);
+
+        Assert.That(reloaded.GetBufferMinutes("station-a"), Is.EqualTo(0));
+        Assert.That(reloaded.GetBufferMinutes("station-b"), Is.EqualTo(0));
+    }
 }
