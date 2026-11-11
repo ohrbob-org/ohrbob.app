@@ -153,6 +153,26 @@ public class OhrbobClient
         response.EnsureSuccessStatusCode();
     }
 
+    public async Task<PlaylistDto?> GetPlaylistAsync(int limit = 50)
+    {
+        var serverUrl = _configService.ServerUrl?.TrimEnd('/');
+        if (string.IsNullOrEmpty(serverUrl))
+        {
+            throw new InvalidOperationException("Server URL is not configured.");
+        }
+
+        var url = $"{serverUrl}/stream/playlist?limit={limit}";
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        ApplyHeaders(request);
+
+        using var response = await _httpClient.SendAsync(request);
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound) return null;
+        response.EnsureSuccessStatusCode();
+
+        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        return await response.Content.ReadFromJsonAsync<PlaylistDto>(options);
+    }
+
     public async Task NextAsync()
     {
         var serverUrl = _configService.ServerUrl?.TrimEnd('/');

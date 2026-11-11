@@ -11,6 +11,8 @@ public class Station
     public StationSchedule? Schedule { get; set; }
     public bool IsPublic { get; set; }
     public bool IsAging { get; set; }
+    public bool HostPaceEnabled { get; set; }
+    public bool IsAvailableOffline { get; set; }
     public DateTime? DeletedAt { get; set; }
     public DateTime CreatedAt { get; set; }
     public string? Id { get; set; }

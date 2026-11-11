@@ -168,6 +168,46 @@ public class OhrbobClientTests
         var headerVal = handler.LastRequest.Headers.GetValues("X-Stream-Token");
         Assert.That(headerVal, Contains.Item(StreamToken));
     }
+
+    [Test]
+    public async Task GetPlaylistAsync_ParsesPlaylistAndSendsLimit()
+    {
+        var json = """
+        {
+          "stationId": "s1",
+          "hostPaceEnabled": true,
+          "isAging": false,
+          "episodes": [
+            { "episodeId": "e1", "title": "Ep 1", "description": "Desc", "artist": "Feed",
+              "coverUrl": "https://img/1", "streamUri": "https://audio/1",
+              "publishedAt": "2026-11-01T10:00:00Z", "isCurrent": true }
+          ]
+        }
+        """;
+        var handler = new MockHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json")
+        });
+        var client = new OhrbobClient(_mockConfig, handler);
+
+        var playlist = await client.GetPlaylistAsync(2);
+
+        Assert.That(handler.LastRequest!.RequestUri!.ToString(), Is.EqualTo($"{ServerUrl}/stream/playlist?limit=2"));
+        Assert.That(handler.LastRequest.Headers.Contains("X-Stream-Token"), Is.True);
+        Assert.That(playlist!.StationId, Is.EqualTo("s1"));
+        Assert.That(playlist.HostPaceEnabled, Is.True);
+        Assert.That(playlist.Episodes.Single().EpisodeId, Is.EqualTo("e1"));
+        Assert.That(playlist.Episodes.Single().IsCurrent, Is.True);
+    }
+
+    [Test]
+    public async Task GetPlaylistAsync_NotFound_ReturnsNull()
+    {
+        var handler = new MockHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.NotFound));
+        var client = new OhrbobClient(_mockConfig, handler);
+
+        Assert.That(await client.GetPlaylistAsync(), Is.Null);
+    }
 }
 
 public class MockHttpMessageHandler : HttpMessageHandler
