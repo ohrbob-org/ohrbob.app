@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
@@ -19,6 +20,8 @@ namespace Ohrbob.App.ViewModels;
 
 public partial class MainViewModel : ViewModelBase
 {
+    public sealed record BufferOption(int Minutes, string Label);
+
     /// <summary>The hosted ohrbob.org page that starts the connect flow.</summary>
     public const string AppConnectPath = "/connect/app";
 
@@ -39,6 +42,7 @@ public partial class MainViewModel : ViewModelBase
     private bool _isUpdatingPositionFromPlayer;
     private bool _isUpdatingStateFromPlayer;
     private bool _isSkipping;
+    private bool _suppressBufferSave;
 
     [ObservableProperty]
     private bool _isConnected;
@@ -96,6 +100,51 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     private string? _nextEpisodeTitle;
 
+    private static readonly IReadOnlyList<BufferOption> AllBufferOptions = new[]
+    {
+        new BufferOption(0, "Off"),
+        new BufferOption(10, "10 min"),
+        new BufferOption(15, "15 min"),
+        new BufferOption(30, "30 min"),
+        new BufferOption(60, "60 min"),
+        new BufferOption(120, "120 min"),
+    };
+
+    public IReadOnlyList<BufferOption> BufferOptions => AllBufferOptions;
+
+    [ObservableProperty]
+    private BufferOption _selectedBufferOption = AllBufferOptions[0];
+
+    [ObservableProperty]
+    private ObservableCollection<PlaylistItem> _playlistItems = new();
+
+    [ObservableProperty]
+    private string? _downloadBlockedReason;
+
+    [ObservableProperty]
+    private string? _downloadStatusMessage;
+
+    [ObservableProperty]
+    private bool _isDownloadEnabled;
+
+    [ObservableProperty]
+    private bool _isBufferSelectionEnabled;
+
+    [ObservableProperty]
+    private bool _isPlaylistUnavailable;
+
+    [ObservableProperty]
+    private bool _isPlaylistLoading;
+
+    [ObservableProperty]
+    private bool _isPlaylistEmpty;
+
+    [ObservableProperty]
+    private bool _isSettingsOpen;
+
+    [ObservableProperty]
+    private bool _isUpNextOpen;
+
     [ObservableProperty]
     private bool _isRefreshIndicatorVisible;
 
@@ -134,6 +183,18 @@ public partial class MainViewModel : ViewModelBase
 
     [ObservableProperty]
     private bool _isSidebarOpen = true;
+
+    [RelayCommand]
+    private void OpenSettings() => IsSettingsOpen = true;
+
+    [RelayCommand]
+    private void CloseSettings() => IsSettingsOpen = false;
+
+    [RelayCommand]
+    private void ToggleUpNext() => IsUpNextOpen = !IsUpNextOpen;
+
+    [RelayCommand]
+    private void CloseUpNext() => IsUpNextOpen = false;
 
     [RelayCommand]
     private void ToggleSidebar()
@@ -589,6 +650,8 @@ public partial class MainViewModel : ViewModelBase
         CurrentEpisodeCoverUrl = null;
         CurrentEpisodeStreamUri = null;
         NextEpisodeTitle = null;
+        PlaylistItems.Clear();
+        IsPlaylistUnavailable = false;
 
         try
         {
@@ -614,6 +677,7 @@ public partial class MainViewModel : ViewModelBase
             }
 
             await RefreshStatusAsync();
+            await RefreshPlaylistAsync();
             _syncTimer?.Start();
             ConnectionErrorMessage = null;
         }
@@ -719,10 +783,107 @@ public partial class MainViewModel : ViewModelBase
         }
     }
 
+    partial void OnSelectedBufferOptionChanged(BufferOption value)
+    {
+        if (_suppressBufferSave) return;
+        _ = ApplySelectedBufferAsync();
+    }
+
+    /// <summary>Persists the station's buffer and refreshes its playlist.</summary>
+    public async Task ApplySelectedBufferAsync()
+    {
+        if (SelectedStation?.Station?.Id is not { } stationId) return;
+        _configService.SetBufferMinutes(stationId, SelectedBufferOption.Minutes);
+        await RefreshPlaylistAsync();
+    }
+
+    private void RestoreBufferOption(string stationId)
+    {
+        var minutes = _configService.GetBufferMinutes(stationId);
+        _suppressBufferSave = true;
+        try
+        {
+            SelectedBufferOption = BufferOptions.FirstOrDefault(o => o.Minutes == minutes) ?? BufferOptions[0];
+        }
+        finally
+        {
+            _suppressBufferSave = false;
+        }
+    }
+
+    private async Task RefreshPlaylistAsync()
+    {
+        if (!IsConnected) return;
+
+        IsPlaylistLoading = true;
+        try
+        {
+            var playlist = await _client.GetPlaylistAsync();
+            if (playlist == null)
+            {
+                IsPlaylistUnavailable = true;
+                PlaylistItems.Clear();
+            }
+            else
+            {
+                IsPlaylistUnavailable = false;
+                var existingStates = PlaylistItems
+                    .GroupBy(p => p.EpisodeId)
+                    .ToDictionary(g => g.Key, g => g.First().DownloadState);
+                PlaylistItems = new ObservableCollection<PlaylistItem>(
+                    playlist.Episodes.Select(e => new PlaylistItem
+                    {
+                        EpisodeId = e.EpisodeId ?? "",
+                        Title = e.Title ?? "",
+                        Description = e.Description ?? "",
+                        Artist = e.Artist ?? "",
+                        CoverUrl = e.CoverUrl,
+                        StreamUri = e.StreamUri,
+                        PublishedAt = e.PublishedAt,
+                        IsCurrent = e.IsCurrent,
+                        DownloadState = existingStates.TryGetValue(e.EpisodeId ?? "", out var state)
+                            ? state
+                            : DownloadState.NotDownloaded,
+                    }));
+            }
+
+            UpdateDownloadState(playlist);
+        }
+        catch
+        {
+            IsPlaylistUnavailable = true;
+            PlaylistItems.Clear();
+            UpdateDownloadState(null);
+        }
+        finally
+        {
+            IsPlaylistLoading = false;
+            IsPlaylistEmpty = PlaylistItems.Count == 0 && !IsPlaylistUnavailable;
+        }
+    }
+
+    private void UpdateDownloadState(PlaylistDto? playlist)
+    {
+        var station = SelectedStation?.Station;
+        if (station?.HostPaceEnabled == true || playlist?.HostPaceEnabled == true)
+            DownloadBlockedReason = "Downloads are unavailable for host-paced stations.";
+        else if (station?.IsAging == true || playlist?.IsAging == true)
+            DownloadBlockedReason = "Downloads are unavailable for aging stations.";
+        else
+            DownloadBlockedReason = null;
+
+        var minutes = station?.Id is { } stationId ? _configService.GetBufferMinutes(stationId) : 0;
+        DownloadStatusMessage = DownloadBlockedReason
+            ?? (minutes == 0 ? "Set a buffer in Settings to download episodes." : null);
+        IsDownloadEnabled = DownloadBlockedReason == null && minutes > 0;
+        IsBufferSelectionEnabled = DownloadBlockedReason == null;
+    }
+
     partial void OnSelectedStationChanged(StationWithFeedsDto? value)
     {
         if (value != null && value.Station?.Id != null)
         {
+            RestoreBufferOption(value.Station.Id);
             if (IsPortrait) IsSidebarOpen = false;
             _ = SwitchStationAsync(value.Station.Id);
         }
@@ -734,6 +895,7 @@ public partial class MainViewModel : ViewModelBase
         {
             await _client.PlayStationAsync(stationId);
             await RefreshStatusAsync();
+            await RefreshPlaylistAsync();
         }
         catch
         {
