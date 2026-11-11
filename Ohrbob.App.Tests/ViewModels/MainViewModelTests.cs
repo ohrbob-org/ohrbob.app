@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 using NUnit.Framework;
 using Ohrbob.App.Models;
@@ -159,6 +160,43 @@ public class MainViewModelTests
             {
                 Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json")
             });
+        }
+    }
+
+    private class GatedAudioHandler : HttpMessageHandler
+    {
+        private readonly TaskCompletionSource _audioStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public int AudioRequests;
+
+        public Task AudioStarted => _audioStarted.Task;
+
+        public void Release() => _release.TrySetResult();
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            var path = request.RequestUri?.AbsolutePath ?? "";
+            if (path.StartsWith("/audio/"))
+            {
+                Interlocked.Increment(ref AudioRequests);
+                _audioStarted.TrySetResult();
+                await _release.Task.WaitAsync(ct);
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new ByteArrayContent(new byte[] { 1, 2, 3 })
+                };
+            }
+
+            var body = path.EndsWith("/stream/stations")
+                ? "[{\"station\":{\"id\":\"s1\",\"name\":\"Station One\"},\"feeds\":[]}]"
+                : path.EndsWith("/stream/playlist")
+                    ? "{\"stationId\":\"s1\",\"hostPaceEnabled\":false,\"isAging\":false,\"episodes\":[" +
+                      "{\"episodeId\":\"e1\",\"title\":\"Current\",\"streamUri\":\"https://example.com/audio/1.mp3\",\"isCurrent\":true}]}"
+                    : "{}";
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json")
+            };
         }
     }
 
@@ -363,5 +401,31 @@ public class MainViewModelTests
         vm.CurrentEpisodeStreamUri = "https://audio/1";
 
         Assert.That(player.CurrentUrl, Is.EqualTo(downloads.GetDownloadedPath("s1", "e1")));
+    }
+
+    [Test]
+    public async Task TriggerDownloadSync_ConcurrentTriggersDoNotRestartRunningSync()
+    {
+        var handler = new GatedAudioHandler();
+        var config = new ConfigService(_tempConfigPath);
+        config.Save("https://example.com", "token");
+        config.SetBufferMinutes("s1", 10);
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        var downloads = new EpisodeDownloadService(root, new HttpClient(handler), _ => TimeSpan.FromMinutes(1));
+        var vm = new MainViewModel(config, new OhrbobClient(config, handler), null, new TestAudioPlayer(), a => a(), downloads);
+
+        await vm.RetryConnectionAsync();
+        await handler.AudioStarted.WaitAsync(TimeSpan.FromSeconds(5));
+
+        var triggers = Enumerable.Range(0, 20)
+            .Select(_ => Task.Run(() => vm.TriggerDownloadSync()))
+            .ToArray();
+        await Task.WhenAll(triggers);
+
+        handler.Release();
+        await vm.WaitForDownloadsAsync();
+
+        Assert.That(handler.AudioRequests, Is.EqualTo(1),
+            "concurrent triggers must not cancel and restart the running sync");
     }
 }

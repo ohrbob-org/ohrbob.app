@@ -34,6 +34,7 @@ public partial class MainViewModel : ViewModelBase
     private readonly EpisodeDownloadService _downloads;
     private readonly OfflineStateService _offlineState;
     private readonly SemaphoreSlim _downloadSyncGate = new(1, 1);
+    private readonly object _downloadSyncLock = new();
     private Task? _downloadSyncTask;
     private string? _lastDownloadSignature;
     private int _playlistGeneration;
@@ -815,7 +816,6 @@ public partial class MainViewModel : ViewModelBase
         if (SelectedStation?.Station?.Id is not { } stationId) return;
         _configService.SetBufferMinutes(stationId, SelectedBufferOption.Minutes);
         await RefreshPlaylistAsync();
-        TriggerDownloadSync();
     }
 
     /// <summary>
@@ -848,26 +848,74 @@ public partial class MainViewModel : ViewModelBase
         }
         finally
         {
-            _downloadSyncGate.Release();
+            try
+            {
+                // A concurrent playlist refresh may have replaced PlaylistItems
+                // while the sync updated the old items. Reconcile the visible list.
+                if (ActiveStationId == stationId)
+                    RefreshDownloadStates(stationId);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Episode download state refresh failed");
+            }
+            finally
+            {
+                _downloadSyncGate.Release();
+            }
+        }
+    }
+
+    private void RefreshDownloadStates(string stationId)
+    {
+        foreach (var item in PlaylistItems)
+        {
+            var path = _downloads.GetDownloadedPath(stationId, item.EpisodeId);
+            // Keep a failed attempt visible until the next sync retries it.
+            if (path is null && item.DownloadState == DownloadState.Failed)
+                continue;
+
+            item.DownloadState = path is null ? DownloadState.NotDownloaded : DownloadState.Downloaded;
         }
     }
 
     /// <summary>Fire-and-forget kickoff; never awaited by navigation or refresh.</summary>
     public void TriggerDownloadSync()
     {
-        // The initial load and the fire-and-forget station switch both refresh the
-        // same playlist. Do not cancel and restart a sync that is already running
-        // for identical content; otherwise the same episode is fetched twice.
-        var signature = DownloadSignature();
-        if (signature == _lastDownloadSignature && _downloadSyncTask is { IsCompleted: false })
-            return;
+        // Triggers arrive from UI, navigation and thread-pool continuations. The
+        // lock keeps the signature check and task swap atomic so two triggers
+        // cannot both decide to restart (and cancel) the same running sync.
+        lock (_downloadSyncLock)
+        {
+            // The initial load and the fire-and-forget station switch both refresh
+            // the same playlist. Do not cancel and restart a sync that is already
+            // running for identical content; otherwise the episode is fetched twice.
+            var signature = DownloadSignature();
+            if (signature == _lastDownloadSignature && _downloadSyncTask is { IsCompleted: false })
+                return;
 
-        _lastDownloadSignature = signature;
-        _downloads.Cancel();
-        _downloadSyncTask = SyncDownloadsAsync();
+            _lastDownloadSignature = signature;
+            _downloads.Cancel();
+            _downloadSyncTask = SyncDownloadsAsync();
+        }
     }
 
-    public Task WaitForDownloadsAsync() => _downloadSyncTask ?? Task.CompletedTask;
+    public async Task WaitForDownloadsAsync()
+    {
+        // A refresh that finishes after the caller started waiting replaces the
+        // task; keep waiting until the task we observed is still the newest.
+        while (true)
+        {
+            Task task;
+            lock (_downloadSyncLock)
+                task = _downloadSyncTask ?? Task.CompletedTask;
+
+            await task;
+
+            lock (_downloadSyncLock)
+                if (ReferenceEquals(task, _downloadSyncTask)) return;
+        }
+    }
 
     private string? DownloadSignature()
     {
