@@ -674,6 +674,55 @@ public class MainViewModelTests
     }
 
     [Test]
+    public async Task ApplyBufferChange_OnOlderServer_KepsCachedFiles()
+    {
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(Path.Combine(root, "s1"));
+        File.WriteAllBytes(Path.Combine(root, "s1", "e1.mp3"), new byte[] { 1 });
+
+        var requests = new List<string>();
+        var handler = new MockHttpMessageHandler(req =>
+        {
+            var path = req.RequestUri?.AbsolutePath ?? "";
+            if (path.StartsWith("/audio/"))
+            {
+                requests.Add(path);
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new ByteArrayContent(new byte[] { 1, 2, 3 })
+                };
+            }
+            if (path.EndsWith("/stream/playlist"))
+                return new HttpResponseMessage(HttpStatusCode.NotFound);
+            var body = path.EndsWith("/stream/stations")
+                ? "[{\"station\":{\"id\":\"s1\",\"name\":\"Station One\"},\"feeds\":[]}]"
+                : "{}";
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json")
+            };
+        });
+        var config = new ConfigService(_tempConfigPath);
+        config.Save("https://example.com", "token");
+        config.SetBufferMinutes("s1", 30);
+        var downloads = new EpisodeDownloadService(root, new HttpClient(handler), _ => TimeSpan.FromMinutes(1));
+        var vm = new MainViewModel(config, new OhrbobClient(config, handler), null, new TestAudioPlayer(), a => a(), downloads, new OfflineStateService(_tempOfflinePath));
+
+        await vm.RetryConnectionAsync();
+        vm.SelectedStation = new StationWithFeedsDto { Station = new Station { Id = "s1", Name = "One" } };
+        vm.CurrentEpisodeId = "e1";
+
+        vm.SelectedBufferOption = vm.BufferOptions.Single(o => o.Minutes == 60);
+        await vm.ApplySelectedBufferAsync();
+        await vm.WaitForDownloadsAsync();
+
+        Assert.That(downloads.GetDownloadedPath("s1", "e1"), Is.Not.Null,
+            "cached files must not be pruned when the playlist is unavailable");
+        Assert.That(requests, Is.Empty,
+            "no download requests must be made when the playlist is unknown");
+    }
+
+    [Test]
     public void SaveOfflineSnapshot_MergesCachedStationsWithDownloads()
     {
         var config = new ConfigService(_tempConfigPath);

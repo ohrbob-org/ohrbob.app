@@ -928,6 +928,10 @@ public partial class MainViewModel : ViewModelBase
             // A queued sync may have outlived its station after a switch.
             if (!IsConnected || ActiveStationId != stationId) return;
 
+            // If the playlist is unknown (older server / unavailable) we must not
+            // prune based on an empty item list; keep whatever is already cached.
+            if (IsPlaylistUnavailable || PlaylistItems.Count == 0) return;
+
             var blocked = DownloadsBlocked;
             var minutes = _configService.GetBufferMinutes(stationId);
             // Host-paced/aging files must never survive, so the current episode is
