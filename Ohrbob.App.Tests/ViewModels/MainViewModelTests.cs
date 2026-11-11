@@ -723,6 +723,30 @@ public class MainViewModelTests
     }
 
     [Test]
+    public async Task HostPacedStation_EmptyAvailablePlaylist_PrunesCachedFile()
+    {
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(Path.Combine(root, "s1"));
+        File.WriteAllBytes(Path.Combine(root, "s1", "e1.mp3"), new byte[] { 1 });
+        var handler = new PlaylistHttpHandler
+        {
+            StationJson = "[{\"station\":{\"id\":\"s1\",\"name\":\"Station One\",\"hostPaceEnabled\":true},\"feeds\":[]}]",
+            PlaylistJson = "{\"stationId\":\"s1\",\"hostPaceEnabled\":true,\"isAging\":false,\"episodes\":[]}"
+        };
+        var config = new ConfigService(_tempConfigPath);
+        config.Save("https://example.com", "token");
+        config.SetBufferMinutes("s1", 30);
+        var downloads = new EpisodeDownloadService(root, null, _ => TimeSpan.FromMinutes(1));
+        var vm = new MainViewModel(config, new OhrbobClient(config, handler), null, new TestAudioPlayer(), a => a(), downloads, new OfflineStateService(_tempOfflinePath));
+
+        await vm.RetryConnectionAsync();
+        await vm.WaitForDownloadsAsync();
+
+        Assert.That(downloads.GetDownloadedPath("s1", "e1"), Is.Null,
+            "a blocked station's cache must be pruned even when the server returns an empty playlist");
+    }
+
+    [Test]
     public void SaveOfflineSnapshot_MergesCachedStationsWithDownloads()
     {
         var config = new ConfigService(_tempConfigPath);

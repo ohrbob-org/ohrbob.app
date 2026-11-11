@@ -928,9 +928,9 @@ public partial class MainViewModel : ViewModelBase
             // A queued sync may have outlived its station after a switch.
             if (!IsConnected || ActiveStationId != stationId) return;
 
-            // If the playlist is unknown (older server / unavailable) we must not
-            // prune based on an empty item list; keep whatever is already cached.
-            if (IsPlaylistUnavailable || PlaylistItems.Count == 0) return;
+            // An unknown playlist (older server / failed fetch) must not prune the cache.
+            // An empty but available playlist still syncs, so a blocked station is pruned.
+            if (IsPlaylistUnavailable) return;
 
             var blocked = DownloadsBlocked;
             var minutes = _configService.GetBufferMinutes(stationId);
