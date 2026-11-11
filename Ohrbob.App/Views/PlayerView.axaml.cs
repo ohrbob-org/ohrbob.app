@@ -1,6 +1,7 @@
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Input.GestureRecognizers;
 using Avalonia.Interactivity;
 using Ohrbob.App.ViewModels;
 
@@ -28,6 +29,24 @@ public partial class PlayerView : UserControl
             if (_pullFromTop) _ = RefreshAsync();
             _pullFromTop = false;
         };
+
+        // Swipe right opens Up next, swipe left closes it.
+        EpisodeScroll.GestureRecognizers.Add(new SwipeGestureRecognizer
+        {
+            CanHorizontallySwipe = true,
+            IsMouseEnabled = true
+        });
+        EpisodeScroll.SwipeGestureEnded += (_, e) =>
+        {
+            if (DataContext is not MainViewModel vm) return;
+            if (e.Velocity.X > 200) vm.IsUpNextOpen = true;
+            else if (e.Velocity.X < -200) vm.IsUpNextOpen = false;
+        };
+    }
+
+    private void CloseUpNextOnPointer(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is MainViewModel vm) vm.IsUpNextOpen = false;
     }
 
     private void OnEpisodeScrollWheel(object? sender, PointerWheelEventArgs e)

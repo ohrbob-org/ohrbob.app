@@ -21,7 +21,9 @@ public partial class PlaylistItem : ObservableObject
     public string? CoverUrl { get; init; }
     public string? StreamUri { get; init; }
     public DateTime? PublishedAt { get; init; }
-    public bool IsCurrent { get; init; }
+
+    [ObservableProperty]
+    private bool _isCurrent;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(StateLabel))]

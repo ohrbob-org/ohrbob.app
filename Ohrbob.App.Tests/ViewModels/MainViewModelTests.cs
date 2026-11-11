@@ -519,6 +519,10 @@ public class MainViewModelTests
 
         Assert.That(vm.CurrentEpisodeId, Is.EqualTo("e2"));
         Assert.That(player.CurrentUrl, Is.EqualTo(Path.Combine(root, "s1", "e2.mp3")));
+        Assert.That(vm.PlaylistItems.Single(i => i.EpisodeId == "e2").IsCurrent, Is.True,
+            "the advanced-to episode must be marked as the current one");
+        Assert.That(vm.PlaylistItems.Single(i => i.EpisodeId == "e1").IsCurrent, Is.False,
+            "the finished episode must no longer be marked as current");
     }
 
     [Test]

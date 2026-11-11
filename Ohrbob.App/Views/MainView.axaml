@@ -56,6 +56,43 @@
                 </StackPanel>
             </Border>
         </Border>
+
+        <!-- Per-station settings (opened from the sidebar gear) -->
+        <Border Background="#80000000" IsVisible="{Binding IsSettingsOpen}">
+            <Border x:Name="SettingsDialog" MaxWidth="420" Margin="16" Padding="24" CornerRadius="12"
+                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Background="{DynamicResource AppBackgroundBrush}"
+                    BoxShadow="0 4 20 0 #40000000">
+                <StackPanel Spacing="16">
+                    <TextBlock Text="Settings" Classes="h2" />
+                    <TextBlock Text="{Binding SelectedStation.Station.Name, FallbackValue='No active station'}"
+                               FontSize="13" FontWeight="SemiBold"
+                               Foreground="{DynamicResource AppMutedTextBrush}" />
+                    <TextBlock Text="Buffer ahead" FontSize="13" FontWeight="SemiBold" />
+                    <ComboBox x:Name="BufferOptionsBox"
+                              ItemsSource="{Binding BufferOptions}"
+                              SelectedItem="{Binding SelectedBufferOption, Mode=TwoWay}"
+                              IsEnabled="{Binding IsBufferSelectionEnabled}"
+                              HorizontalAlignment="Stretch">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Label}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <TextBlock Text="Whole upcoming episodes of this station are downloaded. More buffer uses more storage."
+                               FontSize="12" TextWrapping="Wrap"
+                               Foreground="{DynamicResource AppMutedTextBrush}" />
+                    <Border Background="{StaticResource ThemeWarningBrush}" CornerRadius="6" Padding="10"
+                            IsVisible="{Binding DownloadBlockedReason, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                        <TextBlock Text="{Binding DownloadBlockedReason}" FontSize="12" TextWrapping="Wrap"
+                                   Foreground="{StaticResource OhrbobDarkBlue}" />
+                    </Border>
+                    <Button Content="Close" Command="{Binding CloseSettingsCommand}"
+                            Classes="btn-primary" HorizontalAlignment="Right" MinWidth="100" />
+                </StackPanel>
+            </Border>
+        </Border>
     </Panel>
 
 </UserControl>

@@ -1,10 +1,14 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
+using Avalonia.Input;
+using Avalonia.Input.GestureRecognizers;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using NUnit.Framework;
+using Ohrbob.App.Models;
+using Ohrbob.App.Services;
 using Ohrbob.App.ViewModels;
 using Ohrbob.App.Views;
 
@@ -13,6 +17,10 @@ namespace Ohrbob.App.Tests.Views;
 [TestFixture]
 public class PlayerViewLayoutTests
 {
+    /// <summary>Isolates tests from the user's real saved connection.</summary>
+    private static MainViewModel CreateViewModel() =>
+        new(new ConfigService(Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".json")), null);
+
     [AvaloniaTest]
     public void Portrait_MenuButton_IsFullyOnScreen()
     {
@@ -80,6 +88,75 @@ public class PlayerViewLayoutTests
         Assert.That(widget.VerticalAlignment, Is.EqualTo(Avalonia.Layout.VerticalAlignment.Bottom));
         Assert.That(scroll.Padding.Bottom, Is.GreaterThan(80), "content needs room to scroll above the bar");
 
+        window.Hide();
+    }
+
+    [AvaloniaTest]
+    public void SettingsDialog_OpensAndShowsPerStationTargets()
+    {
+        var vm = CreateViewModel();
+        vm.IsSettingsOpen = true;
+        vm.Stations.Add(new StationWithFeedsDto { Station = new Station { Id = "s1", Name = "One" } });
+        vm.SelectedStation = vm.Stations[0];
+        var view = new MainView { DataContext = vm };
+        var window = new Window { Width = 900, Height = 600, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var dialog = view.FindControl<Border>("SettingsDialog")!;
+        Assert.That(dialog.IsVisible, Is.True);
+        var options = view.FindControl<ComboBox>("BufferOptionsBox")!;
+        Assert.That(options.ItemsSource, Is.Not.Null);
+        window.Hide();
+    }
+
+    [AvaloniaTest]
+    public void UpNextPanel_ShowsDownloadStateAndClosesByCommand()
+    {
+        var vm = CreateViewModel();
+        vm.IsUpNextOpen = true;
+        vm.PlaylistItems.Add(new PlaylistItem { EpisodeId = "e1", Title = "Current", IsCurrent = true, DownloadState = DownloadState.Downloaded });
+        vm.PlaylistItems.Add(new PlaylistItem { EpisodeId = "e2", Title = "Next", DownloadState = DownloadState.NotDownloaded });
+        var view = new PlayerView { DataContext = vm };
+        var window = new Window { Width = 900, Height = 600, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var panel = view.FindControl<Border>("UpNextPanel")!;
+        Assert.That(panel.IsVisible, Is.True);
+        Assert.That(view.GetVisualDescendants().OfType<TextBlock>().Any(t => t.Text == "Downloaded"), Is.True);
+        Assert.That(view.GetVisualDescendants().OfType<TextBlock>().Any(t => t.Text == "Not downloaded"), Is.True);
+
+        vm.CloseUpNextCommand.Execute(null);
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(panel.IsVisible, Is.False);
+        window.Hide();
+    }
+
+    [AvaloniaTest]
+    public void SwipeRecognizer_IsAttachedToPlayerScroll()
+    {
+        var view = new PlayerView { DataContext = CreateViewModel() };
+        var window = new Window { Width = 900, Height = 600, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var scroll = view.FindControl<ScrollViewer>("EpisodeScroll")!;
+        Assert.That(scroll.GestureRecognizers.OfType<SwipeGestureRecognizer>().Any(), Is.True);
+        window.Hide();
+    }
+
+    [AvaloniaTest]
+    public void OfflineChip_IsVisibleWhenOffline()
+    {
+        var vm = CreateViewModel();
+        vm.IsOffline = true;
+        var view = new PlayerView { DataContext = vm };
+        var window = new Window { Width = 900, Height = 600, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(view.FindControl<Border>("OfflineChip")!.IsVisible, Is.True);
         window.Hide();
     }
 }

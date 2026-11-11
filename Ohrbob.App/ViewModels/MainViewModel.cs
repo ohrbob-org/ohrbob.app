@@ -1096,6 +1096,11 @@ public partial class MainViewModel : ViewModelBase
             }
         }
 
+        // The saved current episode may have been pruned; keep the UI marker on
+        // whatever is actually playing.
+        foreach (var item in PlaylistItems)
+            item.IsCurrent = current is not null && item.EpisodeId == current.EpisodeId;
+
         if (current is not null)
         {
             CurrentEpisodeId = current.EpisodeId ?? "";
@@ -1190,6 +1195,10 @@ public partial class MainViewModel : ViewModelBase
         {
             var item = PlaylistItems[i];
             if (DownloadedPath(stationId, item.EpisodeId) is null) continue;
+
+            foreach (var playlistItem in PlaylistItems)
+                playlistItem.IsCurrent = false;
+            item.IsCurrent = true;
 
             PositionSeconds = 0;
             CurrentEpisodeId = item.EpisodeId;
