@@ -58,6 +58,29 @@ public class OfflineStateServiceTests
     }
 
     [Test]
+    public void Save_StripsQueryAndFragmentFromStreamUri_AndKeepsCallerEpisode()
+    {
+        var path = Path.Combine(_root, "offline.json");
+        var episode = new PlaylistEpisodeDto { EpisodeId = "e1", StreamUri = "https://audio.example/ep.mp3?token=secret&x=1" };
+        var snapshot = new OfflineSnapshot
+        {
+            StationStates = new Dictionary<string, StationOfflineState>
+            {
+                ["s1"] = new() { StationId = "s1", Playlist = new List<PlaylistEpisodeDto> { episode } }
+            }
+        };
+
+        new OfflineStateService(path).Save(snapshot);
+
+        var json = File.ReadAllText(path);
+        Assert.That(json, Does.Contain("https://audio.example/ep.mp3"));
+        Assert.That(json, Does.Not.Contain("secret"));
+        Assert.That(json, Does.Not.Contain("token="));
+        Assert.That(json, Does.Not.Contain("?"));
+        Assert.That(episode.StreamUri, Is.EqualTo("https://audio.example/ep.mp3?token=secret&x=1"));
+    }
+
+    [Test]
     public void Load_MissingOrCorruptFile_ReturnsNull()
     {
         var path = Path.Combine(_root, "offline.json");

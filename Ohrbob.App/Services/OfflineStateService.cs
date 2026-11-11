@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using Ohrbob.App.Models;
 
@@ -39,7 +40,43 @@ public class OfflineStateService
             Directory.CreateDirectory(directory);
 
         var tempPath = _path + ".tmp";
-        File.WriteAllText(tempPath, JsonSerializer.Serialize(snapshot, new JsonSerializerOptions { WriteIndented = true }));
+        File.WriteAllText(tempPath, JsonSerializer.Serialize(Sanitize(snapshot), new JsonSerializerOptions { WriteIndented = true }));
         File.Move(tempPath, _path, overwrite: true);
+    }
+
+    // Copies, so the caller's in-memory StreamUri (needed for playback) keeps its query string.
+    private static OfflineSnapshot Sanitize(OfflineSnapshot snapshot)
+    {
+        var states = snapshot.StationStates.ToDictionary(
+            pair => pair.Key,
+            pair => new StationOfflineState
+            {
+                StationId = pair.Value.StationId,
+                HostPaceEnabled = pair.Value.HostPaceEnabled,
+                IsAging = pair.Value.IsAging,
+                CurrentEpisodeId = pair.Value.CurrentEpisodeId,
+                PositionSeconds = pair.Value.PositionSeconds,
+                Playlist = pair.Value.Playlist.Select(episode => new PlaylistEpisodeDto
+                {
+                    EpisodeId = episode.EpisodeId,
+                    Title = episode.Title,
+                    Description = episode.Description,
+                    Artist = episode.Artist,
+                    CoverUrl = episode.CoverUrl,
+                    StreamUri = episode.StreamUri?.Split('?', '#')[0],
+                    PublishedAt = episode.PublishedAt,
+                    IsCurrent = episode.IsCurrent
+                }).ToList()
+            });
+
+        return new OfflineSnapshot
+        {
+            Version = snapshot.Version,
+            SavedAt = snapshot.SavedAt,
+            ActiveStationId = snapshot.ActiveStationId,
+            ProfileName = snapshot.ProfileName,
+            Stations = snapshot.Stations,
+            StationStates = states
+        };
     }
 }
