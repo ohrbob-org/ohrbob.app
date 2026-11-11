@@ -239,7 +239,7 @@ public class MainViewModelTests
     }
 
     [Test]
-    public async Task HostPacedStation_HasDownloadBlockedReason()
+    public async Task HostPacedStation_HasExactDownloadBlockedReason()
     {
         var handler = new PlaylistHttpHandler
         {
@@ -252,7 +252,7 @@ public class MainViewModelTests
 
         await vm.RetryConnectionAsync();
 
-        Assert.That(vm.DownloadBlockedReason, Does.Contain("host"));
+        Assert.That(vm.DownloadBlockedReason, Is.EqualTo("Downloads are off: episodes unlock when the host has listened to them."));
         Assert.That(vm.IsDownloadEnabled, Is.False);
     }
 
@@ -283,7 +283,7 @@ public class MainViewModelTests
     }
 
     [Test]
-    public async Task AgingStation_HasDownloadBlockedReason()
+    public async Task AgingStation_HasExactDownloadBlockedReason()
     {
         var handler = new PlaylistHttpHandler
         {
@@ -295,7 +295,7 @@ public class MainViewModelTests
 
         await vm.RetryConnectionAsync();
 
-        Assert.That(vm.DownloadBlockedReason, Does.Contain("aging"));
+        Assert.That(vm.DownloadBlockedReason, Is.EqualTo("Downloads are off: this station only rotates the newest episode of each feed."));
         Assert.That(vm.IsDownloadEnabled, Is.False);
     }
 
@@ -554,5 +554,167 @@ public class MainViewModelTests
         Assert.That(vm.SelectedStation.Station!.Id, Is.EqualTo("s1"),
             "a station without offline content must not replace the active station");
         Assert.That(vm.ConnectionErrorMessage, Does.Contain("offline"));
+    }
+
+    private class RecordingHttpHandler : HttpMessageHandler
+    {
+        public List<HttpRequestMessage> Requests { get; } = new();
+        public List<string?> RequestBodies { get; } = new();
+        public bool FailNext { get; set; }
+        public string StationsJson { get; set; } = "[{\"station\":{\"id\":\"s1\",\"name\":\"Station One\"},\"feeds\":[]}]";
+        public string StatusJson { get; set; } = "{\"stationId\":\"s1\",\"current\":{\"episodeId\":\"e1\",\"title\":\"Current\",\"streamUri\":\"https://audio/1\"}}";
+        public string PlaylistJson { get; set; } = "{\"stationId\":\"s1\",\"hostPaceEnabled\":false,\"isAging\":false,\"episodes\":[{\"episodeId\":\"e1\",\"title\":\"Current\",\"streamUri\":\"https://audio/1\",\"isCurrent\":true}]}";
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            Requests.Add(request);
+            RequestBodies.Add(request.Content != null ? await request.Content.ReadAsStringAsync(ct) : null);
+            if (FailNext)
+                return new HttpResponseMessage(HttpStatusCode.InternalServerError);
+            var path = request.RequestUri?.AbsolutePath ?? "";
+            var body = path.EndsWith("/stream/stations") ? StationsJson
+                : path.EndsWith("/stream/playlist") ? PlaylistJson
+                : path.EndsWith("/stream/status") && request.Method == HttpMethod.Get ? StatusJson
+                : "{}";
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json")
+            };
+        }
+    }
+
+    [Test]
+    public async Task Reconnect_AfterOffline_PushesLocalProgressThenRefreshes()
+    {
+        var config = new ConfigService(_tempConfigPath);
+        config.Save("https://example.com", "token");
+        var snapshotPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString(), "offline.json");
+        var offline = new OfflineStateService(snapshotPath);
+        offline.Save(new OfflineSnapshot
+        {
+            ActiveStationId = "s1",
+            ProfileName = "Kai",
+            Stations = new List<StationWithFeedsDto> { new() { Station = new Station { Id = "s1", Name = "One" } } },
+            StationStates = new Dictionary<string, StationOfflineState>
+            {
+                ["s1"] = new()
+                {
+                    StationId = "s1",
+                    CurrentEpisodeId = "offline-ep",
+                    PositionSeconds = 123,
+                    Playlist = new List<PlaylistEpisodeDto>
+                    {
+                        new() { EpisodeId = "offline-ep", Title = "Offline", StreamUri = "https://audio/offline", IsCurrent = true }
+                    }
+                }
+            }
+        });
+        var handler = new RecordingHttpHandler { FailNext = true };
+        var vm = new MainViewModel(config, new OhrbobClient(config, handler), null, new TestAudioPlayer(), a => a(), null, offline);
+
+        // Wait for the constructor's failed initialization to finish.
+        await Task.Delay(100);
+        Assert.That(vm.IsOffline, Is.True, "snapshot must put the player in offline mode when the server is unreachable");
+        Assert.That(vm.CurrentEpisodeId, Is.EqualTo("offline-ep"));
+
+        handler.FailNext = false;
+        await vm.RetryConnectionAsync();
+
+        var syncIndex = handler.Requests
+            .FindIndex(r => r.Method == HttpMethod.Post && r.RequestUri!.AbsolutePath.EndsWith("/stream/status"));
+        Assert.That(syncIndex, Is.GreaterThanOrEqualTo(0),
+            $"reconnect must push the local episode and position first; requests: {string.Join(", ", handler.Requests.Select(r => $"{r.Method} {r.RequestUri}"))}");
+        var body = handler.RequestBodies[syncIndex] ?? "";
+        Assert.That(body, Does.Contain("offline-ep"));
+        Assert.That(body, Does.Contain("123"));
+
+        Assert.That(vm.IsOffline, Is.False, "reconnect must clear offline mode");
+        Assert.That(vm.CurrentEpisodeId, Is.EqualTo("e1"), "server state must still be refreshed after the push");
+    }
+
+    [Test]
+    public async Task SkipAsync_RefreshesPlaylist()
+    {
+        var handler = new RecordingHttpHandler
+        {
+            PlaylistJson = "{\"stationId\":\"s1\",\"hostPaceEnabled\":false,\"isAging\":false,\"episodes\":[" +
+                           "{\"episodeId\":\"e1\",\"title\":\"One\",\"streamUri\":\"https://audio/1\",\"isCurrent\":true}," +
+                           "{\"episodeId\":\"e2\",\"title\":\"Two\",\"streamUri\":\"https://audio/2\",\"isCurrent\":false}]}"
+        };
+        var config = new ConfigService(_tempConfigPath);
+        config.Save("https://example.com", "token");
+        var vm = new MainViewModel(config, new OhrbobClient(config, handler), null, new TestAudioPlayer(), a => a(), offlineState: new OfflineStateService(_tempOfflinePath));
+
+        await vm.RetryConnectionAsync();
+        Assert.That(vm.PlaylistItems.Count, Is.EqualTo(2));
+
+        handler.Requests.Clear();
+        await vm.SkipToNextCommand.ExecuteAsync(null);
+
+        Assert.That(handler.Requests.Any(r => r.Method == HttpMethod.Get && r.RequestUri!.AbsolutePath.EndsWith("/stream/playlist")), Is.True,
+            "skip must refresh the playlist so the Up next panel advances");
+    }
+
+    [Test]
+    public async Task SyncDownloads_SetsStationAvailableOffline()
+    {
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        var handler = new PlaylistHttpHandler();
+        var config = new ConfigService(_tempConfigPath);
+        config.Save("https://example.com", "token");
+        config.SetBufferMinutes("s1", 10);
+        var downloads = new EpisodeDownloadService(root, new HttpClient(handler), _ => TimeSpan.FromMinutes(1));
+        var vm = new MainViewModel(config, new OhrbobClient(config, handler), null, new TestAudioPlayer(), a => a(), downloads, new OfflineStateService(_tempOfflinePath));
+
+        await vm.RetryConnectionAsync();
+        await vm.WaitForDownloadsAsync();
+
+        Assert.That(vm.Stations.Single().Station!.IsAvailableOffline, Is.True,
+            "a station with downloaded content must show the offline badge");
+    }
+
+    [Test]
+    public void SaveOfflineSnapshot_MergesCachedStationsWithDownloads()
+    {
+        var config = new ConfigService(_tempConfigPath);
+        config.Save("https://example.com", "token");
+        var snapshotPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString(), "offline.json");
+        var offline = new OfflineStateService(snapshotPath);
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(Path.Combine(root, "s1"));
+        File.WriteAllBytes(Path.Combine(root, "s1", "e1.mp3"), new byte[] { 1 });
+        var downloads = new EpisodeDownloadService(root, null, _ => TimeSpan.FromMinutes(1));
+        offline.Save(new OfflineSnapshot
+        {
+            ActiveStationId = "s1",
+            Stations = new List<StationWithFeedsDto>
+            {
+                new() { Station = new Station { Id = "s1", Name = "One" } }
+            },
+            StationStates = new Dictionary<string, StationOfflineState>
+            {
+                ["s1"] = new()
+                {
+                    StationId = "s1",
+                    Playlist = new List<PlaylistEpisodeDto>
+                    {
+                        new() { EpisodeId = "e1", StreamUri = "https://audio/1" }
+                    }
+                }
+            }
+        });
+        var vm = new MainViewModel(config, new OhrbobClient(config, new FailingHttpHandler()), null, new TestAudioPlayer(), a => a(), downloads, offline);
+        vm.IsOffline = false;
+        vm.IsConnected = true;
+        vm.SelectedStation = new StationWithFeedsDto { Station = new Station { Id = "s2", Name = "Two" } };
+        vm.CurrentEpisodeId = "e2";
+        vm.Stations.Clear();
+
+        vm.SaveOfflineSnapshot();
+
+        var saved = offline.Load();
+        Assert.That(saved, Is.Not.Null);
+        Assert.That(saved!.Stations.Any(s => s.Station!.Id == "s1"), Is.True,
+            "a cached station that still has downloaded content must not disappear");
     }
 }

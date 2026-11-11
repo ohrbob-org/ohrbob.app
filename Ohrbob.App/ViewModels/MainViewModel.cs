@@ -166,6 +166,9 @@ public partial class MainViewModel : ViewModelBase
     private bool _isUpNextOpen;
 
     [ObservableProperty]
+    private string _settingsTitle = "Settings";
+
+    [ObservableProperty]
     private bool _isRefreshIndicatorVisible;
 
     [ObservableProperty]
@@ -728,6 +731,21 @@ public partial class MainViewModel : ViewModelBase
         try
         {
             Log.Debug("Initializing app...");
+
+            // If we were playing offline, push the local episode and position back to
+            // the server before the refresh overwrites them with stale server state.
+            if (IsOffline && SelectedStation?.Station?.Id is { } offlineStationId && !string.IsNullOrEmpty(CurrentEpisodeId))
+            {
+                try
+                {
+                    await _client.SyncStatusAsync(CurrentEpisodeId, offlineStationId, PositionSeconds);
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning(ex, "Failed to push offline playback state before reconnect");
+                }
+            }
+
             var stationsList = await _client.GetStationsAsync();
             var activeStationId = SelectedStation?.Station?.Id;
             Stations.Clear();
@@ -735,6 +753,8 @@ public partial class MainViewModel : ViewModelBase
             {
                 Stations.Add(station);
             }
+
+            RefreshStationOfflineBadges();
 
             // A snapshot may have restored an object that is no longer in the list;
             // point at the server's fresh copy instead (without a PlayStation call).
@@ -882,7 +902,16 @@ public partial class MainViewModel : ViewModelBase
     {
         if (SelectedStation?.Station?.Id is not { } stationId) return;
         _configService.SetBufferMinutes(stationId, SelectedBufferOption.Minutes);
-        await RefreshPlaylistAsync();
+        try
+        {
+            await RefreshPlaylistAsync();
+        }
+        finally
+        {
+            // Pruning must run even if the playlist refresh failed (e.g. the user
+            // lowered the buffer to Off while the server is unreachable).
+            TriggerDownloadSync();
+        }
     }
 
     /// <summary>
@@ -922,6 +951,10 @@ public partial class MainViewModel : ViewModelBase
                 // while the sync updated the old items. Reconcile the visible list.
                 if (ActiveStationId == stationId)
                     RefreshDownloadStates(stationId);
+
+                // The badge reflects disk state, so update it once the sync is done.
+                if (SelectedStation?.Station?.Id == stationId)
+                    SelectedStation.Station.IsAvailableOffline = PlaylistItems.Any(i => i.DownloadState == DownloadState.Downloaded);
             }
             catch (Exception ex)
             {
@@ -944,6 +977,18 @@ public partial class MainViewModel : ViewModelBase
                 continue;
 
             item.DownloadState = path is null ? DownloadState.NotDownloaded : DownloadState.Downloaded;
+        }
+    }
+
+    private void RefreshStationOfflineBadges()
+    {
+        _snapshot ??= _offlineState.Load();
+        if (_snapshot is null) return;
+
+        foreach (var wrapper in Stations)
+        {
+            if (wrapper.Station?.Id is not { } stationId) continue;
+            wrapper.Station.IsAvailableOffline = HasDownloadedContent(stationId, _snapshot);
         }
     }
 
@@ -1120,7 +1165,7 @@ public partial class MainViewModel : ViewModelBase
             CurrentEpisodeStreamUri = uri;
     }
 
-    private void SaveOfflineSnapshot()
+    internal void SaveOfflineSnapshot()
     {
         if (!IsConnected || SelectedStation?.Station?.Id is not { } stationId) return;
 
@@ -1128,7 +1173,22 @@ public partial class MainViewModel : ViewModelBase
         snapshot.SavedAt = DateTimeOffset.UtcNow;
         snapshot.ActiveStationId = stationId;
         snapshot.ProfileName = ProfileName;
-        snapshot.Stations = Stations.ToList();
+
+        // Preserve stations that still have downloaded content even when the server
+        // temporarily returns an empty list, so offline selection stays usable.
+        var mergedStations = Stations.ToList();
+        if (_snapshot != null)
+        {
+            foreach (var cached in _snapshot.Stations)
+            {
+                if (cached.Station?.Id is not { } cachedId) continue;
+                if (mergedStations.Any(s => s.Station?.Id == cachedId)) continue;
+                if (_snapshot.StationStates.TryGetValue(cachedId, out var state) && HasDownloadedContent(cachedId, state))
+                    mergedStations.Add(cached);
+            }
+        }
+        snapshot.Stations = mergedStations;
+
         snapshot.StationStates[stationId] = new StationOfflineState
         {
             StationId = stationId,
@@ -1292,9 +1352,9 @@ public partial class MainViewModel : ViewModelBase
     {
         var station = SelectedStation?.Station;
         if (station?.HostPaceEnabled == true || playlist?.HostPaceEnabled == true)
-            DownloadBlockedReason = "Downloads are unavailable for host-paced stations.";
+            DownloadBlockedReason = "Downloads are off: episodes unlock when the host has listened to them.";
         else if (station?.IsAging == true || playlist?.IsAging == true)
-            DownloadBlockedReason = "Downloads are unavailable for aging stations.";
+            DownloadBlockedReason = "Downloads are off: this station only rotates the newest episode of each feed.";
         else
             DownloadBlockedReason = null;
 
@@ -1303,6 +1363,9 @@ public partial class MainViewModel : ViewModelBase
             ?? (minutes == 0 ? "Set a buffer in Settings to download episodes." : null);
         IsDownloadEnabled = DownloadBlockedReason == null && minutes > 0;
         IsBufferSelectionEnabled = DownloadBlockedReason == null;
+
+        foreach (var item in PlaylistItems)
+            item.ShowDownloadStateLabel = IsDownloadEnabled;
     }
 
     partial void OnSelectedStationChanging(StationWithFeedsDto? value) =>
@@ -1347,6 +1410,7 @@ public partial class MainViewModel : ViewModelBase
         }
 
         RestoreBufferOption(stationId);
+        SettingsTitle = $"Settings — {SelectedStation?.Station?.Name ?? "No active station"}";
         if (IsPortrait) IsSidebarOpen = false;
     }
 
@@ -1429,6 +1493,7 @@ public partial class MainViewModel : ViewModelBase
         {
             await navigate();
             await RefreshStatusAsync();
+            await RefreshPlaylistAsync();
             return true;
         }
         catch

@@ -26,6 +26,9 @@ public partial class PlaylistItem : ObservableObject
     private bool _isCurrent;
 
     [ObservableProperty]
+    private bool _showDownloadStateLabel = true;
+
+    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(StateLabel))]
     private DownloadState _downloadState;
 
@@ -37,4 +40,6 @@ public partial class PlaylistItem : ObservableObject
         DownloadState.Failed => "Download failed",
         _ => "Not downloaded"
     };
+
+    public string? PublishedAtLabel => PublishedAt?.ToString("MMM d, yyyy", System.Globalization.CultureInfo.InvariantCulture);
 }

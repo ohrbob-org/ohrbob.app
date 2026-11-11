@@ -250,7 +250,7 @@
                                                Foreground="{DynamicResource AppMutedTextBrush}"
                                                IsVisible="{Binding IsPlaylistEmpty}" />
                                 </StackPanel>
-                                <ListBox Grid.Row="2" ItemsSource="{Binding PlaylistItems}" Background="Transparent"
+                                <ListBox x:Name="UpNextListBox" Grid.Row="2" ItemsSource="{Binding PlaylistItems}" Background="Transparent"
                                          BorderThickness="0" Margin="8">
                                     <ListBox.ItemTemplate>
                                         <DataTemplate>
@@ -267,11 +267,16 @@
                                                     <TextBlock Text="{Binding Artist}" FontSize="11"
                                                                Foreground="{DynamicResource AppMutedTextBrush}"
                                                                TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Text="{Binding PublishedAtLabel}"
+                                                               FontSize="11"
+                                                               Foreground="{DynamicResource AppMutedTextBrush}" />
                                                 </StackPanel>
                                                 <Panel Grid.Column="2" VerticalAlignment="Center">
-                                                    <TextBlock Text="{Binding StateLabel}" FontSize="10" FontWeight="Bold"
-                                                               IsVisible="{Binding !IsCurrent}"
-                                                               Foreground="{StaticResource OhrbobStrongOrange}" />
+                                                    <Panel IsVisible="{Binding !IsCurrent}">
+                                                        <TextBlock Text="{Binding StateLabel}" FontSize="10" FontWeight="Bold"
+                                                                   Foreground="{StaticResource OhrbobStrongOrange}"
+                                                                   IsVisible="{Binding ShowDownloadStateLabel}" />
+                                                    </Panel>
                                                     <TextBlock Text="Playing" FontSize="10" FontWeight="Bold"
                                                                IsVisible="{Binding IsCurrent}"
                                                                Foreground="{StaticResource ThemeSecondaryBrush}" />

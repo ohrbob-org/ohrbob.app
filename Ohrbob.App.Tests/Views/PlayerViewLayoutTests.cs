@@ -1,3 +1,4 @@
+using System;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
@@ -107,16 +108,19 @@ public class PlayerViewLayoutTests
         Assert.That(dialog.IsVisible, Is.True);
         var options = view.FindControl<ComboBox>("BufferOptionsBox")!;
         Assert.That(options.ItemsSource, Is.Not.Null);
+        Assert.That(view.GetVisualDescendants().OfType<TextBlock>().Any(t => t.Text == "Settings — One"), Is.True,
+            "the dialog title must name the active station");
         window.Hide();
     }
 
     [AvaloniaTest]
-    public void UpNextPanel_ShowsDownloadStateAndClosesByCommand()
+    public void UpNextPanel_ShowsDownloadStatePublishedDateAndClosesByCommand()
     {
         var vm = CreateViewModel();
         vm.IsUpNextOpen = true;
-        vm.PlaylistItems.Add(new PlaylistItem { EpisodeId = "e1", Title = "Current", IsCurrent = true, DownloadState = DownloadState.Downloaded });
-        vm.PlaylistItems.Add(new PlaylistItem { EpisodeId = "e2", Title = "Next", DownloadState = DownloadState.NotDownloaded });
+        vm.IsDownloadEnabled = true;
+        vm.PlaylistItems.Add(new PlaylistItem { EpisodeId = "e1", Title = "Current", IsCurrent = true, DownloadState = DownloadState.Downloaded, PublishedAt = new DateTime(2026, 11, 1) });
+        vm.PlaylistItems.Add(new PlaylistItem { EpisodeId = "e2", Title = "Next", DownloadState = DownloadState.NotDownloaded, PublishedAt = new DateTime(2026, 11, 2) });
         var view = new PlayerView { DataContext = vm };
         var window = new Window { Width = 900, Height = 600, Content = view };
         window.Show();
@@ -126,10 +130,51 @@ public class PlayerViewLayoutTests
         Assert.That(panel.IsVisible, Is.True);
         Assert.That(view.GetVisualDescendants().OfType<TextBlock>().Any(t => t.Text == "Downloaded"), Is.True);
         Assert.That(view.GetVisualDescendants().OfType<TextBlock>().Any(t => t.Text == "Not downloaded"), Is.True);
+        Assert.That(view.GetVisualDescendants().OfType<TextBlock>().Any(t => t.Text == "Nov 2, 2026"), Is.True);
 
         vm.CloseUpNextCommand.Execute(null);
         Dispatcher.UIThread.RunJobs();
         Assert.That(panel.IsVisible, Is.False);
+        window.Hide();
+    }
+
+    [AvaloniaTest]
+    public void UpNextPanel_DisabledDownloads_HidesPerItemBadgesAndShowsHostPacedReason()
+    {
+        var vm = CreateViewModel();
+        vm.IsUpNextOpen = true;
+        vm.IsDownloadEnabled = false;
+        vm.DownloadBlockedReason = "Downloads are off: episodes unlock when the host has listened to them.";
+        vm.DownloadStatusMessage = "Downloads are off: episodes unlock when the host has listened to them.";
+        vm.PlaylistItems.Add(new PlaylistItem { EpisodeId = "e1", Title = "Current", IsCurrent = true, DownloadState = DownloadState.NotDownloaded, ShowDownloadStateLabel = false });
+        vm.PlaylistItems.Add(new PlaylistItem { EpisodeId = "e2", Title = "Next", DownloadState = DownloadState.NotDownloaded, ShowDownloadStateLabel = false });
+        var view = new PlayerView { DataContext = vm };
+        var window = new Window { Width = 900, Height = 600, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(view.GetVisualDescendants().OfType<TextBlock>().Any(t => t.Text == "Downloads are off: episodes unlock when the host has listened to them."), Is.True);
+        Assert.That(view.GetVisualDescendants().OfType<TextBlock>().Any(t => t.Text == "Not downloaded" && t.IsVisible), Is.False,
+            "per-item badges must be hidden when downloads are disabled");
+        Assert.That(view.GetVisualDescendants().OfType<TextBlock>().Any(t => t.Text == "Playing"), Is.True);
+        window.Hide();
+    }
+
+    [AvaloniaTest]
+    public void UpNextPanel_AgingStation_ShowsExactReason()
+    {
+        var vm = CreateViewModel();
+        vm.IsUpNextOpen = true;
+        vm.IsDownloadEnabled = false;
+        vm.DownloadBlockedReason = "Downloads are off: this station only rotates the newest episode of each feed.";
+        vm.DownloadStatusMessage = "Downloads are off: this station only rotates the newest episode of each feed.";
+        vm.PlaylistItems.Add(new PlaylistItem { EpisodeId = "e1", Title = "Current", IsCurrent = true, DownloadState = DownloadState.NotDownloaded });
+        var view = new PlayerView { DataContext = vm };
+        var window = new Window { Width = 900, Height = 600, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(view.GetVisualDescendants().OfType<TextBlock>().Any(t => t.Text == "Downloads are off: this station only rotates the newest episode of each feed."), Is.True);
         window.Hide();
     }
 

@@ -121,6 +121,18 @@ public class EpisodeDownloadService
                 if (budget >= target)
                     break;
             }
+
+            // Lowering the target must remove files that no longer fit, while keeping
+            // the protected current episode and any files still inside the budget.
+            await PruneAsync(stationId, playlist, bufferMinutes, protectedEpisodeId, currentPositionSeconds);
+
+            foreach (var item in playlist)
+            {
+                var path = GetDownloadedPath(stationId, item.EpisodeId);
+                if (path is null && item.DownloadState == DownloadState.Failed)
+                    continue;
+                SetState(item, path is null ? DownloadState.NotDownloaded : DownloadState.Downloaded);
+            }
         }
         finally
         {
@@ -133,18 +145,20 @@ public class EpisodeDownloadService
         string stationId,
         IReadOnlyList<PlaylistItem> playlist,
         int bufferMinutes,
-        string? protectedEpisodeId = null)
+        string? protectedEpisodeId = null,
+        int currentPositionSeconds = 0)
     {
         // File enumeration and deletion run off the UI thread; SyncAsync awaits this
         // without ConfigureAwait(false) so its state updates still resume on the UI thread.
-        return Task.Run(() => Prune(stationId, playlist, bufferMinutes, protectedEpisodeId));
+        return Task.Run(() => Prune(stationId, playlist, bufferMinutes, protectedEpisodeId, currentPositionSeconds));
     }
 
     private void Prune(
         string stationId,
         IReadOnlyList<PlaylistItem> playlist,
         int bufferMinutes,
-        string? protectedEpisodeId)
+        string? protectedEpisodeId,
+        int currentPositionSeconds)
     {
         var folder = StationFolder(stationId);
         if (!Directory.Exists(folder))
@@ -167,7 +181,10 @@ public class EpisodeDownloadService
                     continue;
 
                 keep.Add(SafeSegment(item.EpisodeId));
-                budget += _durationReader(existing);
+                var elapsed = item.IsCurrent ? TimeSpan.FromSeconds(currentPositionSeconds) : TimeSpan.Zero;
+                var remaining = _durationReader(existing) - elapsed;
+                if (remaining > TimeSpan.Zero)
+                    budget += remaining;
                 if (budget >= target)
                     break;
             }
@@ -175,6 +192,8 @@ public class EpisodeDownloadService
 
         foreach (var file in Directory.EnumerateFiles(folder))
         {
+            if (file.EndsWith(".part", StringComparison.OrdinalIgnoreCase))
+                continue;
             if (keep.Contains(Path.GetFileNameWithoutExtension(file)))
                 continue;
             try
@@ -221,6 +240,7 @@ public class EpisodeDownloadService
         catch (OperationCanceledException)
         {
             TryDelete(partPath);
+            SetState(item, DownloadState.NotDownloaded);
             throw;
         }
         catch (HttpRequestException)

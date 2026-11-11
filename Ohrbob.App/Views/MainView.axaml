@@ -64,10 +64,7 @@
                     Background="{DynamicResource AppBackgroundBrush}"
                     BoxShadow="0 4 20 0 #40000000">
                 <StackPanel Spacing="16">
-                    <TextBlock Text="Settings" Classes="h2" />
-                    <TextBlock Text="{Binding SelectedStation.Station.Name, FallbackValue='No active station'}"
-                               FontSize="13" FontWeight="SemiBold"
-                               Foreground="{DynamicResource AppMutedTextBrush}" />
+                    <TextBlock Text="{Binding SettingsTitle, FallbackValue='Settings'}" Classes="h2" />
                     <TextBlock Text="Buffer ahead" FontSize="13" FontWeight="SemiBold" />
                     <ComboBox x:Name="BufferOptionsBox"
                               ItemsSource="{Binding BufferOptions}"

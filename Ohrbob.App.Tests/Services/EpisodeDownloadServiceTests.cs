@@ -147,6 +147,24 @@ public class EpisodeDownloadServiceTests
     }
 
     [Test]
+    public async Task Sync_LoweringTarget_PrunesExtraEpisodes()
+    {
+        var handler = new StubHandler();
+        var service = new EpisodeDownloadService(_root, new HttpClient(handler), _ => TimeSpan.FromMinutes(1));
+        var first = new[] { Item("e1", true), Item("e2"), Item("e3") };
+        await service.SyncAsync("s1", first, 3, true, 0, CancellationToken.None);
+
+        var second = new[] { Item("e1", true), Item("e2"), Item("e3") };
+        await service.SyncAsync("s1", second, 1, true, 0, CancellationToken.None);
+
+        Assert.That(service.GetDownloadedPath("s1", "e1"), Is.Not.Null, "current episode must survive");
+        Assert.That(service.GetDownloadedPath("s1", "e2"), Is.Null, "episode beyond the lowered target is pruned");
+        Assert.That(service.GetDownloadedPath("s1", "e3"), Is.Null, "episode beyond the lowered target is pruned");
+        Assert.That(second.All(i => i.DownloadState == DownloadState.Downloaded || i.EpisodeId == "e2" || i.EpisodeId == "e3"), Is.True);
+        Assert.That(second[0].DownloadState, Is.EqualTo(DownloadState.Downloaded));
+    }
+
+    [Test]
     public async Task Prune_RemovesOnlyTheSelectedStationBeyondTarget()
     {
         var handler = new StubHandler();
@@ -160,6 +178,63 @@ public class EpisodeDownloadServiceTests
         Assert.That(service.GetDownloadedPath("s1", "e2"), Is.Null);
         Assert.That(service.GetDownloadedPath("s1", "e3"), Is.Null);
         Assert.That(service.GetDownloadedPath("s2", "f1"), Is.Not.Null, "other station cache must survive");
+    }
+
+    [Test]
+    public async Task Prune_SkipsPartFiles()
+    {
+        var handler = new StubHandler();
+        var service = new EpisodeDownloadService(_root, new HttpClient(handler), _ => TimeSpan.FromMinutes(1));
+        Directory.CreateDirectory(Path.Combine(_root, "s1"));
+        await File.WriteAllTextAsync(Path.Combine(_root, "s1", "e1.mp3"), "ok");
+        await File.WriteAllTextAsync(Path.Combine(_root, "s1", "e2.mp3.part"), "in-flight");
+
+        await service.PruneAsync("s1", new[] { Item("e1", true) }, 0, "e1");
+
+        Assert.That(service.GetDownloadedPath("s1", "e1"), Is.Not.Null);
+        Assert.That(File.Exists(Path.Combine(_root, "s1", "e2.mp3.part")), Is.True, "in-flight part files must never be deleted");
+    }
+
+    private sealed class CancellingStream : Stream
+    {
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+        public override void Flush() { }
+        public override int Read(byte[] buffer, int offset, int count) => throw new OperationCanceledException();
+        public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+            => Task.FromException<int>(new OperationCanceledException());
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
+
+    [Test]
+    public async Task Sync_CancellationResetsItemToNotDownloaded()
+    {
+        var handler = new StubHandler
+        {
+            Override = url => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StreamContent(new CancellingStream())
+            }
+        };
+        var service = new EpisodeDownloadService(_root, new HttpClient(handler), _ => TimeSpan.FromMinutes(1));
+        var items = new[] { Item("e1", true) };
+
+        using var cts = new CancellationTokenSource();
+        try
+        {
+            await service.SyncAsync("s1", items, 1, true, 0, cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+
+        Assert.That(items[0].DownloadState, Is.EqualTo(DownloadState.NotDownloaded),
+            "a cancelled download must not leave the item stuck as Downloading");
     }
 
     [Test]
