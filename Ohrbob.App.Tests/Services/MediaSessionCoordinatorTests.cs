@@ -21,17 +21,21 @@ namespace Ohrbob.App.Tests.Services;
 public class MediaSessionCoordinatorTests
 {
     private string _tempConfigPath = null!;
+    private string _tempOfflinePath = null!;
 
     [SetUp]
-    public void SetUp() =>
+    public void SetUp()
+    {
         _tempConfigPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), Guid.NewGuid() + ".json");
+        _tempOfflinePath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), Guid.NewGuid() + ".offline.json");
+    }
 
     [TearDown]
     public void TearDown()
     {
-        if (System.IO.File.Exists(_tempConfigPath))
+        foreach (var path in new[] { _tempConfigPath, _tempOfflinePath })
         {
-            try { System.IO.File.Delete(_tempConfigPath); } catch { /* ignore */ }
+            try { if (System.IO.File.Exists(path)) System.IO.File.Delete(path); } catch { /* ignore */ }
         }
     }
 
@@ -85,7 +89,7 @@ public class MediaSessionCoordinatorTests
         var handler = new FakeHttpMessageHandler();
         var config = new ConfigService(_tempConfigPath);
         var client = new OhrbobClient(config, handler);
-        var vm = new MainViewModel(config, client);
+        var vm = new MainViewModel(config, client, offlineState: new OfflineStateService(_tempOfflinePath));
         var service = new FakeMediaSessionService();
         var coordinator = new MediaSessionCoordinator(vm, service, action => action());
         return (vm, service, coordinator, handler, config);

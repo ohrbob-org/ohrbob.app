@@ -35,6 +35,9 @@ public partial class MainViewModel : ViewModelBase
     private readonly OfflineStateService _offlineState;
     private readonly SemaphoreSlim _downloadSyncGate = new(1, 1);
     private readonly object _downloadSyncLock = new();
+    private OfflineSnapshot? _snapshot;
+    private bool _isRestoringSnapshot;
+    private StationWithFeedsDto? _previousSelectedStation;
     private Task? _downloadSyncTask;
     private string? _lastDownloadSignature;
     private int _playlistGeneration;
@@ -57,6 +60,12 @@ public partial class MainViewModel : ViewModelBase
 
     [ObservableProperty]
     private bool _isConnected;
+
+    [ObservableProperty]
+    private bool _isOffline;
+
+    [ObservableProperty]
+    private string? _offlineMessage;
 
     [ObservableProperty]
     private bool _isAdvancedMode;
@@ -261,6 +270,19 @@ public partial class MainViewModel : ViewModelBase
             ServerUrlInput = _configService.ServerUrl;
             TokenInput = _configService.StreamToken;
             IsConnected = true;
+
+            // Restore the cached player before the network call so an unreachable
+            // server still shows the last station instead of an empty player.
+            try
+            {
+                _snapshot = _offlineState.Load();
+                if (_snapshot != null) ApplySnapshot(_snapshot);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Failed to restore the offline snapshot");
+            }
+
             _ = InitializeAppAsync(keepConnectedOnFailure: true);
         }
 
@@ -314,11 +336,24 @@ public partial class MainViewModel : ViewModelBase
     private async Task ContinueAfterEndAsync()
     {
         var previousUri = CurrentEpisodeStreamUri;
-        await SkipToNextAsync();
 
-        // If the server moved us on to another stream, start it. Otherwise stop
-        // here: the old stream has ended and there is nothing left to play.
-        IsPlaying = !string.IsNullOrEmpty(CurrentEpisodeStreamUri) && CurrentEpisodeStreamUri != previousUri;
+        if (IsOffline)
+        {
+            if (AdvanceOffline()) return;
+        }
+        else if (await SkipAsync(_client.NextAsync))
+        {
+            // If the server moved us on to another stream, start it. Otherwise stop
+            // here: the old stream has ended and there is nothing left to play.
+            IsPlaying = !string.IsNullOrEmpty(CurrentEpisodeStreamUri) && CurrentEpisodeStreamUri != previousUri;
+            return;
+        }
+        else if (AdvanceOffline())
+        {
+            return;
+        }
+
+        IsPlaying = false;
     }
 
     private void SetupTimers()
@@ -330,7 +365,10 @@ public partial class MainViewModel : ViewModelBase
         };
         _syncTimer.Tick += async (s, e) =>
         {
-            if (IsConnected && IsPlaying && SelectedStation != null && !string.IsNullOrEmpty(CurrentEpisodeStreamUri))
+            // Keep the local resume point current even when the server is gone.
+            SaveOfflineSnapshot();
+
+            if (IsConnected && !IsOffline && IsPlaying && SelectedStation != null && !string.IsNullOrEmpty(CurrentEpisodeStreamUri))
             {
                 try
                 {
@@ -691,16 +729,35 @@ public partial class MainViewModel : ViewModelBase
         {
             Log.Debug("Initializing app...");
             var stationsList = await _client.GetStationsAsync();
+            var activeStationId = SelectedStation?.Station?.Id;
             Stations.Clear();
             foreach (var station in stationsList)
             {
                 Stations.Add(station);
             }
 
+            // A snapshot may have restored an object that is no longer in the list;
+            // point at the server's fresh copy instead (without a PlayStation call).
+            if (activeStationId is not null)
+            {
+                _isRestoringSnapshot = true;
+                try
+                {
+                    SelectedStation = Stations.FirstOrDefault(s => s.Station?.Id == activeStationId);
+                }
+                finally
+                {
+                    _isRestoringSnapshot = false;
+                }
+            }
+
             await RefreshStatusAsync();
             await RefreshPlaylistAsync();
             _syncTimer?.Start();
             ConnectionErrorMessage = null;
+            IsOffline = false;
+            OfflineMessage = null;
+            SaveOfflineSnapshot();
         }
         catch (Exception ex)
         {
@@ -712,6 +769,14 @@ public partial class MainViewModel : ViewModelBase
             // must not discard the saved connection: the user would have to connect
             // again on every start. Only an explicit Disconnect clears the config.
             if (!keepConnectedOnFailure) IsConnected = false;
+
+            // With a snapshot the player stays usable from disk instead of going blank.
+            if (_snapshot is { StationStates.Count: > 0 })
+            {
+                IsOffline = true;
+                OfflineMessage = "Server unavailable. Playing downloaded episodes.";
+            }
+
             _syncTimer?.Stop();
         }
     }
@@ -797,6 +862,8 @@ public partial class MainViewModel : ViewModelBase
                     NextEpisodeTitle = null;
                 }
             }
+
+            SaveOfflineSnapshot();
         }
         catch
         {
@@ -838,6 +905,7 @@ public partial class MainViewModel : ViewModelBase
             // protected only while its station still allows downloads.
             await _downloads.SyncAsync(stationId, PlaylistItems, minutes, !blocked && minutes > 0,
                 PositionSeconds, CancellationToken.None, blocked ? null : CurrentEpisodeId);
+            SaveOfflineSnapshot();
         }
         catch (OperationCanceledException)
         {
@@ -950,6 +1018,193 @@ public partial class MainViewModel : ViewModelBase
         }
     }
 
+    private string? DownloadedPath(string stationId, string? episodeId) =>
+        string.IsNullOrEmpty(episodeId) ? null : _downloads.GetDownloadedPath(stationId, episodeId);
+
+    private bool HasDownloadedContent(string? stationId, OfflineSnapshot snapshot) =>
+        stationId is not null &&
+        snapshot.StationStates.TryGetValue(stationId, out var state) &&
+        HasDownloadedContent(stationId, state);
+
+    private bool HasDownloadedContent(string stationId, StationOfflineState state)
+    {
+        // Host-paced/aging files must never play, so they do not count as offline content.
+        if (state.HostPaceEnabled || state.IsAging) return false;
+
+        return state.Playlist.Any(episode => DownloadedPath(stationId, episode.EpisodeId) is not null);
+    }
+
+    private void ApplySnapshot(OfflineSnapshot snapshot)
+    {
+        _isRestoringSnapshot = true;
+        try
+        {
+            Stations.Clear();
+            foreach (var station in snapshot.Stations)
+            {
+                if (station.Station is { } model)
+                    model.IsAvailableOffline = HasDownloadedContent(model.Id, snapshot);
+                Stations.Add(station);
+            }
+
+            ProfileName = snapshot.ProfileName ?? "";
+            SelectedStation = Stations.FirstOrDefault(s => s.Station?.Id == snapshot.ActiveStationId)
+                ?? Stations.FirstOrDefault();
+
+            if (snapshot.ActiveStationId is { } stationId &&
+                snapshot.StationStates.TryGetValue(stationId, out var state))
+            {
+                RestoreBufferOption(stationId);
+                ApplyOfflineState(stationId, state);
+            }
+        }
+        finally
+        {
+            _isRestoringSnapshot = false;
+        }
+    }
+
+    /// <summary>Shows a station from its snapshot, preferring the downloaded file.</summary>
+    private void ApplyOfflineState(string stationId, StationOfflineState state)
+    {
+        PlaylistItems = new ObservableCollection<PlaylistItem>(
+            state.Playlist.Select(episode => new PlaylistItem
+            {
+                EpisodeId = episode.EpisodeId ?? "",
+                Title = episode.Title ?? "",
+                Description = episode.Description ?? "",
+                Artist = episode.Artist ?? "",
+                CoverUrl = episode.CoverUrl,
+                StreamUri = episode.StreamUri,
+                PublishedAt = episode.PublishedAt,
+                IsCurrent = episode.IsCurrent,
+                DownloadState = DownloadedPath(stationId, episode.EpisodeId) is null
+                    ? DownloadState.NotDownloaded
+                    : DownloadState.Downloaded,
+            }));
+
+        var current = state.Playlist.FirstOrDefault(e => e.EpisodeId == state.CurrentEpisodeId);
+        var position = (int)state.PositionSeconds;
+        if (current is null || DownloadedPath(stationId, current.EpisodeId) is null)
+        {
+            // The saved episode is gone from disk; resume at the first one still there.
+            var downloaded = state.Playlist.FirstOrDefault(e => DownloadedPath(stationId, e.EpisodeId) is not null);
+            if (downloaded is not null)
+            {
+                current = downloaded;
+                position = 0;
+            }
+        }
+
+        if (current is not null)
+        {
+            CurrentEpisodeId = current.EpisodeId ?? "";
+            CurrentEpisodeTitle = current.Title ?? "";
+            CurrentEpisodeDescription = current.Description ?? "";
+            CurrentEpisodeCoverUrl = current.CoverUrl;
+            NextEpisodeTitle = null;
+        }
+        else
+        {
+            CurrentEpisodeId = state.CurrentEpisodeId ?? "";
+            CurrentEpisodeStreamUri = null;
+        }
+
+        PositionSeconds = position;
+        if (current?.StreamUri is { } uri)
+            CurrentEpisodeStreamUri = uri;
+    }
+
+    private void SaveOfflineSnapshot()
+    {
+        if (!IsConnected || SelectedStation?.Station?.Id is not { } stationId) return;
+
+        var snapshot = _snapshot ?? new OfflineSnapshot();
+        snapshot.SavedAt = DateTimeOffset.UtcNow;
+        snapshot.ActiveStationId = stationId;
+        snapshot.ProfileName = ProfileName;
+        snapshot.Stations = Stations.ToList();
+        snapshot.StationStates[stationId] = new StationOfflineState
+        {
+            StationId = stationId,
+            HostPaceEnabled = SelectedStation.Station.HostPaceEnabled,
+            IsAging = SelectedStation.Station.IsAging,
+            CurrentEpisodeId = CurrentEpisodeId,
+            PositionSeconds = PositionSeconds,
+            Playlist = PlaylistItems.Select(item => new PlaylistEpisodeDto
+            {
+                EpisodeId = item.EpisodeId,
+                Title = item.Title,
+                Description = item.Description,
+                Artist = item.Artist,
+                CoverUrl = item.CoverUrl,
+                StreamUri = item.StreamUri,
+                PublishedAt = item.PublishedAt,
+                IsCurrent = item.IsCurrent,
+            }).ToList(),
+        };
+        _snapshot = snapshot;
+
+        try
+        {
+            _offlineState.Save(snapshot);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Log.Warning(ex, "Failed to save the offline snapshot");
+        }
+    }
+
+    private bool TrySwitchOffline(string stationId)
+    {
+        _snapshot ??= _offlineState.Load();
+        if (_snapshot is null ||
+            !_snapshot.StationStates.TryGetValue(stationId, out var state) ||
+            !HasDownloadedContent(stationId, state))
+            return false;
+
+        // Clear first so the new station's file is loaded even when the stream URI
+        // is the same as the previous station's.
+        CurrentEpisodeStreamUri = null;
+        ApplyOfflineState(stationId, state);
+        SaveOfflineSnapshot();
+        IsPlaying = true;
+        return true;
+    }
+
+    private bool AdvanceOffline()
+    {
+        if (DownloadsBlocked || ActiveStationId is not { } stationId) return false;
+
+        var start = 0;
+        for (var i = 0; i < PlaylistItems.Count; i++)
+        {
+            if (PlaylistItems[i].EpisodeId == CurrentEpisodeId)
+            {
+                start = i + 1;
+                break;
+            }
+        }
+
+        for (var i = start; i < PlaylistItems.Count; i++)
+        {
+            var item = PlaylistItems[i];
+            if (DownloadedPath(stationId, item.EpisodeId) is null) continue;
+
+            PositionSeconds = 0;
+            CurrentEpisodeId = item.EpisodeId;
+            CurrentEpisodeTitle = item.Title;
+            CurrentEpisodeDescription = item.Description;
+            CurrentEpisodeCoverUrl = item.CoverUrl;
+            CurrentEpisodeStreamUri = item.StreamUri;
+            SaveOfflineSnapshot();
+            IsPlaying = true;
+            return true;
+        }
+
+        return false;
+    }
+
     private async Task RefreshPlaylistAsync()
     {
         if (!IsConnected) return;
@@ -999,7 +1254,11 @@ public partial class MainViewModel : ViewModelBase
             UpdateDownloadState(playlist);
 
             if (playlist != null)
+            {
+                // A failed/absent playlist must not replace the cached one.
+                SaveOfflineSnapshot();
                 TriggerDownloadSync();
+            }
         }
         catch
         {
@@ -1037,20 +1296,49 @@ public partial class MainViewModel : ViewModelBase
         IsBufferSelectionEnabled = DownloadBlockedReason == null;
     }
 
+    partial void OnSelectedStationChanging(StationWithFeedsDto? value) =>
+        _previousSelectedStation = SelectedStation;
+
     partial void OnSelectedStationChanged(StationWithFeedsDto? value)
     {
+        // Restoring a snapshot must not hit the server or the offline guard.
+        if (_isRestoringSnapshot) return;
+
         // Leaving a station drops its queue (files stay). Bumping the generation
         // also prevents an in-flight refresh for the old station from applying.
         _downloads.Cancel();
         _playlistGeneration++;
         _lastDownloadSignature = null;
 
-        if (value != null && value.Station?.Id != null)
+        if (value?.Station?.Id is not { } stationId) return;
+
+        if (IsOffline)
         {
-            RestoreBufferOption(value.Station.Id);
-            if (IsPortrait) IsSidebarOpen = false;
-            _ = SwitchStationAsync(value.Station.Id);
+            if (!TrySwitchOffline(stationId))
+            {
+                _isRestoringSnapshot = true;
+                try
+                {
+                    SelectedStation = _previousSelectedStation;
+                }
+                finally
+                {
+                    _isRestoringSnapshot = false;
+                }
+
+                ConnectionErrorMessage = "This station is not available offline.";
+                return;
+            }
+
+            ConnectionErrorMessage = null;
         }
+        else
+        {
+            _ = SwitchStationAsync(stationId);
+        }
+
+        RestoreBufferOption(stationId);
+        if (IsPortrait) IsSidebarOpen = false;
     }
 
     private async Task SwitchStationAsync(string stationId)
@@ -1120,22 +1408,24 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand]
     private Task SkipToPreviousAsync() => SkipAsync(_client.PreviousAsync);
 
-    private async Task SkipAsync(Func<Task> navigate)
+    private async Task<bool> SkipAsync(Func<Task> navigate)
     {
         // Playback-end, buttons and media controls can all ask for a skip; only
         // one request at a time may run, otherwise a failed skip can pile up
         // overlapping network calls and audio loads.
-        if (_isSkipping) return;
+        if (_isSkipping) return false;
         _isSkipping = true;
 
         try
         {
             await navigate();
             await RefreshStatusAsync();
+            return true;
         }
         catch
         {
-            // Handle network skip error
+            // Handle network skip error; the caller may fall back to local playback.
+            return false;
         }
         finally
         {

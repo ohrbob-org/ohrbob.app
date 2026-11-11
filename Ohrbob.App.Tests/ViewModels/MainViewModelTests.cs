@@ -18,21 +18,24 @@ namespace Ohrbob.App.Tests.ViewModels;
 public class MainViewModelTests
 {
     private string _tempConfigPath = null!;
+    private string _tempOfflinePath = null!;
 
     [SetUp]
     public void SetUp()
     {
         _tempConfigPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + ".json");
+        _tempOfflinePath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString(), "offline.json");
     }
 
     [TearDown]
     public void TearDown()
     {
-        if (File.Exists(_tempConfigPath))
+        foreach (var path in new[] { _tempConfigPath, _tempOfflinePath })
         {
+            if (!File.Exists(path)) continue;
             try
             {
-                File.Delete(_tempConfigPath);
+                File.Delete(path);
             }
             catch
             {
@@ -65,12 +68,18 @@ public class MainViewModelTests
         }
     }
 
+    private class FailingHttpHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.InternalServerError));
+    }
+
     [Test]
     public async Task Connect_WithValidInputs_SavesAndSetsConnected()
     {
         var configService = new ConfigService(_tempConfigPath);
         var client = new OhrbobClient(configService, new FakeHttpMessageHandler());
-        var vm = new MainViewModel(configService, client);
+        var vm = new MainViewModel(configService, client, offlineState: new OfflineStateService(_tempOfflinePath));
 
         vm.ServerUrlInput = "https://example.com/ohrbob";
         vm.TokenInput = "my-secret-token";
@@ -87,7 +96,7 @@ public class MainViewModelTests
     {
         var configService = new ConfigService(_tempConfigPath);
         var client = new OhrbobClient(configService, new FakeHttpMessageHandler());
-        var vm = new MainViewModel(configService, client);
+        var vm = new MainViewModel(configService, client, offlineState: new OfflineStateService(_tempOfflinePath));
 
         vm.DeepLinkInput = "ohrbob://connect?server=https://mytestserver.com&token=secret123";
 
@@ -105,7 +114,7 @@ public class MainViewModelTests
     {
         var configService = new ConfigService(_tempConfigPath);
         var client = new OhrbobClient(configService, new FakeHttpMessageHandler());
-        var vm = new MainViewModel(configService, client);
+        var vm = new MainViewModel(configService, client, offlineState: new OfflineStateService(_tempOfflinePath));
 
         vm.ServerUrlInput = "https://example.com/ohrbob";
         vm.TokenInput = "my-secret-token";
@@ -132,7 +141,7 @@ public class MainViewModelTests
         var configService = new ConfigService(_tempConfigPath);
         var client = new OhrbobClient(configService, new FakeHttpMessageHandler());
         var player = new TestAudioPlayer();
-        var vm = new MainViewModel(configService, client, null, player);
+        var vm = new MainViewModel(configService, client, null, player, offlineState: new OfflineStateService(_tempOfflinePath));
 
         vm.Volume = 40;
 
@@ -205,7 +214,7 @@ public class MainViewModelTests
     {
         var config = new ConfigService(_tempConfigPath);
         config.Save("https://example.com", "token");
-        var vm = new MainViewModel(config, new OhrbobClient(config, new PlaylistHttpHandler()), null, new TestAudioPlayer(), a => a());
+        var vm = new MainViewModel(config, new OhrbobClient(config, new PlaylistHttpHandler()), null, new TestAudioPlayer(), a => a(), offlineState: new OfflineStateService(_tempOfflinePath));
 
         await vm.RetryConnectionAsync();
 
@@ -219,7 +228,7 @@ public class MainViewModelTests
     {
         var config = new ConfigService(_tempConfigPath);
         config.Save("https://example.com", "token");
-        var vm = new MainViewModel(config, new OhrbobClient(config, new PlaylistHttpHandler()), null, new TestAudioPlayer(), a => a());
+        var vm = new MainViewModel(config, new OhrbobClient(config, new PlaylistHttpHandler()), null, new TestAudioPlayer(), a => a(), offlineState: new OfflineStateService(_tempOfflinePath));
 
         await vm.RetryConnectionAsync();
         vm.SelectedBufferOption = vm.BufferOptions.Single(o => o.Minutes == 30);
@@ -239,7 +248,7 @@ public class MainViewModelTests
         };
         var config = new ConfigService(_tempConfigPath);
         config.Save("https://example.com", "token");
-        var vm = new MainViewModel(config, new OhrbobClient(config, handler), null, new TestAudioPlayer(), a => a());
+        var vm = new MainViewModel(config, new OhrbobClient(config, handler), null, new TestAudioPlayer(), a => a(), offlineState: new OfflineStateService(_tempOfflinePath));
 
         await vm.RetryConnectionAsync();
 
@@ -265,7 +274,7 @@ public class MainViewModelTests
         });
         var config = new ConfigService(_tempConfigPath);
         config.Save("https://example.com", "token");
-        var vm = new MainViewModel(config, new OhrbobClient(config, handler), null, new TestAudioPlayer(), a => a());
+        var vm = new MainViewModel(config, new OhrbobClient(config, handler), null, new TestAudioPlayer(), a => a(), offlineState: new OfflineStateService(_tempOfflinePath));
 
         await vm.RetryConnectionAsync();
 
@@ -282,7 +291,7 @@ public class MainViewModelTests
         };
         var config = new ConfigService(_tempConfigPath);
         config.Save("https://example.com", "token");
-        var vm = new MainViewModel(config, new OhrbobClient(config, handler), null, new TestAudioPlayer(), a => a());
+        var vm = new MainViewModel(config, new OhrbobClient(config, handler), null, new TestAudioPlayer(), a => a(), offlineState: new OfflineStateService(_tempOfflinePath));
 
         await vm.RetryConnectionAsync();
 
@@ -295,7 +304,7 @@ public class MainViewModelTests
     {
         var configService = new ConfigService(_tempConfigPath);
         var client = new OhrbobClient(configService, new FakeHttpMessageHandler());
-        var vm = new MainViewModel(configService, client, null, new TestAudioPlayer());
+        var vm = new MainViewModel(configService, client, null, new TestAudioPlayer(), offlineState: new OfflineStateService(_tempOfflinePath));
         vm.CurrentEpisodeStreamUri = null;
         vm.IsPlaying = false;
         vm.TogglePlayCommand.Execute(null);
@@ -329,7 +338,7 @@ public class MainViewModelTests
         handler.PlaylistJson = "{\"stationId\":\"s1\",\"hostPaceEnabled\":true,\"isAging\":false,\"episodes\":[{\"episodeId\":\"e1\",\"title\":\"Current\",\"streamUri\":\"https://audio/1\",\"isCurrent\":true}]}";
         var downloadHandler = new MockHttpMessageHandler(req => { requests.Add(req.RequestUri!.ToString()); return new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(new byte[] { 1 }) }; });
         var downloads = new EpisodeDownloadService(root, new HttpClient(downloadHandler), _ => TimeSpan.FromMinutes(1));
-        var vm = new MainViewModel(config, new OhrbobClient(config, handler), null, new TestAudioPlayer(), a => a(), downloads);
+        var vm = new MainViewModel(config, new OhrbobClient(config, handler), null, new TestAudioPlayer(), a => a(), downloads, new OfflineStateService(_tempOfflinePath));
 
         await vm.RetryConnectionAsync();
         await vm.WaitForDownloadsAsync();
@@ -353,7 +362,7 @@ public class MainViewModelTests
         config.Save("https://example.com", "token");
         config.SetBufferMinutes("s1", 30);
         var downloads = new EpisodeDownloadService(root, null, _ => TimeSpan.FromMinutes(1));
-        var vm = new MainViewModel(config, new OhrbobClient(config, handler), null, new TestAudioPlayer(), a => a(), downloads);
+        var vm = new MainViewModel(config, new OhrbobClient(config, handler), null, new TestAudioPlayer(), a => a(), downloads, new OfflineStateService(_tempOfflinePath));
 
         await vm.RetryConnectionAsync();
         await vm.WaitForDownloadsAsync();
@@ -372,7 +381,7 @@ public class MainViewModelTests
         config.SetBufferMinutes("s1", 30);
         var downloads = new EpisodeDownloadService(root, null, _ => TimeSpan.FromMinutes(1));
         var player = new TestAudioPlayer();
-        var vm = new MainViewModel(config, new OhrbobClient(config, new PlaylistHttpHandler()), null, player, a => a(), downloads);
+        var vm = new MainViewModel(config, new OhrbobClient(config, new PlaylistHttpHandler()), null, player, a => a(), downloads, new OfflineStateService(_tempOfflinePath));
 
         vm.SelectedStation = new StationWithFeedsDto
         {
@@ -392,7 +401,7 @@ public class MainViewModelTests
         config.SetBufferMinutes("s1", 30);
         var downloads = new EpisodeDownloadService(root, null, _ => TimeSpan.FromMinutes(1));
         var player = new TestAudioPlayer();
-        var vm = new MainViewModel(config, new OhrbobClient(config, new PlaylistHttpHandler()), null, player, a => a(), downloads);
+        var vm = new MainViewModel(config, new OhrbobClient(config, new PlaylistHttpHandler()), null, player, a => a(), downloads, new OfflineStateService(_tempOfflinePath));
         Directory.CreateDirectory(Path.Combine(root, "s1"));
         File.WriteAllBytes(Path.Combine(root, "s1", "e1.mp3"), new byte[] { 1 });
 
@@ -412,7 +421,7 @@ public class MainViewModelTests
         config.SetBufferMinutes("s1", 10);
         var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         var downloads = new EpisodeDownloadService(root, new HttpClient(handler), _ => TimeSpan.FromMinutes(1));
-        var vm = new MainViewModel(config, new OhrbobClient(config, handler), null, new TestAudioPlayer(), a => a(), downloads);
+        var vm = new MainViewModel(config, new OhrbobClient(config, handler), null, new TestAudioPlayer(), a => a(), downloads, new OfflineStateService(_tempOfflinePath));
 
         await vm.RetryConnectionAsync();
         await handler.AudioStarted.WaitAsync(TimeSpan.FromSeconds(5));
@@ -427,5 +436,119 @@ public class MainViewModelTests
 
         Assert.That(handler.AudioRequests, Is.EqualTo(1),
             "concurrent triggers must not cancel and restart the running sync");
+    }
+
+    [Test]
+    public async Task Startup_WithUnreachableServer_RestoresSnapshotAndStaysConnected()
+    {
+        var config = new ConfigService(_tempConfigPath);
+        config.Save("https://example.com", "token");
+        var snapshotPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString(), "offline.json");
+        var offline = new OfflineStateService(snapshotPath);
+        offline.Save(new OfflineSnapshot
+        {
+            ActiveStationId = "s1",
+            ProfileName = "Kai",
+            Stations = new List<StationWithFeedsDto> { new() { Station = new Station { Id = "s1", Name = "One" } } },
+            StationStates = new Dictionary<string, StationOfflineState>
+            {
+                ["s1"] = new()
+                {
+                    StationId = "s1",
+                    CurrentEpisodeId = "e1",
+                    PositionSeconds = 42,
+                    Playlist = new List<PlaylistEpisodeDto>
+                    {
+                        new() { EpisodeId = "e1", Title = "Current", StreamUri = "https://audio/1", IsCurrent = true }
+                    }
+                }
+            }
+        });
+        var failing = new FailingHttpHandler();
+        var vm = new MainViewModel(config, new OhrbobClient(config, failing), null, new TestAudioPlayer(), a => a(), null, offline);
+
+        await vm.RetryConnectionAsync();
+
+        Assert.That(vm.IsConnected, Is.True);
+        Assert.That(vm.IsOffline, Is.True);
+        Assert.That(vm.Stations.Single().Station!.Id, Is.EqualTo("s1"));
+        Assert.That(vm.ProfileName, Is.EqualTo("Kai"));
+        Assert.That(vm.CurrentEpisodeId, Is.EqualTo("e1"));
+        Assert.That(vm.PositionSeconds, Is.EqualTo(42));
+        Assert.That(vm.PlaylistItems.Single().EpisodeId, Is.EqualTo("e1"));
+    }
+
+    [Test]
+    public async Task Offline_AdvanceToNextDownloadedEpisode()
+    {
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(Path.Combine(root, "s1"));
+        File.WriteAllBytes(Path.Combine(root, "s1", "e2.mp3"), new byte[] { 1 });
+        var config = new ConfigService(_tempConfigPath);
+        config.Save("https://example.com", "token");
+        var snapshotPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString(), "offline.json");
+        var offline = new OfflineStateService(snapshotPath);
+        offline.Save(new OfflineSnapshot
+        {
+            ActiveStationId = "s1",
+            Stations = new List<StationWithFeedsDto> { new() { Station = new Station { Id = "s1", Name = "One" } } },
+            StationStates = new Dictionary<string, StationOfflineState>
+            {
+                ["s1"] = new()
+                {
+                    StationId = "s1",
+                    CurrentEpisodeId = "e1",
+                    Playlist = new List<PlaylistEpisodeDto>
+                    {
+                        new() { EpisodeId = "e1", Title = "One", StreamUri = "https://audio/1", IsCurrent = true },
+                        new() { EpisodeId = "e2", Title = "Two", StreamUri = "https://audio/2" }
+                    }
+                }
+            }
+        });
+        var downloads = new EpisodeDownloadService(root, null, _ => TimeSpan.FromMinutes(1));
+        var player = new TestAudioPlayer();
+        var vm = new MainViewModel(config, new OhrbobClient(config, new FailingHttpHandler()), null, player, a => a(), downloads, offline);
+        vm.IsOffline = true;
+        vm.SelectedStation = vm.Stations.Single();
+        vm.CurrentEpisodeId = "e1";
+        vm.CurrentEpisodeStreamUri = "https://audio/1";
+
+        player.RaiseEnded();
+        for (var i = 0; i < 50 && vm.CurrentEpisodeId != "e2"; i++) await Task.Delay(20);
+
+        Assert.That(vm.CurrentEpisodeId, Is.EqualTo("e2"));
+        Assert.That(player.CurrentUrl, Is.EqualTo(Path.Combine(root, "s1", "e2.mp3")));
+    }
+
+    [Test]
+    public async Task Offline_SwitchingToStationWithoutDownloads_IsRefused()
+    {
+        var config = new ConfigService(_tempConfigPath);
+        config.Save("https://example.com", "token");
+        var snapshotPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString(), "offline.json");
+        var offline = new OfflineStateService(snapshotPath);
+        offline.Save(new OfflineSnapshot
+        {
+            ActiveStationId = "s1",
+            Stations = new List<StationWithFeedsDto>
+            {
+                new() { Station = new Station { Id = "s1", Name = "One" } },
+                new() { Station = new Station { Id = "s2", Name = "Two" } }
+            },
+            StationStates = new Dictionary<string, StationOfflineState>
+            {
+                ["s1"] = new() { StationId = "s1", CurrentEpisodeId = "e1" }
+            }
+        });
+        var vm = new MainViewModel(config, new OhrbobClient(config, new FailingHttpHandler()), null, new TestAudioPlayer(), a => a(), null, offline);
+        vm.IsOffline = true;
+
+        vm.SelectedStation = vm.Stations.Single(s => s.Station!.Id == "s2");
+
+        await Task.Delay(50);
+        Assert.That(vm.SelectedStation.Station!.Id, Is.EqualTo("s1"),
+            "a station without offline content must not replace the active station");
+        Assert.That(vm.ConnectionErrorMessage, Does.Contain("offline"));
     }
 }

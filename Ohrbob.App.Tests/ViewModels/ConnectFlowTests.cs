@@ -12,21 +12,24 @@ namespace Ohrbob.App.Tests.ViewModels;
 public class ConnectFlowTests
 {
     private string _tempConfigPath = null!;
+    private string _tempOfflinePath = null!;
 
     [SetUp]
     public void SetUp()
     {
         _tempConfigPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + ".json");
+        _tempOfflinePath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString(), "offline.json");
     }
 
     [TearDown]
     public void TearDown()
     {
-        if (File.Exists(_tempConfigPath))
+        foreach (var path in new[] { _tempConfigPath, _tempOfflinePath })
         {
+            if (!File.Exists(path)) continue;
             try
             {
-                File.Delete(_tempConfigPath);
+                File.Delete(path);
             }
             catch
             {
@@ -63,7 +66,7 @@ public class ConnectFlowTests
     {
         config = new ConfigService(_tempConfigPath);
         var client = new OhrbobClient(config, new FakeHttpMessageHandler());
-        return new MainViewModel(config, client, launcher ?? new RecordingUriLauncher());
+        return new MainViewModel(config, client, launcher ?? new RecordingUriLauncher(), offlineState: new OfflineStateService(_tempOfflinePath));
     }
 
     [Test]
@@ -140,7 +143,7 @@ public class ConnectFlowTests
         var config = new ConfigService(_tempConfigPath);
         config.Save("https://player.ohrbob.org", "old");
         var client = new OhrbobClient(config, new FakeHttpMessageHandler());
-        var vm = new MainViewModel(config, client, new RecordingUriLauncher());
+        var vm = new MainViewModel(config, client, new RecordingUriLauncher(), offlineState: new OfflineStateService(_tempOfflinePath));
 
         vm.ApplyDeepLink(uri);
 
@@ -157,7 +160,7 @@ public class ConnectFlowTests
         var config = new ConfigService(_tempConfigPath);
         config.Save("https://player.ohrbob.org", "old");
         var client = new OhrbobClient(config, new FakeHttpMessageHandler());
-        var vm = new MainViewModel(config, client, new RecordingUriLauncher());
+        var vm = new MainViewModel(config, client, new RecordingUriLauncher(), offlineState: new OfflineStateService(_tempOfflinePath));
         vm.IsConnected = true;
 
         vm.ApplyDeepLink("ohrbob://connect?server=https%3A%2F%2Fother.example&token=new");
@@ -174,7 +177,7 @@ public class ConnectFlowTests
         var config = new ConfigService(_tempConfigPath);
         config.Save("https://player.ohrbob.org", "old");
         var client = new OhrbobClient(config, new FakeHttpMessageHandler());
-        var vm = new MainViewModel(config, client, new RecordingUriLauncher());
+        var vm = new MainViewModel(config, client, new RecordingUriLauncher(), offlineState: new OfflineStateService(_tempOfflinePath));
         vm.IsConnected = true;
         vm.ApplyDeepLink("ohrbob://connect?server=https%3A%2F%2Fother.example&token=new");
 
@@ -192,7 +195,7 @@ public class ConnectFlowTests
         var config = new ConfigService(_tempConfigPath);
         config.Save("https://player.ohrbob.org", "old");
         var client = new OhrbobClient(config, new FakeHttpMessageHandler());
-        var vm = new MainViewModel(config, client, new RecordingUriLauncher());
+        var vm = new MainViewModel(config, client, new RecordingUriLauncher(), offlineState: new OfflineStateService(_tempOfflinePath));
         vm.IsConnected = true;
         vm.ApplyDeepLink("ohrbob://connect?server=https%3A%2F%2Fother.example&token=new");
 

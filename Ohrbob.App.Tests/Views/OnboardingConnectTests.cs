@@ -15,21 +15,24 @@ namespace Ohrbob.App.Tests.Views;
 public class OnboardingConnectTests
 {
     private string _tempConfigPath = null!;
+    private string _tempOfflinePath = null!;
 
     [SetUp]
     public void SetUp()
     {
         _tempConfigPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + ".json");
+        _tempOfflinePath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString(), "offline.json");
     }
 
     [TearDown]
     public void TearDown()
     {
-        if (File.Exists(_tempConfigPath))
+        foreach (var path in new[] { _tempConfigPath, _tempOfflinePath })
         {
+            if (!File.Exists(path)) continue;
             try
             {
-                File.Delete(_tempConfigPath);
+                File.Delete(path);
             }
             catch
             {
@@ -53,7 +56,7 @@ public class OnboardingConnectTests
     {
         var configService = new ConfigService(_tempConfigPath);
         var client = new OhrbobClient(configService, new FakeHttpMessageHandler());
-        var vm = new MainViewModel(configService, client);
+        var vm = new MainViewModel(configService, client, offlineState: new OfflineStateService(_tempOfflinePath));
 
         var view = new OnboardingView { DataContext = vm };
         var window = new Window { Width = 900, Height = 700, Content = view };

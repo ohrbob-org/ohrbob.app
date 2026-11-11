@@ -14,21 +14,24 @@ namespace Ohrbob.App.Tests.Views;
 public class MainWindowE2ETests
 {
     private string _tempConfigPath = null!;
+    private string _tempOfflinePath = null!;
 
     [SetUp]
     public void SetUp()
     {
         _tempConfigPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + ".json");
+        _tempOfflinePath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString(), "offline.json");
     }
 
     [TearDown]
     public void TearDown()
     {
-        if (File.Exists(_tempConfigPath))
+        foreach (var path in new[] { _tempConfigPath, _tempOfflinePath })
         {
+            if (!File.Exists(path)) continue;
             try
             {
-                File.Delete(_tempConfigPath);
+                File.Delete(path);
             }
             catch
             {
@@ -66,7 +69,7 @@ public class MainWindowE2ETests
     {
         var configService = new ConfigService(_tempConfigPath);
         var client = new OhrbobClient(configService, new FakeHttpMessageHandler());
-        var vm = new MainViewModel(configService, client);
+        var vm = new MainViewModel(configService, client, offlineState: new OfflineStateService(_tempOfflinePath));
 
         var window = new MainWindow
         {
@@ -81,7 +84,7 @@ public class MainWindowE2ETests
     {
         var configService = new ConfigService(_tempConfigPath);
         var client = new OhrbobClient(configService, new FakeHttpMessageHandler());
-        var vm = new MainViewModel(configService, client);
+        var vm = new MainViewModel(configService, client, offlineState: new OfflineStateService(_tempOfflinePath));
 
         var window = new MainWindow
         {

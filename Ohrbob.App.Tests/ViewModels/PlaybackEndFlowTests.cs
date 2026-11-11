@@ -18,17 +18,21 @@ namespace Ohrbob.App.Tests.ViewModels;
 public class PlaybackEndFlowTests
 {
     private string _tempConfigPath = null!;
+    private string _tempOfflinePath = null!;
 
     [SetUp]
-    public void SetUp() =>
+    public void SetUp()
+    {
         _tempConfigPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + ".json");
+        _tempOfflinePath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString(), "offline.json");
+    }
 
     [TearDown]
     public void TearDown()
     {
-        if (File.Exists(_tempConfigPath))
+        foreach (var path in new[] { _tempConfigPath, _tempOfflinePath })
         {
-            try { File.Delete(_tempConfigPath); } catch { }
+            try { if (File.Exists(path)) File.Delete(path); } catch { }
         }
     }
 
@@ -126,7 +130,7 @@ public class PlaybackEndFlowTests
         config = new ConfigService(_tempConfigPath);
         var client = new OhrbobClient(config, handler);
         player = new TestAudioPlayer();
-        return new MainViewModel(config, client, null, player, action => action());
+        return new MainViewModel(config, client, null, player, action => action(), offlineState: new OfflineStateService(_tempOfflinePath));
     }
 
     [Test]
@@ -247,7 +251,8 @@ public class PlaybackEndFlowTests
         config.SetBufferMinutes("s1", 10);
         var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         var downloads = new EpisodeDownloadService(root, new HttpClient(handler), _ => TimeSpan.FromMinutes(1));
-        var vm = new MainViewModel(config, new OhrbobClient(config, handler), null, new TestAudioPlayer(), a => a(), downloads);
+        var vm = new MainViewModel(config, new OhrbobClient(config, handler), null, new TestAudioPlayer(), a => a(), downloads,
+            new OfflineStateService(_tempOfflinePath));
 
         await vm.RefreshAllCommand.ExecuteAsync(null);
         await vm.WaitForDownloadsAsync();
