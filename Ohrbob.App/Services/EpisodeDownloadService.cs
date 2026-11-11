@@ -135,9 +135,20 @@ public class EpisodeDownloadService
         int bufferMinutes,
         string? protectedEpisodeId = null)
     {
+        // File enumeration and deletion run off the UI thread; SyncAsync awaits this
+        // without ConfigureAwait(false) so its state updates still resume on the UI thread.
+        return Task.Run(() => Prune(stationId, playlist, bufferMinutes, protectedEpisodeId));
+    }
+
+    private void Prune(
+        string stationId,
+        IReadOnlyList<PlaylistItem> playlist,
+        int bufferMinutes,
+        string? protectedEpisodeId)
+    {
         var folder = StationFolder(stationId);
         if (!Directory.Exists(folder))
-            return Task.CompletedTask;
+            return;
 
         var keep = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         if (!string.IsNullOrEmpty(protectedEpisodeId))
@@ -149,10 +160,14 @@ public class EpisodeDownloadService
             var budget = TimeSpan.Zero;
             foreach (var item in playlist)
             {
-                keep.Add(SafeSegment(item.EpisodeId));
+                // Only files that actually exist count towards the budget; stale files
+                // for episodes that are not downloaded must not be kept.
                 var existing = GetDownloadedPath(stationId, item.EpisodeId);
-                if (existing is not null)
-                    budget += _durationReader(existing);
+                if (existing is null)
+                    continue;
+
+                keep.Add(SafeSegment(item.EpisodeId));
+                budget += _durationReader(existing);
                 if (budget >= target)
                     break;
             }
@@ -173,8 +188,6 @@ public class EpisodeDownloadService
             {
             }
         }
-
-        return Task.CompletedTask;
     }
 
     public void Cancel()
@@ -271,18 +284,31 @@ public class EpisodeDownloadService
         DownloadStateChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    private string StationFolder(string stationId) =>
-        Path.Combine(_cacheRoot, SafeSegment(stationId));
+    private string StationFolder(string stationId)
+    {
+        var root = Path.GetFullPath(_cacheRoot);
+        var folder = Path.GetFullPath(Path.Combine(root, SafeSegment(stationId)));
+        var prefix = root.EndsWith(Path.DirectorySeparatorChar)
+            ? root
+            : root + Path.DirectorySeparatorChar;
+        // Defense in depth: never operate outside the cache root.
+        return folder.StartsWith(prefix, StringComparison.Ordinal)
+            ? folder
+            : Path.Combine(root, "_");
+    }
 
     private static string SafeSegment(string value)
     {
+        if (value.Length == 0 || value == "." || value == "..")
+            return "_";
+
         var invalid = Path.GetInvalidFileNameChars();
         var chars = value
             .Select(c => invalid.Contains(c) || c == Path.DirectorySeparatorChar || c == Path.AltDirectorySeparatorChar
                 ? '_'
                 : c)
             .ToArray();
-        return chars.Length == 0 ? "_" : new string(chars);
+        return new string(chars);
     }
 
     private static string ExtensionFor(string uri)
