@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using NUnit.Framework;
+using Ohrbob.App.Models;
 using Ohrbob.App.Services;
 using Ohrbob.App.ViewModels;
 using Ohrbob.App.Views;
@@ -67,6 +68,35 @@ public class PlaybackEndFlowTests
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
             Task.FromResult(new HttpResponseMessage(HttpStatusCode.InternalServerError));
+    }
+
+    private class DownloadingHttpHandler : HttpMessageHandler
+    {
+        public int AudioRequests;
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            var path = request.RequestUri?.AbsolutePath ?? "";
+            if (path.StartsWith("/audio/"))
+            {
+                Interlocked.Increment(ref AudioRequests);
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new ByteArrayContent(new byte[] { 1, 2, 3 })
+                });
+            }
+
+            var body = path.EndsWith("/stream/stations")
+                ? "[{\"station\":{\"id\":\"s1\",\"name\":\"Test Station\"},\"feeds\":[]}]"
+                : path.EndsWith("/stream/playlist")
+                    ? "{\"stationId\":\"s1\",\"hostPaceEnabled\":false,\"isAging\":false,\"episodes\":[" +
+                      "{\"episodeId\":\"e1\",\"title\":\"One\",\"streamUri\":\"https://example.com/audio/1.mp3\",\"isCurrent\":true}]}"
+                    : "{}";
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json")
+            });
+        }
     }
 
     private class SwitchableHttpHandler : HttpMessageHandler
@@ -206,6 +236,24 @@ public class PlaybackEndFlowTests
 
         Assert.That(handler.StationRequests, Is.EqualTo(1));
         Assert.That(handler.StatusRequests, Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task RefreshAll_DownloadsUpcomingEpisodesWhenBufferIsSet()
+    {
+        var handler = new DownloadingHttpHandler();
+        var config = new ConfigService(_tempConfigPath);
+        config.Save("https://example.com", "token");
+        config.SetBufferMinutes("s1", 10);
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        var downloads = new EpisodeDownloadService(root, new HttpClient(handler), _ => TimeSpan.FromMinutes(1));
+        var vm = new MainViewModel(config, new OhrbobClient(config, handler), null, new TestAudioPlayer(), a => a(), downloads);
+
+        await vm.RefreshAllCommand.ExecuteAsync(null);
+        await vm.WaitForDownloadsAsync();
+
+        Assert.That(handler.AudioRequests, Is.EqualTo(1));
+        Assert.That(vm.PlaylistItems.Single().DownloadState, Is.EqualTo(DownloadState.Downloaded));
     }
 
     [AvaloniaTest]

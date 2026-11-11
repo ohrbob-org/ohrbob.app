@@ -25,6 +25,7 @@ public class SoundFlowAudioPlayer : IAudioPlayer
     private SoundPlayer? _player;
     private StreamDataProvider? _provider;
     private HttpBufferingStream? _bufferStream;
+    private FileStream? _localStream;
     private string? _tempFilePath;
     private CancellationTokenSource? _cts;
     private Timer _timer;
@@ -82,8 +83,8 @@ public class SoundFlowAudioPlayer : IAudioPlayer
 
     public async Task Load(string url)
     {
-        CurrentUrl = url;
         Stop(); // Cleans up previous streams
+        CurrentUrl = url;
         
         try
         {
@@ -94,6 +95,14 @@ public class SoundFlowAudioPlayer : IAudioPlayer
 
             _cts = new CancellationTokenSource();
             var ct = _cts.Token;
+
+            // Cached episode: the file is already complete, no buffering stream needed.
+            if (File.Exists(url))
+            {
+                _localStream = new FileStream(url, FileMode.Open, FileAccess.Read, FileShare.Read);
+                await InitializePlaybackAsync(_localStream, ct);
+                return;
+            }
 
             _tempFilePath = Path.GetTempFileName() + ".mp3";
             File.WriteAllBytes(_tempFilePath, Array.Empty<byte>());
@@ -178,35 +187,41 @@ public class SoundFlowAudioPlayer : IAudioPlayer
             }
             
             // Execute SoundFlow initialization on a background thread.
-            await Task.Run(() => 
-            {
-                _provider = new StreamDataProvider(_engine, _bufferStream, new SoundFlow.Metadata.Models.ReadOptions());
-                
-                var format = new AudioFormat {
-                    Format = _provider.SampleFormat == SampleFormat.Unknown ? SampleFormat.F32 : _provider.SampleFormat,
-                    Channels = _provider.FormatInfo?.ChannelCount ?? 2,
-                    SampleRate = _provider.FormatInfo?.SampleRate ?? 44100
-                };
-
-                _device = _engine.InitializePlaybackDevice(null, format, new MiniAudioDeviceConfig());
-                var player = new SoundPlayer(_engine, format, _provider);
-                player.Volume = _volume;
-                player.PlaybackEnded += OnPlaybackEnded;
-                _player = player;
-                
-                _device.MasterMixer.AddComponent(_player);
-                _device.Start();
-                
-            }, ct);
-            
-            // Fire an initial duration and position update so UI is correct even if paused
-            DurationChanged?.Invoke(this, DurationSeconds);
-            PositionChanged?.Invoke(this, PositionSeconds);
+            await InitializePlaybackAsync(bufferStream, ct);
         }
         catch(Exception e)
         {
             Log.Fatal(e,$"Error loading SoundFlow audio: {e}");
         }
+    }
+
+    /// <summary>Shared provider/device setup for streamed and local-file sources.</summary>
+    private async Task InitializePlaybackAsync(Stream source, CancellationToken ct)
+    {
+        await Task.Run(() => 
+        {
+            _provider = new StreamDataProvider(_engine!, source, new SoundFlow.Metadata.Models.ReadOptions());
+            
+            var format = new AudioFormat {
+                Format = _provider.SampleFormat == SampleFormat.Unknown ? SampleFormat.F32 : _provider.SampleFormat,
+                Channels = _provider.FormatInfo?.ChannelCount ?? 2,
+                SampleRate = _provider.FormatInfo?.SampleRate ?? 44100
+            };
+
+            _device = _engine!.InitializePlaybackDevice(null, format, new MiniAudioDeviceConfig());
+            var player = new SoundPlayer(_engine, format, _provider);
+            player.Volume = _volume;
+            player.PlaybackEnded += OnPlaybackEnded;
+            _player = player;
+            
+            _device.MasterMixer.AddComponent(_player);
+            _device.Start();
+            
+        }, ct);
+        
+        // Fire an initial duration and position update so UI is correct even if paused
+        DurationChanged?.Invoke(this, DurationSeconds);
+        PositionChanged?.Invoke(this, PositionSeconds);
     }
 
     public void Play()
@@ -244,6 +259,8 @@ public class SoundFlowAudioPlayer : IAudioPlayer
         _provider = null;
         _bufferStream?.Dispose();
         _bufferStream = null;
+        _localStream?.Dispose();
+        _localStream = null;
         
         if (_tempFilePath != null && File.Exists(_tempFilePath))
         {

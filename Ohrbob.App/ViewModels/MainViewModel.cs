@@ -7,6 +7,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -30,6 +31,15 @@ public partial class MainViewModel : ViewModelBase
     private readonly IAudioPlayer _player;
     private readonly IUriLauncher _uriLauncher;
     private readonly Action<Action> _dispatch;
+    private readonly EpisodeDownloadService _downloads;
+    private readonly OfflineStateService _offlineState;
+    private readonly SemaphoreSlim _downloadSyncGate = new(1, 1);
+    private Task? _downloadSyncTask;
+    private string? _lastDownloadSignature;
+    private int _playlistGeneration;
+    private string? _playlistStationId;
+    private bool _playlistHostPaceEnabled;
+    private bool _playlistIsAging;
     private string? _pendingServerUrl;
     private string? _pendingStreamToken;
     private string? _loadedStreamUri;
@@ -211,11 +221,14 @@ public partial class MainViewModel : ViewModelBase
     {
     }
 
-    public MainViewModel(ConfigService configService, OhrbobClient? client, IUriLauncher? uriLauncher = null, IAudioPlayer? player = null, Action<Action>? dispatch = null)
+    public MainViewModel(ConfigService configService, OhrbobClient? client, IUriLauncher? uriLauncher = null, IAudioPlayer? player = null, Action<Action>? dispatch = null,
+        EpisodeDownloadService? downloads = null, OfflineStateService? offlineState = null)
     {
         _configService = configService;
         _uriLauncher = uriLauncher ?? new AppUriLauncher();
         _dispatch = dispatch ?? (action => Dispatcher.UIThread.Post(action));
+        _downloads = downloads ?? new EpisodeDownloadService();
+        _offlineState = offlineState ?? new OfflineStateService();
         var handler = new HttpClientHandler();
 
         // Only bypass if running locally or in a specific dev environment
@@ -376,7 +389,13 @@ public partial class MainViewModel : ViewModelBase
         {
             IsBuffering = true;
             _player.Stop();
-            await _player.Load(url);
+
+            var downloadsBlocked = DownloadsBlocked;
+            var localPath = ActiveStationId is { } stationId && !downloadsBlocked && !string.IsNullOrEmpty(CurrentEpisodeId)
+                ? _downloads.GetDownloadedPath(stationId, CurrentEpisodeId)
+                : null;
+
+            await _player.Load(localPath ?? url);
             _loadedStreamUri = url;
             
             if (PositionSeconds > 0)
@@ -640,6 +659,7 @@ public partial class MainViewModel : ViewModelBase
     {
         IsPlaying = false;
         IsConnected = false;
+        _downloads.Cancel();
         _configService.Save("", "");
         Stations.Clear();
         SelectedStation = null;
@@ -795,7 +815,78 @@ public partial class MainViewModel : ViewModelBase
         if (SelectedStation?.Station?.Id is not { } stationId) return;
         _configService.SetBufferMinutes(stationId, SelectedBufferOption.Minutes);
         await RefreshPlaylistAsync();
+        TriggerDownloadSync();
     }
+
+    /// <summary>
+    /// Brings the active station's cache in line with its buffer. Serialized so two
+    /// refreshes cannot run two queues at once; a newer sync cancels the previous one.
+    /// </summary>
+    public async Task SyncDownloadsAsync()
+    {
+        if (!IsConnected || ActiveStationId is not { } stationId) return;
+
+        await _downloadSyncGate.WaitAsync();
+        try
+        {
+            // A queued sync may have outlived its station after a switch.
+            if (!IsConnected || ActiveStationId != stationId) return;
+
+            var blocked = DownloadsBlocked;
+            var minutes = _configService.GetBufferMinutes(stationId);
+            // Host-paced/aging files must never survive, so the current episode is
+            // protected only while its station still allows downloads.
+            await _downloads.SyncAsync(stationId, PlaylistItems, minutes, !blocked && minutes > 0,
+                PositionSeconds, CancellationToken.None, blocked ? null : CurrentEpisodeId);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Episode download sync failed");
+        }
+        finally
+        {
+            _downloadSyncGate.Release();
+        }
+    }
+
+    /// <summary>Fire-and-forget kickoff; never awaited by navigation or refresh.</summary>
+    public void TriggerDownloadSync()
+    {
+        // The initial load and the fire-and-forget station switch both refresh the
+        // same playlist. Do not cancel and restart a sync that is already running
+        // for identical content; otherwise the same episode is fetched twice.
+        var signature = DownloadSignature();
+        if (signature == _lastDownloadSignature && _downloadSyncTask is { IsCompleted: false })
+            return;
+
+        _lastDownloadSignature = signature;
+        _downloads.Cancel();
+        _downloadSyncTask = SyncDownloadsAsync();
+    }
+
+    public Task WaitForDownloadsAsync() => _downloadSyncTask ?? Task.CompletedTask;
+
+    private string? DownloadSignature()
+    {
+        if (ActiveStationId is not { } stationId) return null;
+
+        var minutes = _configService.GetBufferMinutes(stationId);
+        var episodes = string.Join("\n", PlaylistItems.Select(p => $"{p.EpisodeId}:{p.StreamUri}:{p.IsCurrent}"));
+        return $"{stationId}|{minutes}|{episodes}";
+    }
+
+    /// <summary>
+    /// The station whose playlist is on screen. Usually the selected station; the
+    /// playlist is the only source when the server status omits its station id.
+    /// </summary>
+    private string? ActiveStationId => SelectedStation?.Station?.Id ?? _playlistStationId;
+
+    private bool DownloadsBlocked => SelectedStation?.Station is { } station
+        ? station.HostPaceEnabled || station.IsAging
+        : _playlistHostPaceEnabled || _playlistIsAging;
 
     private void RestoreBufferOption(string stationId)
     {
@@ -815,18 +906,28 @@ public partial class MainViewModel : ViewModelBase
     {
         if (!IsConnected) return;
 
+        // Playlist refreshes may overlap (initial load and the station switch).
+        // Only the latest one may apply its result and start downloads.
+        var generation = ++_playlistGeneration;
+
         IsPlaylistLoading = true;
         try
         {
             var playlist = await _client.GetPlaylistAsync();
+            if (generation != _playlistGeneration) return;
+
             if (playlist == null)
             {
                 IsPlaylistUnavailable = true;
                 PlaylistItems.Clear();
+                _playlistStationId = null;
             }
             else
             {
                 IsPlaylistUnavailable = false;
+                _playlistStationId = playlist.StationId;
+                _playlistHostPaceEnabled = playlist.HostPaceEnabled;
+                _playlistIsAging = playlist.IsAging;
                 var existingStates = PlaylistItems
                     .GroupBy(p => p.EpisodeId)
                     .ToDictionary(g => g.Key, g => g.First().DownloadState);
@@ -848,17 +949,26 @@ public partial class MainViewModel : ViewModelBase
             }
 
             UpdateDownloadState(playlist);
+
+            if (playlist != null)
+                TriggerDownloadSync();
         }
         catch
         {
+            if (generation != _playlistGeneration) return;
+
             IsPlaylistUnavailable = true;
             PlaylistItems.Clear();
+            _playlistStationId = null;
             UpdateDownloadState(null);
         }
         finally
         {
-            IsPlaylistLoading = false;
-            IsPlaylistEmpty = PlaylistItems.Count == 0 && !IsPlaylistUnavailable;
+            if (generation == _playlistGeneration)
+            {
+                IsPlaylistLoading = false;
+                IsPlaylistEmpty = PlaylistItems.Count == 0 && !IsPlaylistUnavailable;
+            }
         }
     }
 
@@ -881,6 +991,12 @@ public partial class MainViewModel : ViewModelBase
 
     partial void OnSelectedStationChanged(StationWithFeedsDto? value)
     {
+        // Leaving a station drops its queue (files stay). Bumping the generation
+        // also prevents an in-flight refresh for the old station from applying.
+        _downloads.Cancel();
+        _playlistGeneration++;
+        _lastDownloadSignature = null;
+
         if (value != null && value.Station?.Id != null)
         {
             RestoreBufferOption(value.Station.Id);

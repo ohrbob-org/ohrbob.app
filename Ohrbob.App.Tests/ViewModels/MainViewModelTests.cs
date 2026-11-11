@@ -1,11 +1,14 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
 using System.Threading.Tasks;
 using NUnit.Framework;
+using Ohrbob.App.Models;
 using Ohrbob.App.Services;
 using Ohrbob.App.ViewModels;
-using System.Net.Http;
 using Ohrbob.App.Tests.Services;
 
 namespace Ohrbob.App.Tests.ViewModels;
@@ -273,5 +276,92 @@ public class MainViewModelTests
 
         vm.TogglePlayCommand.Execute(null);
         Assert.That(vm.IsPlaying, Is.True);
+    }
+
+    [Test]
+    public async Task SyncDownloads_SkipsForHostPacedStation()
+    {
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        var requests = new List<string>();
+        var handler = new PlaylistHttpHandler();
+        var config = new ConfigService(_tempConfigPath);
+        config.Save("https://example.com", "token");
+        config.SetBufferMinutes("s1", 30);
+        handler.StationJson = "[{\"station\":{\"id\":\"s1\",\"name\":\"Station One\",\"hostPaceEnabled\":true},\"feeds\":[]}]";
+        handler.PlaylistJson = "{\"stationId\":\"s1\",\"hostPaceEnabled\":true,\"isAging\":false,\"episodes\":[{\"episodeId\":\"e1\",\"title\":\"Current\",\"streamUri\":\"https://audio/1\",\"isCurrent\":true}]}";
+        var downloadHandler = new MockHttpMessageHandler(req => { requests.Add(req.RequestUri!.ToString()); return new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(new byte[] { 1 }) }; });
+        var downloads = new EpisodeDownloadService(root, new HttpClient(downloadHandler), _ => TimeSpan.FromMinutes(1));
+        var vm = new MainViewModel(config, new OhrbobClient(config, handler), null, new TestAudioPlayer(), a => a(), downloads);
+
+        await vm.RetryConnectionAsync();
+        await vm.WaitForDownloadsAsync();
+
+        Assert.That(requests, Is.Empty);
+        Assert.That(vm.IsDownloadEnabled, Is.False);
+    }
+
+    [Test]
+    public async Task SyncDownloads_PrunesExistingFileForHostPacedStation()
+    {
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(Path.Combine(root, "s1"));
+        File.WriteAllBytes(Path.Combine(root, "s1", "e1.mp3"), new byte[] { 1 });
+        var handler = new PlaylistHttpHandler
+        {
+            StationJson = "[{\"station\":{\"id\":\"s1\",\"name\":\"Station One\",\"hostPaceEnabled\":true},\"feeds\":[]}]",
+            PlaylistJson = "{\"stationId\":\"s1\",\"hostPaceEnabled\":true,\"isAging\":false,\"episodes\":[{\"episodeId\":\"e1\",\"title\":\"Current\",\"streamUri\":\"https://audio/1\",\"isCurrent\":true}]}"
+        };
+        var config = new ConfigService(_tempConfigPath);
+        config.Save("https://example.com", "token");
+        config.SetBufferMinutes("s1", 30);
+        var downloads = new EpisodeDownloadService(root, null, _ => TimeSpan.FromMinutes(1));
+        var vm = new MainViewModel(config, new OhrbobClient(config, handler), null, new TestAudioPlayer(), a => a(), downloads);
+
+        await vm.RetryConnectionAsync();
+        await vm.WaitForDownloadsAsync();
+
+        Assert.That(downloads.GetDownloadedPath("s1", "e1"), Is.Null,
+            "a cached file must not survive host pace becoming active");
+    }
+
+    [Test]
+    public async Task HostPacedStation_DoesNotPlayCachedFile()
+    {
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(Path.Combine(root, "s1"));
+        File.WriteAllBytes(Path.Combine(root, "s1", "e1.mp3"), new byte[] { 1 });
+        var config = new ConfigService(_tempConfigPath);
+        config.SetBufferMinutes("s1", 30);
+        var downloads = new EpisodeDownloadService(root, null, _ => TimeSpan.FromMinutes(1));
+        var player = new TestAudioPlayer();
+        var vm = new MainViewModel(config, new OhrbobClient(config, new PlaylistHttpHandler()), null, player, a => a(), downloads);
+
+        vm.SelectedStation = new StationWithFeedsDto
+        {
+            Station = new Station { Id = "s1", Name = "One", HostPaceEnabled = true }
+        };
+        vm.CurrentEpisodeId = "e1";
+        vm.CurrentEpisodeStreamUri = "https://audio/1";
+
+        Assert.That(player.CurrentUrl, Is.EqualTo("https://audio/1"));
+    }
+
+    [Test]
+    public async Task CurrentDownloadedEpisode_LoadsLocalPath()
+    {
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        var config = new ConfigService(_tempConfigPath);
+        config.SetBufferMinutes("s1", 30);
+        var downloads = new EpisodeDownloadService(root, null, _ => TimeSpan.FromMinutes(1));
+        var player = new TestAudioPlayer();
+        var vm = new MainViewModel(config, new OhrbobClient(config, new PlaylistHttpHandler()), null, player, a => a(), downloads);
+        Directory.CreateDirectory(Path.Combine(root, "s1"));
+        File.WriteAllBytes(Path.Combine(root, "s1", "e1.mp3"), new byte[] { 1 });
+
+        vm.SelectedStation = new StationWithFeedsDto { Station = new Station { Id = "s1", Name = "One" } };
+        vm.CurrentEpisodeId = "e1";
+        vm.CurrentEpisodeStreamUri = "https://audio/1";
+
+        Assert.That(player.CurrentUrl, Is.EqualTo(downloads.GetDownloadedPath("s1", "e1")));
     }
 }
