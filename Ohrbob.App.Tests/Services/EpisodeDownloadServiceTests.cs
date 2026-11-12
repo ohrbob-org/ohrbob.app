@@ -93,6 +93,28 @@ public class EpisodeDownloadServiceTests
     }
 
     [Test]
+    public async Task Sync_ReadsDurationsOffTheCallingSynchronizationContext()
+    {
+        var handler = new StubHandler();
+        var durationReadThreads = new List<int>();
+        var service = new EpisodeDownloadService(_root, new HttpClient(handler), _ =>
+        {
+            durationReadThreads.Add(Environment.CurrentManagedThreadId);
+            return TimeSpan.FromMinutes(1);
+        });
+        var items = new[] { Item("e1", true) };
+        Directory.CreateDirectory(Path.Combine(_root, "s1"));
+        File.WriteAllBytes(Path.Combine(_root, "s1", "e1.mp3"), new byte[] { 1, 2, 3 });
+
+        var callerThread = Environment.CurrentManagedThreadId;
+        await service.SyncAsync("s1", items, 1, true, 0, CancellationToken.None);
+
+        Assert.That(durationReadThreads, Is.Not.Empty);
+        Assert.That(durationReadThreads, Does.Not.Contain(callerThread),
+            "SoundMetadataReader deadlocks when it captures the UI context; duration reads must run on a worker thread");
+    }
+
+    [Test]
     public async Task Sync_CountsOnlyRemainingTimeOfCurrentEpisode()
     {
         var handler = new StubHandler();

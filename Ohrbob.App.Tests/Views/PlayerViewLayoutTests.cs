@@ -25,7 +25,9 @@ public class PlayerViewLayoutTests
     [AvaloniaTest]
     public void Portrait_MenuButton_IsFullyOnScreen()
     {
-        var vm = new MainViewModel { IsPortrait = true, IsSidebarOpen = false };
+        var vm = CreateViewModel();
+        vm.IsPortrait = true;
+        vm.IsSidebarOpen = false;
         var view = new PlayerView { DataContext = vm };
         var window = new Window { Width = 420, Height = 800, Content = view };
         window.Show();
@@ -44,7 +46,9 @@ public class PlayerViewLayoutTests
     [AvaloniaTest]
     public void ScrollingRefreshesFrostSnapshot()
     {
-        var vm = new MainViewModel { IsPortrait = false, IsSidebarOpen = false };
+        var vm = CreateViewModel();
+        vm.IsPortrait = false;
+        vm.IsSidebarOpen = false;
         var view = new PlayerView { DataContext = vm };
         var window = new Window { Width = 1200, Height = 400, Content = view };
         window.Show();
@@ -71,7 +75,9 @@ public class PlayerViewLayoutTests
     [AvaloniaTest]
     public void WidgetFloatsOverScrollContent()
     {
-        var vm = new MainViewModel { IsPortrait = false, IsSidebarOpen = false };
+        var vm = CreateViewModel();
+        vm.IsPortrait = false;
+        vm.IsSidebarOpen = false;
         var view = new PlayerView { DataContext = vm };
         var window = new Window { Width = 1200, Height = 800, Content = view };
         window.Show();

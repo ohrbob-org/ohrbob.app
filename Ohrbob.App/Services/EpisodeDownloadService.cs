@@ -97,7 +97,7 @@ public class EpisodeDownloadService
                 if (existing is not null)
                 {
                     SetState(item, DownloadState.Downloaded);
-                    duration = _durationReader(existing);
+                    duration = await ReadDurationAsync(existing);
                 }
                 else
                 {
@@ -281,8 +281,12 @@ public class EpisodeDownloadService
             return null;
         }
 
-        return _durationReader(path);
+        return await ReadDurationAsync(path);
     }
+
+    // SoundMetadataReader blocks waiting on its own async read. Calling it on the UI
+    // thread therefore deadlocks the app; keep every probe on a worker thread.
+    private Task<TimeSpan> ReadDurationAsync(string path) => Task.Run(() => _durationReader(path));
 
     private async Task<bool> DownloadToFileAsync(string uri, string partPath, CancellationToken token)
     {
