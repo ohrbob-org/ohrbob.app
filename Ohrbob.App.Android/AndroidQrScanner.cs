@@ -19,12 +19,13 @@ public sealed class AndroidQrScanner : IQrScanner
 {
     public const int RequestCode = 4242;
     private static TaskCompletionSource<string?>? _pending;
-    private readonly Activity _activity;
+    private readonly Context _context;
 
-    public AndroidQrScanner(Activity activity) => _activity = activity;
+    public AndroidQrScanner(Context context) => _context = context.ApplicationContext ?? context;
 
     public bool IsAvailable =>
-        _activity.PackageManager?.HasSystemFeature(PackageManager.FeatureCamera) == true;
+        _context.PackageManager?.HasSystemFeature(PackageManager.FeatureCameraAny) == true ||
+        Camera.NumberOfCameras > 0;
 
     public Task<string?> ScanAsync(CancellationToken cancellationToken = default)
     {
@@ -32,7 +33,9 @@ public sealed class AndroidQrScanner : IQrScanner
         _pending = tcs;
         try
         {
-            _activity.StartActivityForResult(new Intent(_activity, typeof(QrScannerActivity)), RequestCode);
+            var intent = new Intent(_context, typeof(QrScannerActivity));
+            intent.AddFlags(ActivityFlags.NewTask);
+            _context.StartActivity(intent);
             cancellationToken.Register(() => QrScannerActivity.Current?.Finish());
         }
         catch (Exception)
@@ -46,10 +49,14 @@ public sealed class AndroidQrScanner : IQrScanner
 
     internal static void HandleActivityResult(int requestCode, Result resultCode, Intent? data)
     {
-        if (requestCode != RequestCode) return;
+        // ActivityResult handling is no longer strictly bound to RequestCode if we launch as NewTask,
+        // but we'll leave this empty or accept calls from QrScannerActivity itself.
+    }
+    
+    internal static void Complete(string? text)
+    {
         var tcs = _pending;
         _pending = null;
-        var text = resultCode == Result.Ok ? data?.GetStringExtra(QrScannerActivity.ExtraResult) : null;
         tcs?.TrySetResult(text);
     }
 }
@@ -88,7 +95,7 @@ public sealed class QrScannerActivity : Activity, TextureView.ISurfaceTextureLis
         var cancel = new Button(this) { Text = "Cancel" };
         cancel.Click += (_, _) =>
         {
-            SetResult(Result.Canceled);
+            AndroidQrScanner.Complete(null);
             Finish();
         };
         var parameters = new FrameLayout.LayoutParams(
@@ -106,7 +113,7 @@ public sealed class QrScannerActivity : Activity, TextureView.ISurfaceTextureLis
         if (requestCode != PermissionRequest) return;
         if (grantResults.Length == 0 || grantResults[0] != Permission.Granted)
         {
-            SetResult(Result.Canceled);
+            AndroidQrScanner.Complete(null);
             Finish();
             return;
         }
@@ -150,15 +157,52 @@ public sealed class QrScannerActivity : Activity, TextureView.ISurfaceTextureLis
                 _camera.SetParameters(parameters);
             }
 
+            ApplyPreviewOrientation();
+
             _camera.SetPreviewTexture(surface);
             _camera.SetPreviewCallback(this);
             _camera.StartPreview();
         }
         catch (Exception)
         {
-            SetResult(Result.Canceled);
+            AndroidQrScanner.Complete(null);
             Finish();
         }
+    }
+
+    /// <summary>
+    /// Rotates the sensor preview upright for the current display rotation and
+    /// mirrors the front camera, which otherwise renders sideways/upside down.
+    /// </summary>
+    private void ApplyPreviewOrientation()
+    {
+        if (_camera is null || _preview is null) return;
+
+        var info = new Camera.CameraInfo();
+        Camera.GetCameraInfo(0, info);
+
+        var degrees = WindowManager?.DefaultDisplay?.Rotation switch
+        {
+            SurfaceOrientation.Rotation90 => 90,
+            SurfaceOrientation.Rotation180 => 180,
+            SurfaceOrientation.Rotation270 => 270,
+            _ => 0,
+        };
+
+        int result;
+        if (info.Facing == CameraFacing.Front)
+        {
+            result = (info.Orientation + degrees) % 360;
+            result = (360 - result) % 360;
+            _preview.ScaleX = -1f;
+        }
+        else
+        {
+            result = (info.Orientation - degrees + 360) % 360;
+            _preview.ScaleX = 1f;
+        }
+
+        _camera.SetDisplayOrientation(result);
     }
 
     private static Camera.Size? ChoosePreviewSize(System.Collections.Generic.IList<Camera.Size>? sizes)
@@ -193,7 +237,7 @@ public sealed class QrScannerActivity : Activity, TextureView.ISurfaceTextureLis
         _decoded = true;
         RunOnUiThread(() =>
         {
-            SetResult(Result.Ok, new Intent().PutExtra(ExtraResult, text));
+            AndroidQrScanner.Complete(text);
             Finish();
         });
     }
@@ -238,5 +282,11 @@ public sealed class QrScannerActivity : Activity, TextureView.ISurfaceTextureLis
             _camera?.Release();
             _camera = null;
         }
+    }
+    
+    public override void OnBackPressed()
+    {
+        AndroidQrScanner.Complete(null);
+        base.OnBackPressed();
     }
 }

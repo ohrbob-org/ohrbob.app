@@ -46,6 +46,24 @@ public class PlayerViewLayoutTests
     }
 
     [AvaloniaTest]
+    public void DismissingPaneClosesSidebar()
+    {
+        var vm = CreateViewModel();
+        vm.IsPortrait = true;
+        vm.IsSidebarOpen = true;
+        var view = new PlayerView { DataContext = vm };
+        var window = new Window { Width = 420, Height = 800, Content = view };
+        window.Show();
+
+        // What SplitView does on a tap outside the pane.
+        var split = view.FindControl<SplitView>("MainSplitView")!;
+        split.SetCurrentValue(SplitView.IsPaneOpenProperty, false);
+
+        Assert.That(vm.IsSidebarOpen, Is.False);
+        window.Close();
+    }
+
+    [AvaloniaTest]
     public void ScrollingRefreshesFrostSnapshot()
     {
         var vm = CreateViewModel();

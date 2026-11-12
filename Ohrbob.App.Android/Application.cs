@@ -15,6 +15,8 @@ namespace Ohrbob.App.Android
 
         public override void OnCreate()
         {
+            Ohrbob.App.Services.QrScannerProvider.Current = new AndroidQrScanner(this);
+
             // Register the Android media session before Avalonia builds the app.
             // base.OnCreate() runs Avalonia's initialization, which constructs the
             // app and wires up whatever MediaSessionHost.Factory returns — so the

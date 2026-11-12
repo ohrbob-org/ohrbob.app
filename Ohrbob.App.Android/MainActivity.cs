@@ -25,7 +25,6 @@ public class MainActivity : AvaloniaMainActivity
 {
     protected override void OnCreate(Bundle? savedInstanceState)
     {
-        QrScannerProvider.Current = new AndroidQrScanner(this);
         base.OnCreate(savedInstanceState);
         PublishDeepLink();
     }

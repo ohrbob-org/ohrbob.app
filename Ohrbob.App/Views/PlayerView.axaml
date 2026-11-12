@@ -22,6 +22,9 @@
         <Style Selector="SplitView#MainSplitView">
             <Setter Property="DisplayMode" Value="Inline" />
             <Setter Property="IsPaneOpen" Value="True" />
+            <!-- The pane stays full width and its content slides; without this the
+                 theme paints a grey strip where the pane is expected to be. -->
+            <Setter Property="PaneBackground" Value="Transparent" />
         </Style>
         <Style Selector="Button#MenuButton">
             <Setter Property="IsVisible" Value="False" />
@@ -34,6 +37,24 @@
         </Style>
         <Style Selector="SplitView#MainSplitView.portrait Button#MenuButton">
             <Setter Property="IsVisible" Value="True" />
+        </Style>
+
+        <!-- Keep the pane at full width and slide its content instead. The Fluent
+             theme animates the pane Width, so the list re-lays out and re-renders
+             on every frame; a render transform only moves the finished layer. -->
+        <!-- The transition is attached in code after the view loads; declaring it
+             here would start an animation while the style is first applied. -->
+        <Style Selector="Border.sidebarPane">
+            <Setter Property="RenderTransform" Value="translateX(-260px)" />
+        </Style>
+        <Style Selector="Border.sidebarPane.open">
+            <Setter Property="RenderTransform" Value="none" />
+        </Style>
+
+        <!-- The pane root is pinned full width in code and its theme Width
+             animation disabled there; only the sidebar border slides. -->
+        <Style Selector="SplitView#MainSplitView /template/ Panel#PART_PaneRoot">
+            <Setter Property="IsHitTestVisible" Value="{Binding IsSidebarOpen}" />
         </Style>
 
         <!-- Right-side overlays slide in/out instead of appearing instantly. -->
@@ -91,7 +112,9 @@
             
             <SplitView.Pane>
             <!-- Left Sidebar wrapped in Border for styling -->
-            <Border Background="{DynamicResource AppSurfaceBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,1,0">
+            <!-- Full-width layer that slides in; the pane root itself stays put. -->
+            <Border x:Name="SidebarPane" Classes="sidebarPane" Classes.open="{Binding IsSidebarOpen}" Width="260" HorizontalAlignment="Left" ClipToBounds="True"
+                    Background="{DynamicResource AppSurfaceBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,1,0">
                 <Grid RowDefinitions="Auto, *, Auto">
                     <!-- App Header -->
                     <StackPanel Grid.Row="0" Margin="24,24,24,15" HorizontalAlignment="Center">
@@ -121,7 +144,7 @@
                                                         </ItemsControl.ItemsPanel>
                                                         <ItemsControl.ItemTemplate>
                                                             <DataTemplate>
-                                                                <Image services:ImageLoader.Source="{Binding ImageUrl}" Stretch="UniformToFill" IsVisible="{Binding ImageUrl, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                                                <Image services:ImageLoader.Source="{Binding ImageUrl}" services:ImageLoader.MaxWidth="96" Stretch="UniformToFill" IsVisible="{Binding ImageUrl, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                                                             </DataTemplate>
                                                         </ItemsControl.ItemTemplate>
                                                     </ItemsControl>

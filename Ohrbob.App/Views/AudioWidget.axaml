@@ -55,6 +55,12 @@
             <Style Selector="Grid#MobileBar">
                 <Setter Property="IsVisible" Value="True" />
             </Style>
+            <!-- The frosted layer is a live blur over a VisualBrush of the page.
+                 It is re-rendered every frame, which makes animations stutter on
+                 phones, so mobile keeps the flat translucent veil instead. -->
+            <Style Selector="Border#FrostClip">
+                <Setter Property="IsVisible" Value="False" />
+            </Style>
         </ContainerQuery>
     </UserControl.Styles>
 

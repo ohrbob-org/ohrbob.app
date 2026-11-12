@@ -1,8 +1,15 @@
+using System;
 using System.Threading.Tasks;
+using Avalonia;
+using Avalonia.Animation;
+using Avalonia.Animation.Easings;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Input.GestureRecognizers;
 using Avalonia.Interactivity;
+using Avalonia.Media;
+using Avalonia.Threading;
 using Ohrbob.App.ViewModels;
 
 namespace Ohrbob.App.Views;
@@ -15,6 +22,23 @@ public partial class PlayerView : UserControl
     public PlayerView()
     {
         InitializeComponent();
+
+        // Attach the sidebar slide only once the view is loaded. Declaring the
+        // transition in XAML would run it while the initial style is applied,
+        // which can touch the animation clock off the UI thread in tests.
+        Loaded += (_, _) =>
+            Dispatcher.UIThread.Post(AttachSidebarTransition, DispatcherPriority.Background);
+
+        MainSplitView.TemplateApplied += (_, e) => PinSidebarPane(e.NameScope);
+
+        // The split view light-dismisses when you tap outside the pane, but it
+        // only clears its own IsPaneOpen; propagate that to the view model so
+        // the slide-out animation runs too.
+        MainSplitView.PaneClosed += (_, _) =>
+        {
+            if (DataContext is MainViewModel { IsSidebarOpen: true } vm)
+                vm.IsSidebarOpen = false;
+        };
 
         // Desktop: the wheel-up that reaches the top also pulls the data again.
         // Use the bubble phase so the ScrollViewer has already applied the scroll.
@@ -41,6 +65,33 @@ public partial class PlayerView : UserControl
             if (DataContext is not MainViewModel vm) return;
             if (e.Velocity.X > 200) vm.IsUpNextOpen = true;
             else if (e.Velocity.X < -200) vm.IsUpNextOpen = false;
+        };
+    }
+
+    /// <summary>
+    /// Keeps the split-view pane at full width and stops the theme's Width
+    /// animation, so opening the sidebar only moves the border instead of
+    /// re-laying out the list on every frame.
+    /// </summary>
+    private static void PinSidebarPane(INameScope? scope)
+    {
+        if (scope?.Find<Panel>("PART_PaneRoot") is not { } paneRoot) return;
+        paneRoot.Transitions = new Transitions();
+        paneRoot.Width = 260;
+    }
+
+    private void AttachSidebarTransition()
+    {
+        if (SidebarPane.Transitions is { Count: > 0 }) return;
+
+        SidebarPane.Transitions = new Transitions
+        {
+            new TransformOperationsTransition
+            {
+                Property = Visual.RenderTransformProperty,
+                Duration = TimeSpan.FromSeconds(0.2),
+                Easing = new CubicEaseOut(),
+            }
         };
     }
 

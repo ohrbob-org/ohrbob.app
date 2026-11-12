@@ -68,6 +68,23 @@ public class MainViewModelTests
         }
     }
 
+    private sealed class StatusHttpHandler : HttpMessageHandler
+    {
+        private readonly string _statusJson;
+
+        public StatusHttpHandler(string statusJson) => _statusJson = statusJson;
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var path = request.RequestUri?.AbsolutePath ?? "";
+            var body = path.EndsWith("/stream/status") ? _statusJson : "[]";
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json")
+            });
+        }
+    }
+
     private class FailingHttpHandler : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
@@ -113,6 +130,44 @@ public class MainViewModelTests
 
         Assert.That(vm.IsConnected, Is.False);
         Assert.That(vm.ConnectionErrorMessage, Does.Contain("not an Ohrbob connection code"));
+    }
+
+    [Test]
+    public async Task PollStatus_RefreshesMetadataButKeepsLocalPlayhead()
+    {
+        var config = new ConfigService(_tempConfigPath);
+        var handler = new StatusHttpHandler(
+            "{\"profileName\":\"Kai\",\"current\":{\"episodeId\":\"ep1\",\"title\":\"Episode One\",\"playheadPositionSeconds\":10}}");
+        var vm = new MainViewModel(config, new OhrbobClient(config, handler), null, new TestAudioPlayer(), a => a());
+        // Configure after construction so no initial load races the poll.
+        config.Save("https://example.com", "token");
+        vm.IsConnected = true;
+        vm.CurrentEpisodeId = "ep1";
+        vm.PositionSeconds = 100;
+
+        await vm.PollStatusAsync();
+
+        Assert.That(vm.ProfileName, Is.EqualTo("Kai"));
+        Assert.That(vm.CurrentEpisodeTitle, Is.EqualTo("Episode One"));
+        Assert.That(vm.PositionSeconds, Is.EqualTo(100), "server playhead must not drag local playback back");
+    }
+
+    [Test]
+    public async Task PollStatus_AdoptsServerPlayheadWhenEpisodeChanged()
+    {
+        var config = new ConfigService(_tempConfigPath);
+        var handler = new StatusHttpHandler(
+            "{\"current\":{\"episodeId\":\"ep2\",\"title\":\"Episode Two\",\"playheadPositionSeconds\":42}}");
+        var vm = new MainViewModel(config, new OhrbobClient(config, handler), null, new TestAudioPlayer(), a => a());
+        config.Save("https://example.com", "token");
+        vm.IsConnected = true;
+        vm.CurrentEpisodeId = "ep1";
+        vm.PositionSeconds = 100;
+
+        await vm.PollStatusAsync();
+
+        Assert.That(vm.CurrentEpisodeId, Is.EqualTo("ep2"));
+        Assert.That(vm.PositionSeconds, Is.EqualTo(42));
     }
 
     [Test]

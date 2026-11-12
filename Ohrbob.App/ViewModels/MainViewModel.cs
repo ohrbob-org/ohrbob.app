@@ -51,6 +51,8 @@ public partial class MainViewModel : ViewModelBase
     private string? _loadingStreamUri;
     private int _lastSyncedPosition;
     private DispatcherTimer? _syncTimer;
+    private DispatcherTimer? _statusTimer;
+    private bool _isPollingStatus;
     private DispatcherTimer? _refreshIndicatorTimer;
     private DateTime _lastRefreshAt = DateTime.MinValue;
     private static readonly TimeSpan RefreshCooldown = TimeSpan.FromSeconds(10);
@@ -427,6 +429,14 @@ public partial class MainViewModel : ViewModelBase
             }
         };
 
+        // Pull the server's status regularly so changes made elsewhere (web UI or
+        // another device) show up without a manual refresh.
+        _statusTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(15)
+        };
+        _statusTimer.Tick += async (s, e) => await PollStatusAsync();
+
         _refreshIndicatorTimer = new DispatcherTimer
         {
             Interval = TimeSpan.FromSeconds(2)
@@ -748,6 +758,8 @@ public partial class MainViewModel : ViewModelBase
     {
         IsPlaying = false;
         IsConnected = false;
+        _syncTimer?.Stop();
+        _statusTimer?.Stop();
         _downloads.Cancel();
         _configService.Save("", "");
         Stations.Clear();
@@ -821,6 +833,7 @@ public partial class MainViewModel : ViewModelBase
             await RefreshStatusAsync();
             await RefreshPlaylistAsync();
             _syncTimer?.Start();
+            _statusTimer?.Start();
             ConnectionErrorMessage = null;
             IsOffline = false;
             OfflineMessage = null;
@@ -845,6 +858,7 @@ public partial class MainViewModel : ViewModelBase
             }
 
             _syncTimer?.Stop();
+            _statusTimer?.Stop();
         }
     }
 
@@ -871,8 +885,29 @@ public partial class MainViewModel : ViewModelBase
         }
     }
 
-    private async Task RefreshStatusAsync()
+    /// <summary>
+    /// Refreshes the status without disturbing local playback. The playhead is
+    /// only taken from the server when it switched to a different episode;
+    /// otherwise the server's last synced position would drag playback backwards.
+    /// </summary>
+    internal async Task PollStatusAsync()
     {
+        if (_isPollingStatus || !IsConnected || IsOffline) return;
+
+        _isPollingStatus = true;
+        try
+        {
+            await RefreshStatusAsync(periodic: true);
+        }
+        finally
+        {
+            _isPollingStatus = false;
+        }
+    }
+
+    private async Task RefreshStatusAsync(bool periodic = false)
+    {
+        var previousEpisodeId = CurrentEpisodeId;
         try
         {
             var status = await _client.GetStatusAsync();
@@ -909,7 +944,8 @@ public partial class MainViewModel : ViewModelBase
                     if (currentProp.TryGetProperty("streamUri", out var uriProp))
                         CurrentEpisodeStreamUri = uriProp.GetString();
 
-                    if (currentProp.TryGetProperty("playheadPositionSeconds", out var posProp) && posProp.TryGetInt32(out var pos))
+                    if (currentProp.TryGetProperty("playheadPositionSeconds", out var posProp) && posProp.TryGetInt32(out var pos) &&
+                        (!periodic || !string.Equals(previousEpisodeId, CurrentEpisodeId, StringComparison.Ordinal)))
                         PositionSeconds = pos;
                 }
                 else
@@ -918,7 +954,7 @@ public partial class MainViewModel : ViewModelBase
                     CurrentEpisodeDescription = "No episodes currently in this station's queue.";
                     CurrentEpisodeCoverUrl = null;
                     CurrentEpisodeStreamUri = null;
-                    PositionSeconds = 0;
+                    if (!periodic) PositionSeconds = 0;
                 }
 
                 if (status.TryGetProperty("next", out var nextProp) && nextProp.ValueKind == JsonValueKind.Object)
@@ -932,7 +968,7 @@ public partial class MainViewModel : ViewModelBase
                 }
             }
 
-            SaveOfflineSnapshot();
+            if (!periodic) SaveOfflineSnapshot();
         }
         catch
         {
