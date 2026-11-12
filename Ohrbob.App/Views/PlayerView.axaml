@@ -242,9 +242,10 @@
                                    TextWrapping="Wrap" TextAlignment="Center" HorizontalAlignment="Center" />
 
                         <!-- Episode Description -->
-                        <TextBlock x:Name="EpisodeDescription" Text="{Binding CurrentEpisodeDescription}"
-                                   FontSize="14" Foreground="{DynamicResource AppForegroundBrush}"
-                                   TextWrapping="Wrap" LineHeight="20" />
+                        <views:LinkTextBlock x:Name="EpisodeDescription" SourceText="{Binding CurrentEpisodeDescription}"
+                                             LinkCommand="{Binding OpenLinkCommand}"
+                                             FontSize="14" Foreground="{DynamicResource AppForegroundBrush}"
+                                             TextWrapping="Wrap" LineHeight="20" />
 
                         <!-- Up Next Feature -->
                         <Border Background="{DynamicResource AppSurfaceBrush}" CornerRadius="8" Padding="12,10"

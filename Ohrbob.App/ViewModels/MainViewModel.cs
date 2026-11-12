@@ -616,6 +616,14 @@ public partial class MainViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private async Task OpenLink(Uri? uri)
+    {
+        if (uri is null) return;
+        if (uri.Scheme is not ("http" or "https" or "mailto")) return;
+        await _uriLauncher.LaunchAsync(uri);
+    }
+
+    [RelayCommand]
     private async Task OpenHostedConnectPage()
     {
         var hostName = Environment.MachineName;

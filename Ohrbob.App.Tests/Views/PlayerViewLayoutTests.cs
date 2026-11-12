@@ -1,12 +1,14 @@
 using System;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Documents;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Input.GestureRecognizers;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using CommunityToolkit.Mvvm.Input;
 using NUnit.Framework;
 using Ohrbob.App.Models;
 using Ohrbob.App.Services;
@@ -122,6 +124,31 @@ public class PlayerViewLayoutTests
         Assert.That(stationY, Is.LessThan(coverY));
         Assert.That(coverY, Is.LessThan(titleY));
         Assert.That(titleY, Is.LessThan(descriptionY));
+        window.Hide();
+    }
+
+    [AvaloniaTest]
+    public void EpisodeDescription_RendersLinksAsClickableRuns()
+    {
+        var vm = CreateViewModel();
+        vm.CurrentEpisodeDescription = "Read https://example.com/a?x=1, then more.";
+        var view = new PlayerView { DataContext = vm };
+        var window = new Window { Width = 900, Height = 900, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var description = view.FindControl<LinkTextBlock>("EpisodeDescription")!;
+        var linkStart = description.SourceText!.IndexOf("https", StringComparison.Ordinal);
+        Assert.That(description.LinkAt(linkStart), Is.EqualTo(new Uri("https://example.com/a?x=1")));
+        Assert.That(description.LinkAt(0), Is.Null);
+        Assert.That(description.Inlines!.OfType<Run>().Any(r => r.TextDecorations is not null), Is.True,
+            "link runs must be underlined");
+
+        Uri? opened = null;
+        description.LinkCommand = new RelayCommand<Uri>(uri => opened = uri);
+        Assert.That(description.TryOpenLinkAt(linkStart), Is.True);
+        Assert.That(opened, Is.EqualTo(new Uri("https://example.com/a?x=1")));
+        Assert.That(description.TryOpenLinkAt(0), Is.False);
         window.Hide();
     }
 
