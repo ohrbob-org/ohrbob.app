@@ -111,7 +111,8 @@ public class PlayerViewLayoutTests
         Dispatcher.UIThread.RunJobs();
 
         var panel = view.FindControl<Border>("SettingsPanel")!;
-        Assert.That(panel.IsVisible, Is.True);
+        var overlay = view.FindControl<Panel>("SettingsOverlay")!;
+        Assert.That(overlay.IsHitTestVisible, Is.True);
         Assert.That(panel.HorizontalAlignment, Is.EqualTo(Avalonia.Layout.HorizontalAlignment.Right));
         var host = view.FindControl<Panel>("PlayerOverlayHost")!;
         Assert.That(panel.Bounds.Height, Is.EqualTo(host.Bounds.Height).Within(1),
@@ -120,6 +121,43 @@ public class PlayerViewLayoutTests
         Assert.That(options.ItemsSource, Is.Not.Null);
         Assert.That(view.GetVisualDescendants().OfType<TextBlock>().Any(t => t.Text == "One"), Is.True,
             "the settings header must name the active station");
+        window.Hide();
+    }
+
+    [AvaloniaTest]
+    public void Overlays_FitNarrowPlayer_WithoutCloseButtons()
+    {
+        var vm = CreateViewModel();
+        vm.Stations.Add(new StationWithFeedsDto { Station = new Station { Id = "s1", Name = "One" } });
+        vm.SelectedStation = vm.Stations[0];
+        vm.IsSettingsOpen = true;
+        var view = new PlayerView { DataContext = vm };
+        var window = new Window { Width = 360, Height = 700, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var settings = view.FindControl<Border>("SettingsPanel")!;
+        Assert.That(settings.Bounds.Width, Is.LessThanOrEqualTo(view.Bounds.Width + 1),
+            "the settings overlay must not overflow a narrow window");
+        Assert.That(view.GetVisualDescendants().OfType<Button>().Any(b => b.Content as string == "Close"), Is.False,
+            "right-side overlays close via the scrim, not a Close button");
+        window.Hide();
+    }
+
+    [AvaloniaTest]
+    public void UpNextPanel_FitsNarrowPlayer_WithoutCloseButton()
+    {
+        var vm = CreateViewModel();
+        vm.IsUpNextOpen = true;
+        var view = new PlayerView { DataContext = vm };
+        var window = new Window { Width = 360, Height = 700, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var upNext = view.FindControl<Border>("UpNextPanel")!;
+        Assert.That(upNext.Bounds.Width, Is.LessThanOrEqualTo(view.Bounds.Width + 1),
+            "the Up next overlay must not overflow a narrow window");
+        Assert.That(view.GetVisualDescendants().OfType<Button>().Any(b => b.Content as string == "Close"), Is.False);
         window.Hide();
     }
 
@@ -136,15 +174,15 @@ public class PlayerViewLayoutTests
         window.Show();
         Dispatcher.UIThread.RunJobs();
 
-        var panel = view.FindControl<Border>("UpNextPanel")!;
-        Assert.That(panel.IsVisible, Is.True);
+        var overlay = view.FindControl<Panel>("UpNextOverlay")!;
+        Assert.That(overlay.IsHitTestVisible, Is.True);
         Assert.That(view.GetVisualDescendants().OfType<TextBlock>().Any(t => t.Text == "Downloaded"), Is.True);
         Assert.That(view.GetVisualDescendants().OfType<TextBlock>().Any(t => t.Text == "Not downloaded"), Is.True);
         Assert.That(view.GetVisualDescendants().OfType<TextBlock>().Any(t => t.Text == "Nov 2, 2026"), Is.True);
 
         vm.CloseUpNextCommand.Execute(null);
         Dispatcher.UIThread.RunJobs();
-        Assert.That(panel.IsVisible, Is.False);
+        Assert.That(overlay.IsHitTestVisible, Is.False);
         window.Hide();
     }
 

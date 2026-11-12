@@ -35,6 +35,36 @@
         <Style Selector="SplitView#MainSplitView.portrait Button#MenuButton">
             <Setter Property="IsVisible" Value="True" />
         </Style>
+
+        <!-- Right-side overlays slide in/out instead of appearing instantly. -->
+        <Style Selector="Panel.overlay">
+            <Setter Property="IsHitTestVisible" Value="False" />
+        </Style>
+        <Style Selector="Panel.overlay.open">
+            <Setter Property="IsHitTestVisible" Value="True" />
+        </Style>
+        <Style Selector="Panel.overlay Border.scrim">
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.2" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Panel.overlay.open Border.scrim">
+            <Setter Property="Opacity" Value="1" />
+        </Style>
+        <Style Selector="Panel.overlay Border.overlayPanel">
+            <Setter Property="RenderTransform" Value="translateX(360px)" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.25" Easing="CubicEaseOut" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Panel.overlay.open Border.overlayPanel">
+            <Setter Property="RenderTransform" Value="none" />
+        </Style>
     </UserControl.Styles>
 
         <SplitView Name="MainSplitView" Classes.portrait="{Binding IsPortrait}"
@@ -212,21 +242,17 @@
                                        BackdropSource="{Binding #EpisodeScroll}" />
 
                     <!-- Up next panel: swiped in from the right, or opened by its button -->
-                    <Panel IsVisible="{Binding IsUpNextOpen}">
-                        <Border Background="#80000000" PointerPressed="CloseUpNextOnPointer" />
-                        <Border x:Name="UpNextPanel" Width="360" HorizontalAlignment="Right"
-                                IsVisible="{Binding IsUpNextOpen}"
+                    <Panel x:Name="UpNextOverlay" Classes="overlay" Classes.open="{Binding IsUpNextOpen}">
+                        <Border Classes="scrim" Background="#80000000" PointerPressed="CloseUpNextOnPointer" />
+                        <Border x:Name="UpNextPanel" Classes="overlayPanel" MaxWidth="360" HorizontalAlignment="Right"
                                 Background="{DynamicResource AppSurfaceBrush}"
                                 BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1,0,0,0">
                             <Grid RowDefinitions="Auto,Auto,*">
-                                <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="16">
-                                    <StackPanel>
-                                        <TextBlock Text="Up next" Classes="h2" />
-                                        <TextBlock Text="{Binding SelectedStation.Station.Name}" FontSize="12"
-                                                   Foreground="{DynamicResource AppMutedTextBrush}" />
-                                    </StackPanel>
-                                    <Button Grid.Column="1" Content="Close" Command="{Binding CloseUpNextCommand}" />
-                                </Grid>
+                                <StackPanel Grid.Row="0" Margin="16">
+                                    <TextBlock Text="Up next" Classes="h2" />
+                                    <TextBlock Text="{Binding SelectedStation.Station.Name}" FontSize="12"
+                                               Foreground="{DynamicResource AppMutedTextBrush}" />
+                                </StackPanel>
                                 <StackPanel Grid.Row="1" Margin="16,0,16,8" Spacing="8">
                                     <Border Padding="10" CornerRadius="6"
                                             Background="{StaticResource ThemeWarningBrush}"
@@ -284,22 +310,19 @@
                     </Panel>
 
                     <!-- Per-station settings, full-height from the right like Up next -->
-                    <Panel IsVisible="{Binding IsSettingsOpen}">
-                        <Border Background="#80000000" PointerPressed="CloseSettingsOnPointer" />
-                        <Border x:Name="SettingsPanel" Width="360" HorizontalAlignment="Right"
+                    <Panel x:Name="SettingsOverlay" Classes="overlay" Classes.open="{Binding IsSettingsOpen}">
+                        <Border Classes="scrim" Background="#80000000" PointerPressed="CloseSettingsOnPointer" />
+                        <Border x:Name="SettingsPanel" Classes="overlayPanel" MaxWidth="360" HorizontalAlignment="Right"
                                 Background="{DynamicResource AppSurfaceBrush}"
                                 BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1,0,0,0">
                             <Grid RowDefinitions="Auto,*">
-                                <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="16">
-                                    <StackPanel>
-                                        <TextBlock Text="Settings" Classes="h2" />
-                                        <TextBlock Text="{Binding SelectedStation.Station.Name, FallbackValue='No active station'}"
-                                                   FontSize="12"
-                                                   Foreground="{DynamicResource AppMutedTextBrush}"
-                                                   TextTrimming="CharacterEllipsis" />
-                                    </StackPanel>
-                                    <Button Grid.Column="1" Content="Close" Command="{Binding CloseSettingsCommand}" />
-                                </Grid>
+                                <StackPanel Grid.Row="0" Margin="16">
+                                    <TextBlock Text="Settings" Classes="h2" />
+                                    <TextBlock Text="{Binding SelectedStation.Station.Name, FallbackValue='No active station'}"
+                                               FontSize="12"
+                                               Foreground="{DynamicResource AppMutedTextBrush}"
+                                               TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
                                 <StackPanel Grid.Row="1" Margin="16" Spacing="16">
                                     <TextBlock Text="Buffer ahead" FontSize="13" FontWeight="SemiBold" />
                                     <ComboBox x:Name="BufferOptionsBox"
