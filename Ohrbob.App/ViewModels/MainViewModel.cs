@@ -30,6 +30,7 @@ public partial class MainViewModel : ViewModelBase
     private readonly OhrbobClient _client;
     private readonly IAudioPlayer _player;
     private readonly IUriLauncher _uriLauncher;
+    private readonly IQrScanner? _qrScanner;
     private readonly Action<Action> _dispatch;
     private readonly EpisodeDownloadService _downloads;
     private readonly OfflineStateService _offlineState;
@@ -204,6 +205,37 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isSidebarOpen = true;
 
+    [ObservableProperty]
+    private bool _canScanQrCode;
+
+    [RelayCommand]
+    private async Task ScanQrCodeAsync()
+    {
+        if (_qrScanner is not { IsAvailable: true } scanner) return;
+
+        try
+        {
+            var text = await scanner.ScanAsync();
+            if (string.IsNullOrWhiteSpace(text)) return;
+
+            if (!TryParseConnectDeepLink(text, out _, out _))
+            {
+                ConnectionErrorMessage = "That QR code is not an Ohrbob connection code.";
+                return;
+            }
+
+            ApplyDeepLink(text);
+        }
+        catch (OperationCanceledException)
+        {
+            // The user closed the scanner.
+        }
+        catch (Exception ex)
+        {
+            ConnectionErrorMessage = $"Could not scan the QR code: {ex.Message}";
+        }
+    }
+
     [RelayCommand]
     private void OpenSettings()
     {
@@ -240,10 +272,12 @@ public partial class MainViewModel : ViewModelBase
     }
 
     public MainViewModel(ConfigService configService, OhrbobClient? client, IUriLauncher? uriLauncher = null, IAudioPlayer? player = null, Action<Action>? dispatch = null,
-        EpisodeDownloadService? downloads = null, OfflineStateService? offlineState = null)
+        EpisodeDownloadService? downloads = null, OfflineStateService? offlineState = null, IQrScanner? qrScanner = null)
     {
         _configService = configService;
         _uriLauncher = uriLauncher ?? new AppUriLauncher();
+        _qrScanner = qrScanner ?? QrScannerProvider.Current;
+        CanScanQrCode = _qrScanner?.IsAvailable == true;
         _dispatch = dispatch ?? (action => Dispatcher.UIThread.Post(action));
         _downloads = downloads ?? new EpisodeDownloadService();
         _offlineState = offlineState ?? new OfflineStateService();

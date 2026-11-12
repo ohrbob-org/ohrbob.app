@@ -19,6 +19,8 @@ public partial class AppDelegate : AvaloniaAppDelegate<App>
 {
     public AppDelegate()
     {
+        QrScannerProvider.Current = new IosQrScanner();
+
         // Avalonia funnels deep links from both the app-delegate callback
         // (`application:openURL:options:`) and the iOS 13+ scene callback
         // (`scene:openURLContexts:`) into this single event, so subscribing

@@ -30,6 +30,11 @@
                             HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
                     </Button>
 
+                    <Button x:Name="ScanQrButton" Command="{Binding ScanQrCodeCommand}" Content="Scan QR code"
+                            IsVisible="{Binding CanScanQrCode}"
+                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                    </Button>
+
                     <!-- Advanced Affordance -->
                     <Button x:Name="ShowAdvancedButton" Command="{Binding ToggleAdvancedModeCommand}" Content="Advanced"
                             HorizontalAlignment="Center" Background="Transparent" BorderThickness="0" Padding="8,4" FontSize="12"
@@ -40,6 +45,10 @@
                 <StackPanel Spacing="15" IsVisible="{Binding IsAdvancedMode}">
                     <TextBlock Text="Scan the QR code in your Ohrbob Web interface or paste the connection deep link below."
                                FontSize="13" Foreground="{DynamicResource ThemeDarkBrush}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,0,0,15" />
+
+                    <Button x:Name="ScanQrAdvancedButton" Command="{Binding ScanQrCodeCommand}" Content="Scan QR code"
+                            IsVisible="{Binding CanScanQrCode}"
+                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
 
                     <!-- Deep Link Input -->
                     <TextBlock Text="Connection Link (from QR code)" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource ThemeDarkBrush}" />

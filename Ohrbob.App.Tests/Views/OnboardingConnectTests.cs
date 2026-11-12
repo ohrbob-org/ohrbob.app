@@ -52,11 +52,19 @@ public class OnboardingConnectTests
         }
     }
 
-    private (Window Window, OnboardingView View, MainViewModel ViewModel) ShowOnboarding()
+    private sealed class FakeQrScanner : IQrScanner
+    {
+        public bool IsAvailable => true;
+        public Task<string?> ScanAsync(System.Threading.CancellationToken cancellationToken = default) =>
+            Task.FromResult<string?>("ohrbob://connect?server=https://example.com&token=abc");
+    }
+
+    private (Window Window, OnboardingView View, MainViewModel ViewModel) ShowOnboarding(IQrScanner? scanner = null)
     {
         var configService = new ConfigService(_tempConfigPath);
         var client = new OhrbobClient(configService, new FakeHttpMessageHandler());
-        var vm = new MainViewModel(configService, client, offlineState: new OfflineStateService(_tempOfflinePath));
+        var vm = new MainViewModel(configService, client, offlineState: new OfflineStateService(_tempOfflinePath),
+            qrScanner: scanner);
 
         var view = new OnboardingView { DataContext = vm };
         var window = new Window { Width = 900, Height = 700, Content = view };
@@ -80,6 +88,18 @@ public class OnboardingConnectTests
         Assert.That(tokenBox.IsEffectivelyVisible, Is.False, "the token box should stay hidden until Advanced is chosen");
 
         window.Close();
+    }
+
+    [AvaloniaTest]
+    public void ScanQrButton_IsShownOnlyWhenAScannerIsAvailable()
+    {
+        var (window, view, _) = ShowOnboarding();
+        Assert.That(view.FindControl<Button>("ScanQrButton")!.IsEffectivelyVisible, Is.False);
+        window.Close();
+
+        var (scanWindow, scanView, _) = ShowOnboarding(new FakeQrScanner());
+        Assert.That(scanView.FindControl<Button>("ScanQrButton")!.IsEffectivelyVisible, Is.True);
+        scanWindow.Close();
     }
 
     [AvaloniaTest]

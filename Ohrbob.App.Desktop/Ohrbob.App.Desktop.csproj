@@ -15,6 +15,11 @@
   <ItemGroup>
     <PackageReference Include="Avalonia.Desktop" Version="12.1.4" />
     <PackageReference Include="Tmds.DBus.Protocol" Version="0.94.1" />
+    <PackageReference Include="OpenCvSharp5" Version="5.0.0.20261109" />
+    <PackageReference Include="OpenCvSharp5.official.runtime.linux-x64" Version="5.0.0.20261109" />
+    <PackageReference Include="OpenCvSharp5.runtime.win" Version="5.0.0.20261109" />
+    <PackageReference Include="OpenCvSharp5.runtime.osx.x64" Version="5.0.0.20261109" />
+    <PackageReference Include="OpenCvSharp5.runtime.osx.arm64" Version="5.0.0.20261109" />
   </ItemGroup>
 
   <ItemGroup>

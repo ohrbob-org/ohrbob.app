@@ -21,6 +21,8 @@ sealed class Program
             MediaSessionHost.Factory = () => MprisMediaSession.Create();
         }
 
+        QrScannerProvider.Current = new DesktopQrScanner();
+
         // 1. Configure global Serilog pipeline
         Log.Logger = new LoggerConfiguration()
             .MinimumLevel.Debug()

@@ -74,6 +74,47 @@ public class MainViewModelTests
             Task.FromResult(new HttpResponseMessage(HttpStatusCode.InternalServerError));
     }
 
+    private sealed class FakeQrScanner : IQrScanner
+    {
+        public bool IsAvailable { get; set; } = true;
+        public string? Result { get; set; }
+
+        public Task<string?> ScanAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(Result);
+    }
+
+    [Test]
+    public async Task ScanQrCode_ValidConnectionLink_AppliesConnection()
+    {
+        var config = new ConfigService(_tempConfigPath);
+        var scanner = new FakeQrScanner
+        {
+            Result = "ohrbob://connect?server=https://example.com&token=secret123"
+        };
+        var vm = new MainViewModel(config, new OhrbobClient(config, new FakeHttpMessageHandler()),
+            null, new TestAudioPlayer(), a => a(), qrScanner: scanner);
+
+        await vm.ScanQrCodeCommand.ExecuteAsync(null);
+
+        Assert.That(vm.IsConnected, Is.True);
+        Assert.That(config.ServerUrl, Is.EqualTo("https://example.com"));
+        Assert.That(config.StreamToken, Is.EqualTo("secret123"));
+    }
+
+    [Test]
+    public async Task ScanQrCode_InvalidCode_ShowsError()
+    {
+        var config = new ConfigService(_tempConfigPath);
+        var scanner = new FakeQrScanner { Result = "https://example.com/not-a-connection" };
+        var vm = new MainViewModel(config, new OhrbobClient(config, new FakeHttpMessageHandler()),
+            null, new TestAudioPlayer(), a => a(), qrScanner: scanner);
+
+        await vm.ScanQrCodeCommand.ExecuteAsync(null);
+
+        Assert.That(vm.IsConnected, Is.False);
+        Assert.That(vm.ConnectionErrorMessage, Does.Contain("not an Ohrbob connection code"));
+    }
+
     [Test]
     public void SettingsAndUpNext_AreMutuallyExclusiveOverlays()
     {
