@@ -27,7 +27,7 @@ public class OhrbobClientTests
     [Test]
     public async Task GetStationsAsync_SendsCorrectRequestAndReturnsStations()
     {
-        var mockResponseJson = "[{\"station\": {\"id\":\"s1\",\"name\":\"Station 1\"}}]";
+        var mockResponseJson = "[{\"station\": {\"id\":\"s1\",\"name\":\"<b>Station</b> 1\"}}]";
         var handler = new MockHttpMessageHandler(req =>
         {
             return new HttpResponseMessage(HttpStatusCode.OK)
@@ -198,6 +198,33 @@ public class OhrbobClientTests
         Assert.That(playlist.HostPaceEnabled, Is.True);
         Assert.That(playlist.Episodes.Single().EpisodeId, Is.EqualTo("e1"));
         Assert.That(playlist.Episodes.Single().IsCurrent, Is.True);
+    }
+
+    [Test]
+    public async Task GetPlaylistAsync_StripsHtmlFromEpisodeText()
+    {
+        var json = """
+        {
+          "stationId": "s1",
+          "episodes": [
+            { "episodeId": "e1", "title": "<b>Ep</b> &amp; One",
+              "description": "<div><p>First &amp; second.</p></div>",
+              "artist": "<i>Feed</i>", "isCurrent": true }
+          ]
+        }
+        """;
+        var handler = new MockHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json")
+        });
+        var client = new OhrbobClient(_mockConfig, handler);
+
+        var playlist = await client.GetPlaylistAsync();
+
+        var episode = playlist!.Episodes.Single();
+        Assert.That(episode.Title, Is.EqualTo("Ep & One"));
+        Assert.That(episode.Description, Is.EqualTo("First & second."));
+        Assert.That(episode.Artist, Is.EqualTo("Feed"));
     }
 
     [Test]

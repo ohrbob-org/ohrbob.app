@@ -9,8 +9,8 @@ using System.Threading.Tasks;
 using NUnit.Framework;
 using Ohrbob.App.Models;
 using Ohrbob.App.Services;
-using Ohrbob.App.ViewModels;
 using Ohrbob.App.Tests.Services;
+using Ohrbob.App.ViewModels;
 
 namespace Ohrbob.App.Tests.ViewModels;
 
@@ -72,6 +72,33 @@ public class MainViewModelTests
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
             Task.FromResult(new HttpResponseMessage(HttpStatusCode.InternalServerError));
+    }
+
+    [Test]
+    public async Task Status_HtmlInTitleAndDescription_IsStripped()
+    {
+        var handler = new MockHttpMessageHandler(req =>
+        {
+            var path = req.RequestUri?.AbsolutePath ?? "";
+            var body = path.EndsWith("/stream/stations")
+                ? "[{\"station\":{\"id\":\"s1\",\"name\":\"<b>Station</b> One\"},\"feeds\":[]}]"
+                : path.EndsWith("/stream/playlist")
+                    ? "{\"stationId\":\"s1\",\"episodes\":[]}"
+                    : "{\"stationId\":\"s1\",\"current\":{\"episodeId\":\"e1\",\"title\":\"<i>Episode</i> One\",\"description\":\"<div><p>Plain &amp; simple.</p></div>\"}}";
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json")
+            };
+        });
+        var config = new ConfigService(_tempConfigPath);
+        config.Save("https://example.com", "token");
+        var vm = new MainViewModel(config, new OhrbobClient(config, handler), null, new TestAudioPlayer(), a => a());
+
+        await vm.RetryConnectionAsync();
+
+        Assert.That(vm.SelectedStation!.Station!.Name, Is.EqualTo("Station One"));
+        Assert.That(vm.CurrentEpisodeTitle, Is.EqualTo("Episode One"));
+        Assert.That(vm.CurrentEpisodeDescription, Is.EqualTo("Plain & simple."));
     }
 
     [Test]

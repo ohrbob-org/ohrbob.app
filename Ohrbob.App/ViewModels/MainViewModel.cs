@@ -849,10 +849,12 @@ public partial class MainViewModel : ViewModelBase
                         CurrentEpisodeId = idProp.GetString() ?? "";
 
                     if (currentProp.TryGetProperty("title", out var titleProp))
-                        CurrentEpisodeTitle = titleProp.GetString() ?? "Unknown Title";
+                        CurrentEpisodeTitle = HtmlText.ToPlainText(titleProp.GetString()) is { Length: > 0 } title
+                            ? title
+                            : "Unknown Title";
 
                     if (currentProp.TryGetProperty("description", out var descProp))
-                        CurrentEpisodeDescription = descProp.GetString() ?? "";
+                        CurrentEpisodeDescription = HtmlText.ToPlainText(descProp.GetString());
 
                     if (currentProp.TryGetProperty("coverUrl", out var coverProp))
                         CurrentEpisodeCoverUrl = coverProp.GetString();
@@ -875,7 +877,7 @@ public partial class MainViewModel : ViewModelBase
                 if (status.TryGetProperty("next", out var nextProp) && nextProp.ValueKind == JsonValueKind.Object)
                 {
                     if (nextProp.TryGetProperty("title", out var nextTitleProp))
-                        NextEpisodeTitle = nextTitleProp.GetString();
+                        NextEpisodeTitle = HtmlText.ToPlainText(nextTitleProp.GetString());
                 }
                 else
                 {
@@ -1092,7 +1094,10 @@ public partial class MainViewModel : ViewModelBase
             foreach (var station in snapshot.Stations)
             {
                 if (station.Station is { } model)
+                {
+                    model.Name = HtmlText.ToPlainText(model.Name);
                     model.IsAvailableOffline = HasDownloadedContent(model.Id, snapshot);
+                }
                 Stations.Add(station);
             }
 
@@ -1120,9 +1125,9 @@ public partial class MainViewModel : ViewModelBase
             state.Playlist.Select(episode => new PlaylistItem
             {
                 EpisodeId = episode.EpisodeId ?? "",
-                Title = episode.Title ?? "",
-                Description = episode.Description ?? "",
-                Artist = episode.Artist ?? "",
+                Title = HtmlText.ToPlainText(episode.Title),
+                Description = HtmlText.ToPlainText(episode.Description),
+                Artist = HtmlText.ToPlainText(episode.Artist),
                 CoverUrl = episode.CoverUrl,
                 StreamUri = episode.StreamUri,
                 PublishedAt = episode.PublishedAt,
@@ -1311,9 +1316,9 @@ public partial class MainViewModel : ViewModelBase
                     playlist.Episodes.Select(e => new PlaylistItem
                     {
                         EpisodeId = e.EpisodeId ?? "",
-                        Title = e.Title ?? "",
-                        Description = e.Description ?? "",
-                        Artist = e.Artist ?? "",
+                        Title = HtmlText.ToPlainText(e.Title),
+                        Description = HtmlText.ToPlainText(e.Description),
+                        Artist = HtmlText.ToPlainText(e.Artist),
                         CoverUrl = e.CoverUrl,
                         StreamUri = e.StreamUri,
                         PublishedAt = e.PublishedAt,

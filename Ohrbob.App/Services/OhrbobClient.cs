@@ -61,6 +61,9 @@ public class OhrbobClient
         {
             foreach (var s in stations)
             {
+                if (s.Station?.Name is { } name)
+                    s.Station.Name = HtmlText.ToPlainText(name);
+
                 if (s.Feeds != null && s.Feeds.Count > 4)
                 {
                     s.Feeds = s.Feeds.Take(4).ToList();
@@ -170,7 +173,18 @@ public class OhrbobClient
         response.EnsureSuccessStatusCode();
 
         var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-        return await response.Content.ReadFromJsonAsync<PlaylistDto>(options);
+        var playlist = await response.Content.ReadFromJsonAsync<PlaylistDto>(options);
+        if (playlist != null)
+        {
+            foreach (var episode in playlist.Episodes)
+            {
+                episode.Title = HtmlText.ToPlainText(episode.Title);
+                episode.Description = HtmlText.ToPlainText(episode.Description);
+                episode.Artist = HtmlText.ToPlainText(episode.Artist);
+            }
+        }
+
+        return playlist;
     }
 
     public async Task NextAsync()

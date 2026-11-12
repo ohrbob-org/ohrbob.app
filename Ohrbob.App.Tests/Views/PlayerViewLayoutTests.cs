@@ -198,16 +198,24 @@ public class PlayerViewLayoutTests
     }
 
     [AvaloniaTest]
-    public void OfflineChip_IsVisibleWhenOffline()
+    public void OfflineBadges_AreRemoved_AndSettingsGearIsInTopBar()
     {
         var vm = CreateViewModel();
         vm.IsOffline = true;
+        vm.Stations.Add(new StationWithFeedsDto
+        {
+            Station = new Station { Id = "s1", Name = "One", IsAvailableOffline = true }
+        });
+        vm.SelectedStation = vm.Stations[0];
         var view = new PlayerView { DataContext = vm };
         var window = new Window { Width = 900, Height = 600, Content = view };
         window.Show();
         Dispatcher.UIThread.RunJobs();
 
-        Assert.That(view.FindControl<Border>("OfflineChip")!.IsVisible, Is.True);
+        Assert.That(view.GetVisualDescendants().OfType<TextBlock>().Any(t => t.Text == "Offline" && t.IsVisible), Is.False,
+            "offline badges were removed from the player");
+        var settings = view.FindControl<Button>("SettingsButton")!;
+        Assert.That(Grid.GetRow(settings), Is.EqualTo(0));
         window.Hide();
     }
 }
