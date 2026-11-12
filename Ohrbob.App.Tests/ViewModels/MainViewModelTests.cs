@@ -608,6 +608,7 @@ public class MainViewModelTests
     {
         public List<HttpRequestMessage> Requests { get; } = new();
         public List<string?> RequestBodies { get; } = new();
+        public List<string> AudioRequests { get; } = new();
         public bool FailNext { get; set; }
         public string StationsJson { get; set; } = "[{\"station\":{\"id\":\"s1\",\"name\":\"Station One\"},\"feeds\":[]}]";
         public string StatusJson { get; set; } = "{\"stationId\":\"s1\",\"current\":{\"episodeId\":\"e1\",\"title\":\"Current\",\"streamUri\":\"https://audio/1\"}}";
@@ -619,7 +620,17 @@ public class MainViewModelTests
             RequestBodies.Add(request.Content != null ? await request.Content.ReadAsStringAsync(ct) : null);
             if (FailNext)
                 return new HttpResponseMessage(HttpStatusCode.InternalServerError);
+
             var path = request.RequestUri?.AbsolutePath ?? "";
+            if (path.StartsWith("/audio/"))
+            {
+                AudioRequests.Add(path);
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new ByteArrayContent(new byte[] { 1, 2, 3 })
+                };
+            }
+
             var body = path.EndsWith("/stream/stations") ? StationsJson
                 : path.EndsWith("/stream/playlist") ? PlaylistJson
                 : path.EndsWith("/stream/status") && request.Method == HttpMethod.Get ? StatusJson
@@ -678,6 +689,65 @@ public class MainViewModelTests
 
         Assert.That(vm.IsOffline, Is.False, "reconnect must clear offline mode");
         Assert.That(vm.CurrentEpisodeId, Is.EqualTo("e1"), "server state must still be refreshed after the push");
+    }
+
+    [Test]
+    public async Task Reconnect_ReevaluatesDownloadCache()
+    {
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(Path.Combine(root, "s1"));
+        File.WriteAllBytes(Path.Combine(root, "s1", "e1.mp3"), new byte[] { 1 });
+        File.WriteAllBytes(Path.Combine(root, "s1", "stale.mp3"), new byte[] { 1 });
+
+        var config = new ConfigService(_tempConfigPath);
+        config.Save("https://example.com", "token");
+        config.SetBufferMinutes("s1", 10);
+
+        var snapshotPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString(), "offline.json");
+        var offline = new OfflineStateService(snapshotPath);
+        offline.Save(new OfflineSnapshot
+        {
+            ActiveStationId = "s1",
+            Stations = new List<StationWithFeedsDto> { new() { Station = new Station { Id = "s1", Name = "One" } } },
+            StationStates = new Dictionary<string, StationOfflineState>
+            {
+                ["s1"] = new()
+                {
+                    StationId = "s1",
+                    CurrentEpisodeId = "offline-ep",
+                    Playlist = new List<PlaylistEpisodeDto>
+                    {
+                        new() { EpisodeId = "offline-ep", Title = "Offline", StreamUri = "https://audio/offline", IsCurrent = true }
+                    }
+                }
+            }
+        });
+
+        var handler = new RecordingHttpHandler
+        {
+            FailNext = true,
+            PlaylistJson = "{\"stationId\":\"s1\",\"hostPaceEnabled\":false,\"isAging\":false,\"episodes\":[" +
+                           "{\"episodeId\":\"e1\",\"title\":\"One\",\"streamUri\":\"https://example.com/audio/1.mp3\",\"isCurrent\":true}," +
+                           "{\"episodeId\":\"e2\",\"title\":\"Two\",\"streamUri\":\"https://example.com/audio/2.mp3\",\"isCurrent\":false}]}"
+        };
+        var downloads = new EpisodeDownloadService(root, new HttpClient(handler), _ => TimeSpan.FromMinutes(1));
+        var vm = new MainViewModel(config, new OhrbobClient(config, handler), null, new TestAudioPlayer(), a => a(), downloads, offline);
+
+        await Task.Delay(100);
+        Assert.That(vm.IsOffline, Is.True);
+
+        handler.FailNext = false;
+        await vm.RetryConnectionAsync();
+        await vm.WaitForDownloadsAsync();
+
+        Assert.That(handler.AudioRequests, Is.EqualTo(new[] { "/audio/2.mp3" }),
+            "the cached current episode must not be fetched again");
+        Assert.That(downloads.GetDownloadedPath("s1", "e2"), Is.Not.Null,
+            "reconnect must fill the missing episode in the buffer window");
+        Assert.That(downloads.GetDownloadedPath("s1", "stale"), Is.Null,
+            "reconnect must prune cache files that are no longer in the playlist");
+        Assert.That(vm.PlaylistItems.Single(i => i.EpisodeId == "e2").DownloadState,
+            Is.EqualTo(DownloadState.Downloaded));
     }
 
     [Test]
