@@ -30,7 +30,18 @@ public partial class PlaylistItem : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(StateLabel))]
+    [NotifyPropertyChangedFor(nameof(IsDownloaded))]
+    [NotifyPropertyChangedFor(nameof(IsNotDownloaded))]
+    [NotifyPropertyChangedFor(nameof(IsDownloading))]
+    [NotifyPropertyChangedFor(nameof(IsQueued))]
+    [NotifyPropertyChangedFor(nameof(IsFailed))]
     private DownloadState _downloadState;
+
+    public bool IsDownloaded => DownloadState == DownloadState.Downloaded;
+    public bool IsNotDownloaded => DownloadState == DownloadState.NotDownloaded;
+    public bool IsDownloading => DownloadState == DownloadState.Downloading;
+    public bool IsQueued => DownloadState == DownloadState.Queued;
+    public bool IsFailed => DownloadState == DownloadState.Failed;
 
     public string StateLabel => DownloadState switch
     {

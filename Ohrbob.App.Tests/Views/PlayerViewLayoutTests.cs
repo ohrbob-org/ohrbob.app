@@ -176,8 +176,12 @@ public class PlayerViewLayoutTests
 
         var overlay = view.FindControl<Panel>("UpNextOverlay")!;
         Assert.That(overlay.IsHitTestVisible, Is.True);
-        Assert.That(view.GetVisualDescendants().OfType<TextBlock>().Any(t => t.Text == "Downloaded"), Is.True);
-        Assert.That(view.GetVisualDescendants().OfType<TextBlock>().Any(t => t.Text == "Not downloaded"), Is.True);
+        var downloadedLabel = view.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text == "Downloaded");
+        var notDownloadedLabel = view.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text == "Not downloaded");
+        Assert.That(((ISolidColorBrush)downloadedLabel.Foreground!).Color, Is.EqualTo(Color.Parse("#198754")),
+            "a successful download must read as green");
+        Assert.That(((ISolidColorBrush)notDownloadedLabel.Foreground!).Color, Is.EqualTo(Color.Parse("#6C757D")),
+            "not-downloaded must read as muted grey");
         Assert.That(view.GetVisualDescendants().OfType<TextBlock>().Any(t => t.Text == "Nov 2, 2026"), Is.True);
 
         vm.CloseUpNextCommand.Execute(null);

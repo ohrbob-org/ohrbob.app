@@ -65,6 +65,25 @@
         <Style Selector="Panel.overlay.open Border.overlayPanel">
             <Setter Property="RenderTransform" Value="none" />
         </Style>
+
+        <Style Selector="TextBlock.stateLabel">
+            <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}" />
+        </Style>
+        <Style Selector="TextBlock.stateLabel.downloaded">
+            <Setter Property="Foreground" Value="#198754" />
+        </Style>
+        <Style Selector="TextBlock.stateLabel.notDownloaded">
+            <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}" />
+        </Style>
+        <Style Selector="TextBlock.stateLabel.downloading">
+            <Setter Property="Foreground" Value="{StaticResource OhrbobStrongOrange}" />
+        </Style>
+        <Style Selector="TextBlock.stateLabel.queued">
+            <Setter Property="Foreground" Value="{StaticResource ThemeSecondaryBrush}" />
+        </Style>
+        <Style Selector="TextBlock.stateLabel.failed">
+            <Setter Property="Foreground" Value="{StaticResource ThemeDangerBrush}" />
+        </Style>
     </UserControl.Styles>
 
         <SplitView Name="MainSplitView" Classes.portrait="{Binding IsPortrait}"
@@ -294,7 +313,12 @@
                                                 <Panel Grid.Column="2" VerticalAlignment="Center">
                                                     <Panel IsVisible="{Binding !IsCurrent}">
                                                         <TextBlock Text="{Binding StateLabel}" FontSize="10" FontWeight="Bold"
-                                                                   Foreground="{StaticResource OhrbobStrongOrange}"
+                                                                   Classes="stateLabel"
+                                                                   Classes.downloaded="{Binding IsDownloaded}"
+                                                                   Classes.notDownloaded="{Binding IsNotDownloaded}"
+                                                                   Classes.downloading="{Binding IsDownloading}"
+                                                                   Classes.queued="{Binding IsQueued}"
+                                                                   Classes.failed="{Binding IsFailed}"
                                                                    IsVisible="{Binding ShowDownloadStateLabel}" />
                                                     </Panel>
                                                     <TextBlock Text="Playing" FontSize="10" FontWeight="Bold"
