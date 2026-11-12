@@ -6,6 +6,12 @@
   - Tag the parent element with `Container.Name="SomeName"` and `Container.Sizing="Width"`.
   - Place `<ContainerQuery Name="SomeName" Query="max-width: 600">` in the `Styles` collection to conditionally apply styles.
 
+## UI Thread Safety
+- **Never block the Avalonia UI thread.** Long-running or sync-over-async work must run on a worker thread (`Task.Run`), with UI updates marshalled back through `Dispatcher.UIThread`.
+- Known offenders: `SoundMetadataReader.Read` (blocks on its own async read and deadlocked the app when called from a UI continuation), camera/native capture startup (`VideoCapture`, `Camera.Open`), file enumeration/parsing, and download I/O.
+- Keep view-model state changes on the UI context: do not add `ConfigureAwait(false)` to code whose continuation updates bound properties.
+- When reusing a `WriteableBitmap` for camera previews, call `InvalidateVisual()` after writing frames. Re-assigning the same `Source` reference does not repaint the `Image`.
+
 ## General Workflow
 - **Validation:** Always verify changes by running the build and the test suite (`dotnet test`). Even simple UI/ViewModel changes can break bindings or existing tests.
 - **Testing:** Always add tests for everything being implemented. New features and fixes must be covered by the test suite.

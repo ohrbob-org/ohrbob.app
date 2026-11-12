@@ -192,5 +192,8 @@ public sealed class QrScannerWindow : Window
         }
 
         _preview.Source = _bitmap;
+        // Reusing one WriteableBitmap keeps the same Source reference, so the
+        // Image would otherwise render only the first frame.
+        _preview.InvalidateVisual();
     }
 }
