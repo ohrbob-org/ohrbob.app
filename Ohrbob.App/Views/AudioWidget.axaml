@@ -94,8 +94,8 @@
             <Panel Margin="16,10">
             <!-- Desktop / landscape bar -->
             <Grid Name="DesktopBar" ColumnDefinitions="*,Auto,2*,Auto,Auto" ColumnSpacing="16">
-                <!-- Meta: cover, station, title, description -->
-                <Grid Grid.Column="0" ColumnDefinitions="Auto,*" ColumnSpacing="12" VerticalAlignment="Center">
+                <!-- Meta: cover art only -->
+                <Grid Grid.Column="0" ColumnDefinitions="Auto" VerticalAlignment="Center">
                     <Border Name="CoverBorder" Grid.Column="0" Width="56" Height="56" CornerRadius="8"
                             ClipToBounds="True" Background="{DynamicResource AppSurfaceBrush}" VerticalAlignment="Center">
                         <Panel>
@@ -106,22 +106,6 @@
                                    IsVisible="{Binding CurrentEpisodeCoverUrl, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                         </Panel>
                     </Border>
-                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
-                        <StackPanel Name="StationNameRow" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
-                            <Border Width="6" Height="6" CornerRadius="3" Background="{StaticResource ThemePrimaryBrush}"
-                                    BoxShadow="0 0 5 0 #66FC5D00" VerticalAlignment="Center" />
-                            <TextBlock Text="{Binding SelectedStation.Station.Name, FallbackValue='My Station', Converter={x:Static views:UppercaseConverter.Instance}}"
-                                       FontSize="11" FontWeight="Bold" LetterSpacing="0.6"
-                                       Foreground="{StaticResource ThemePrimaryBrush}"
-                                       TextTrimming="CharacterEllipsis" />
-                        </StackPanel>
-                        <TextBlock Text="{Binding CurrentEpisodeTitle}" FontSize="16" FontWeight="Bold"
-                                   Foreground="{DynamicResource ThemeDarkBrush}"
-                                   TextTrimming="CharacterEllipsis" MaxLines="1" />
-                        <TextBlock Text="{Binding CurrentEpisodeDescription}" FontSize="13" Opacity="0.75"
-                                   Foreground="{DynamicResource ThemeDarkBrush}"
-                                   TextTrimming="CharacterEllipsis" MaxLines="1" />
-                    </StackPanel>
                 </Grid>
 
                 <!-- Transport -->
@@ -139,12 +123,8 @@
                             Background="{StaticResource GlassControlBackground}" BorderBrush="{StaticResource GlassBarBorder}"
                             BorderThickness="1"
                             ToolTip.Tip="Skip back 15 seconds">
-                        <Panel>
-                            <PathIcon Data="M12.5,3C17.15,3 21.08,6.03 22.47,10.15L20.1,10.94C19.07,7.85 16.03,5.5 12.5,5.5C8.36,5.5 5,8.86 5,13C5,17.14 8.36,20.5 12.5,20.5C16.15,20.5 19.21,17.9 20.17,14.5H22.72C21.72,19.3 17.5,23 12.5,23C7,23 2.5,18.5 2.5,13C2.5,7.5 7,3 12.5,3M12.5,8V13H17.5V14.5H11V8H12.5Z"
-                                      Width="20" Height="20" Foreground="{StaticResource GlassIconForeground}" />
-                            <TextBlock Text="15" FontSize="7" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                       Foreground="{StaticResource GlassIconForeground}" Margin="0,1,0,0" />
-                        </Panel>
+                        <PathIcon Data="M12.5,3C17.15,3 21.08,6.03 22.47,10.15L20.1,10.94C19.07,7.85 16.03,5.5 12.5,5.5C8.36,5.5 5,8.86 5,13C5,17.14 8.36,20.5 12.5,20.5C16.15,20.5 19.21,17.9 20.17,14.5H22.72C21.72,19.3 17.5,23 12.5,23C7,23 2.5,18.5 2.5,13C2.5,7.5 7,3 12.5,3M12.5,8V13H17.5V14.5H11V8H12.5Z"
+                                  Width="20" Height="20" Foreground="{StaticResource GlassIconForeground}" />
                     </Button>
 
                     <Border CornerRadius="25" Background="{StaticResource GlassPrimaryBackground}"
@@ -166,12 +146,8 @@
                             Background="{StaticResource GlassControlBackground}" BorderBrush="{StaticResource GlassBarBorder}"
                             BorderThickness="1"
                             ToolTip.Tip="Skip forward 30 seconds">
-                        <Panel>
-                            <PathIcon Data="M11.5,3C17,3 21.5,7.5 21.5,13C21.5,18.5 17,23 11.5,23C6.5,23 2.28,19.3 1.28,14.5H3.83C4.79,17.9 7.85,20.5 11.5,20.5C15.64,20.5 19,17.14 19,13C19,8.86 15.64,5.5 11.5,5.5C7.97,5.5 4.93,7.85 3.9,10.94L1.53,10.15C2.92,6.03 6.85,3 11.5,3M14,8V14.5H7.5V13H12.5V8H14Z"
-                                      Width="20" Height="20" Foreground="{StaticResource GlassIconForeground}" />
-                            <TextBlock Text="30" FontSize="7" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                       Foreground="{StaticResource GlassIconForeground}" Margin="0,1,0,0" />
-                        </Panel>
+                        <PathIcon Data="M11.5,3C17,3 21.5,7.5 21.5,13C21.5,18.5 17,23 11.5,23C6.5,23 2.28,19.3 1.28,14.5H3.83C4.79,17.9 7.85,20.5 11.5,20.5C15.64,20.5 19,17.14 19,13C19,8.86 15.64,5.5 11.5,5.5C7.97,5.5 4.93,7.85 3.9,10.94L1.53,10.15C2.92,6.03 6.85,3 11.5,3M14,8V14.5H7.5V13H12.5V8H14Z"
+                                  Width="20" Height="20" Foreground="{StaticResource GlassIconForeground}" />
                     </Button>
 
                     <Button Name="ForwardButton" Command="{Binding SkipToNextCommand}" Width="32" Height="32" CornerRadius="16" Padding="0"
@@ -219,7 +195,7 @@
 
             <!-- Mobile / portrait bar (Bootstrap <768px) -->
             <Grid Name="MobileBar" ColumnDefinitions="*,Auto" ColumnSpacing="10">
-                <Grid Grid.Column="0" ColumnDefinitions="Auto,*" ColumnSpacing="10" VerticalAlignment="Center">
+                <Grid Grid.Column="0" ColumnDefinitions="Auto" VerticalAlignment="Center">
                     <Border Grid.Column="0" Width="44" Height="44" CornerRadius="8"
                             ClipToBounds="True" Background="{DynamicResource AppSurfaceBrush}" VerticalAlignment="Center">
                         <Panel>
@@ -230,14 +206,6 @@
                                    IsVisible="{Binding CurrentEpisodeCoverUrl, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                         </Panel>
                     </Border>
-                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
-                        <TextBlock Text="{Binding CurrentEpisodeTitle}" FontSize="16" FontWeight="Bold"
-                                   Foreground="{DynamicResource ThemeDarkBrush}"
-                                   TextTrimming="CharacterEllipsis" MaxLines="1" />
-                        <TextBlock Text="{Binding CurrentEpisodeDescription}" FontSize="13" Opacity="0.75"
-                                   Foreground="{DynamicResource ThemeDarkBrush}"
-                                   TextTrimming="CharacterEllipsis" MaxLines="1" />
-                    </StackPanel>
                 </Grid>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Spacing="8">
@@ -245,12 +213,8 @@
                             Background="{StaticResource GlassControlBackground}" BorderBrush="{StaticResource GlassBarBorder}"
                             BorderThickness="1"
                             ToolTip.Tip="Skip back 15 seconds">
-                        <Panel>
-                            <PathIcon Data="M12.5,3C17.15,3 21.08,6.03 22.47,10.15L20.1,10.94C19.07,7.85 16.03,5.5 12.5,5.5C8.36,5.5 5,8.86 5,13C5,17.14 8.36,20.5 12.5,20.5C16.15,20.5 19.21,17.9 20.17,14.5H22.72C21.72,19.3 17.5,23 12.5,23C7,23 2.5,18.5 2.5,13C2.5,7.5 7,3 12.5,3M12.5,8V13H17.5V14.5H11V8H12.5Z"
-                                      Width="20" Height="20" Foreground="{StaticResource GlassIconForeground}" />
-                            <TextBlock Text="15" FontSize="7" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                       Foreground="{StaticResource GlassIconForeground}" Margin="0,1,0,0" />
-                        </Panel>
+                        <PathIcon Data="M12.5,3C17.15,3 21.08,6.03 22.47,10.15L20.1,10.94C19.07,7.85 16.03,5.5 12.5,5.5C8.36,5.5 5,8.86 5,13C5,17.14 8.36,20.5 12.5,20.5C16.15,20.5 19.21,17.9 20.17,14.5H22.72C21.72,19.3 17.5,23 12.5,23C7,23 2.5,18.5 2.5,13C2.5,7.5 7,3 12.5,3M12.5,8V13H17.5V14.5H11V8H12.5Z"
+                                  Width="20" Height="20" Foreground="{StaticResource GlassIconForeground}" />
                     </Button>
 
                     <Border CornerRadius="23" Background="{StaticResource GlassPrimaryBackground}"
@@ -272,12 +236,8 @@
                             Background="{StaticResource GlassControlBackground}" BorderBrush="{StaticResource GlassBarBorder}"
                             BorderThickness="1"
                             ToolTip.Tip="Skip forward 30 seconds">
-                        <Panel>
-                            <PathIcon Data="M11.5,3C17,3 21.5,7.5 21.5,13C21.5,18.5 17,23 11.5,23C6.5,23 2.28,19.3 1.28,14.5H3.83C4.79,17.9 7.85,20.5 11.5,20.5C15.64,20.5 19,17.14 19,13C19,8.86 15.64,5.5 11.5,5.5C7.97,5.5 4.93,7.85 3.9,10.94L1.53,10.15C2.92,6.03 6.85,3 11.5,3M14,8V14.5H7.5V13H12.5V8H14Z"
-                                      Width="20" Height="20" Foreground="{StaticResource GlassIconForeground}" />
-                            <TextBlock Text="30" FontSize="7" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                       Foreground="{StaticResource GlassIconForeground}" Margin="0,1,0,0" />
-                        </Panel>
+                        <PathIcon Data="M11.5,3C17,3 21.5,7.5 21.5,13C21.5,18.5 17,23 11.5,23C6.5,23 2.28,19.3 1.28,14.5H3.83C4.79,17.9 7.85,20.5 11.5,20.5C15.64,20.5 19,17.14 19,13C19,8.86 15.64,5.5 11.5,5.5C7.97,5.5 4.93,7.85 3.9,10.94L1.53,10.15C2.92,6.03 6.85,3 11.5,3M14,8V14.5H7.5V13H12.5V8H14Z"
+                                  Width="20" Height="20" Foreground="{StaticResource GlassIconForeground}" />
                     </Button>
                 </StackPanel>
             </Grid>

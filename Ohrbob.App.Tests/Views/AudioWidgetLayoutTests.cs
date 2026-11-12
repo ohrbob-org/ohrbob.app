@@ -1,6 +1,8 @@
+using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.Media;
+using Avalonia.VisualTree;
 using NUnit.Framework;
 using Ohrbob.App.ViewModels;
 using Ohrbob.App.Views;
@@ -57,6 +59,19 @@ public class AudioWidgetLayoutTests
         Assert.That(back.Command, Is.SameAs(((MainViewModel)widget.DataContext!).SkipToPreviousCommand));
         var forward = widget.FindControl<Button>("ForwardButton")!;
         Assert.That(forward.Command, Is.SameAs(((MainViewModel)widget.DataContext!).SkipToNextCommand));
+
+        window.Close();
+    }
+
+    [AvaloniaTest]
+    public void Desktop_ShowsCoverOnly_AndSeekButtonsHaveNoText()
+    {
+        var (window, widget) = Show(1200);
+
+        Assert.That(widget.GetVisualDescendants().OfType<TextBlock>().Any(t => t.Text == "Cosmic Journey"), Is.False);
+        Assert.That(widget.GetVisualDescendants().OfType<TextBlock>().Any(t => t.Text == "Space Explorer"), Is.False);
+        Assert.That(widget.FindControl<Button>("SkipBackButton")!.GetVisualDescendants().OfType<TextBlock>(), Is.Empty);
+        Assert.That(widget.FindControl<Button>("SkipForwardButton")!.GetVisualDescendants().OfType<TextBlock>(), Is.Empty);
 
         window.Close();
     }
