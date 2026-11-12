@@ -99,6 +99,33 @@ public class PlayerViewLayoutTests
     }
 
     [AvaloniaTest]
+    public void PlayerContent_StacksStationCoverTitleAndDescription()
+    {
+        var vm = CreateViewModel();
+        vm.CurrentEpisodeTitle = "Episode";
+        vm.CurrentEpisodeDescription = "Description";
+        var view = new PlayerView { DataContext = vm };
+        var window = new Window { Width = 900, Height = 900, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var station = view.FindControl<TextBlock>("StationTitle")!;
+        var cover = view.FindControl<Border>("CoverArt")!;
+        var title = view.FindControl<TextBlock>("EpisodeTitle")!;
+        var description = view.FindControl<TextBlock>("EpisodeDescription")!;
+
+        var stationY = station.TranslatePoint(new Point(0, 0), view)!.Value.Y;
+        var coverY = cover.TranslatePoint(new Point(0, 0), view)!.Value.Y;
+        var titleY = title.TranslatePoint(new Point(0, 0), view)!.Value.Y;
+        var descriptionY = description.TranslatePoint(new Point(0, 0), view)!.Value.Y;
+
+        Assert.That(stationY, Is.LessThan(coverY));
+        Assert.That(coverY, Is.LessThan(titleY));
+        Assert.That(titleY, Is.LessThan(descriptionY));
+        window.Hide();
+    }
+
+    [AvaloniaTest]
     public void SettingsPanel_OpensFullHeightFromTheRight()
     {
         var vm = CreateViewModel();
