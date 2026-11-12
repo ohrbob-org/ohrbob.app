@@ -75,6 +75,27 @@ public class MainViewModelTests
     }
 
     [Test]
+    public void SettingsAndUpNext_AreMutuallyExclusiveOverlays()
+    {
+        var config = new ConfigService(_tempConfigPath);
+        var vm = new MainViewModel(config, new OhrbobClient(config, new FakeHttpMessageHandler()), null, new TestAudioPlayer(), a => a());
+
+        vm.ToggleUpNextCommand.Execute(null);
+        Assert.That(vm.IsUpNextOpen, Is.True);
+
+        vm.OpenSettingsCommand.Execute(null);
+        Assert.That(vm.IsSettingsOpen, Is.True);
+        Assert.That(vm.IsUpNextOpen, Is.False);
+
+        vm.CloseSettingsCommand.Execute(null);
+        vm.ToggleUpNextCommand.Execute(null);
+        Assert.That(vm.IsUpNextOpen, Is.True);
+
+        vm.ToggleUpNextCommand.Execute(null);
+        Assert.That(vm.IsUpNextOpen, Is.False);
+    }
+
+    [Test]
     public async Task Status_HtmlInTitleAndDescription_IsStripped()
     {
         var handler = new MockHttpMessageHandler(req =>

@@ -166,9 +166,6 @@ public partial class MainViewModel : ViewModelBase
     private bool _isUpNextOpen;
 
     [ObservableProperty]
-    private string _settingsTitle = "Settings";
-
-    [ObservableProperty]
     private bool _isRefreshIndicatorVisible;
 
     [ObservableProperty]
@@ -208,13 +205,21 @@ public partial class MainViewModel : ViewModelBase
     private bool _isSidebarOpen = true;
 
     [RelayCommand]
-    private void OpenSettings() => IsSettingsOpen = true;
+    private void OpenSettings()
+    {
+        IsUpNextOpen = false;
+        IsSettingsOpen = true;
+    }
 
     [RelayCommand]
     private void CloseSettings() => IsSettingsOpen = false;
 
     [RelayCommand]
-    private void ToggleUpNext() => IsUpNextOpen = !IsUpNextOpen;
+    private void ToggleUpNext()
+    {
+        IsUpNextOpen = !IsUpNextOpen;
+        if (IsUpNextOpen) IsSettingsOpen = false;
+    }
 
     [RelayCommand]
     private void CloseUpNext() => IsUpNextOpen = false;
@@ -1419,7 +1424,6 @@ public partial class MainViewModel : ViewModelBase
         }
 
         RestoreBufferOption(stationId);
-        SettingsTitle = $"Settings — {SelectedStation?.Station?.Name ?? "No active station"}";
         if (IsPortrait) IsSidebarOpen = false;
     }
 

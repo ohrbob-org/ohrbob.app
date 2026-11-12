@@ -156,7 +156,7 @@
 
                     <!-- Center Info Pane (Episode details, Cover Art, Description).
                          The widget floats over it so the backdrop can be blurred. -->
-                    <Panel Grid.Row="1">
+                    <Panel x:Name="PlayerOverlayHost" Grid.Row="1">
                     <ScrollViewer Name="EpisodeScroll" Margin="0,0,0,0" Padding="32,32,32,120" VerticalScrollBarVisibility="Auto">
                     <WrapPanel Orientation="Horizontal" HorizontalAlignment="Center">
                         <!-- Album Art Block -->
@@ -279,6 +279,49 @@
                                         </DataTemplate>
                                     </ListBox.ItemTemplate>
                                 </ListBox>
+                            </Grid>
+                        </Border>
+                    </Panel>
+
+                    <!-- Per-station settings, full-height from the right like Up next -->
+                    <Panel IsVisible="{Binding IsSettingsOpen}">
+                        <Border Background="#80000000" PointerPressed="CloseSettingsOnPointer" />
+                        <Border x:Name="SettingsPanel" Width="360" HorizontalAlignment="Right"
+                                Background="{DynamicResource AppSurfaceBrush}"
+                                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1,0,0,0">
+                            <Grid RowDefinitions="Auto,*">
+                                <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="16">
+                                    <StackPanel>
+                                        <TextBlock Text="Settings" Classes="h2" />
+                                        <TextBlock Text="{Binding SelectedStation.Station.Name, FallbackValue='No active station'}"
+                                                   FontSize="12"
+                                                   Foreground="{DynamicResource AppMutedTextBrush}"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                    <Button Grid.Column="1" Content="Close" Command="{Binding CloseSettingsCommand}" />
+                                </Grid>
+                                <StackPanel Grid.Row="1" Margin="16" Spacing="16">
+                                    <TextBlock Text="Buffer ahead" FontSize="13" FontWeight="SemiBold" />
+                                    <ComboBox x:Name="BufferOptionsBox"
+                                              ItemsSource="{Binding BufferOptions}"
+                                              SelectedItem="{Binding SelectedBufferOption, Mode=TwoWay}"
+                                              IsEnabled="{Binding IsBufferSelectionEnabled}"
+                                              HorizontalAlignment="Stretch">
+                                        <ComboBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding Label}" />
+                                            </DataTemplate>
+                                        </ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                    <TextBlock Text="Whole upcoming episodes of this station are downloaded. More buffer uses more storage."
+                                               FontSize="12" TextWrapping="Wrap"
+                                               Foreground="{DynamicResource AppMutedTextBrush}" />
+                                    <Border Background="{StaticResource ThemeWarningBrush}" CornerRadius="6" Padding="10"
+                                            IsVisible="{Binding DownloadBlockedReason, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                        <TextBlock Text="{Binding DownloadBlockedReason}" FontSize="12" TextWrapping="Wrap"
+                                                   Foreground="{StaticResource OhrbobDarkBlue}" />
+                                    </Border>
+                                </StackPanel>
                             </Grid>
                         </Border>
                     </Panel>

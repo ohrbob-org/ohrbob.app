@@ -49,6 +49,11 @@ public partial class PlayerView : UserControl
         if (DataContext is MainViewModel vm) vm.IsUpNextOpen = false;
     }
 
+    private void CloseSettingsOnPointer(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is MainViewModel vm) vm.IsSettingsOpen = false;
+    }
+
     private void OnEpisodeScrollWheel(object? sender, PointerWheelEventArgs e)
     {
         if (e.Delta.Y > 0 && EpisodeScroll.Offset.Y <= 0.5)

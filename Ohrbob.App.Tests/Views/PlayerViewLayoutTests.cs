@@ -99,23 +99,27 @@ public class PlayerViewLayoutTests
     }
 
     [AvaloniaTest]
-    public void SettingsDialog_OpensAndShowsPerStationTargets()
+    public void SettingsPanel_OpensFullHeightFromTheRight()
     {
         var vm = CreateViewModel();
         vm.IsSettingsOpen = true;
         vm.Stations.Add(new StationWithFeedsDto { Station = new Station { Id = "s1", Name = "One" } });
         vm.SelectedStation = vm.Stations[0];
-        var view = new MainView { DataContext = vm };
+        var view = new PlayerView { DataContext = vm };
         var window = new Window { Width = 900, Height = 600, Content = view };
         window.Show();
         Dispatcher.UIThread.RunJobs();
 
-        var dialog = view.FindControl<Border>("SettingsDialog")!;
-        Assert.That(dialog.IsVisible, Is.True);
+        var panel = view.FindControl<Border>("SettingsPanel")!;
+        Assert.That(panel.IsVisible, Is.True);
+        Assert.That(panel.HorizontalAlignment, Is.EqualTo(Avalonia.Layout.HorizontalAlignment.Right));
+        var host = view.FindControl<Panel>("PlayerOverlayHost")!;
+        Assert.That(panel.Bounds.Height, Is.EqualTo(host.Bounds.Height).Within(1),
+            "settings should stretch to the full height of the player content");
         var options = view.FindControl<ComboBox>("BufferOptionsBox")!;
         Assert.That(options.ItemsSource, Is.Not.Null);
-        Assert.That(view.GetVisualDescendants().OfType<TextBlock>().Any(t => t.Text == "Settings — One"), Is.True,
-            "the dialog title must name the active station");
+        Assert.That(view.GetVisualDescendants().OfType<TextBlock>().Any(t => t.Text == "One"), Is.True,
+            "the settings header must name the active station");
         window.Hide();
     }
 
