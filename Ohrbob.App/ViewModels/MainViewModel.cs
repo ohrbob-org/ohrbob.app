@@ -54,6 +54,7 @@ public partial class MainViewModel : ViewModelBase
     private DispatcherTimer? _statusTimer;
     private bool _isPollingStatus;
     private DispatcherTimer? _refreshIndicatorTimer;
+    private bool _isSyncingProgress;
     private DateTime _lastRefreshAt = DateTime.MinValue;
     private static readonly TimeSpan RefreshCooldown = TimeSpan.FromSeconds(10);
     private bool _isUpdatingPositionFromPlayer;
@@ -331,6 +332,13 @@ public partial class MainViewModel : ViewModelBase
         }
 
         SetupTimers();
+
+        // Keep trying to push progress even if this initial sync failed (e.g. the
+        // car started the app before the network was up).
+        if (IsConnected)
+        {
+            _syncTimer?.Start();
+        }
     }
 
     private void OnPlayerOnPositionChanged(object? s, int pos)
@@ -402,8 +410,11 @@ public partial class MainViewModel : ViewModelBase
 
     private void SetupTimers()
     {
-        // Timer to periodically sync our current playback state back to the Ohrbob server
-        _syncTimer = new DispatcherTimer
+        // Android Auto can construct the view model on a thread-pool thread before
+        // the UI exists (AutoMediaBrowserService). DispatcherTimer defaults to the
+        // dispatcher of that thread, which has no loop, so these timers would never
+        // tick. Bind them to the UI dispatcher explicitly.
+        _syncTimer = new DispatcherTimer(DispatcherPriority.Background, Dispatcher.UIThread)
         {
             Interval = TimeSpan.FromSeconds(10)
         };
@@ -412,32 +423,18 @@ public partial class MainViewModel : ViewModelBase
             // Keep the local resume point current even when the server is gone.
             SaveOfflineSnapshot();
 
-            if (IsConnected && !IsOffline && IsPlaying && SelectedStation != null && !string.IsNullOrEmpty(CurrentEpisodeStreamUri))
-            {
-                try
-                {
-                    // Call the API sync endpoint
-                    if (SelectedStation?.Station?.Id != null && !string.IsNullOrEmpty(CurrentEpisodeId))
-                    {
-                        await _client.SyncStatusAsync(CurrentEpisodeId, SelectedStation.Station.Id, PositionSeconds);
-                    }
-                }
-                catch
-                {
-                    // Ignore transient syncing errors
-                }
-            }
+            await SyncProgressAsync();
         };
 
         // Pull the server's status regularly so changes made elsewhere (web UI or
         // another device) show up without a manual refresh.
-        _statusTimer = new DispatcherTimer
+        _statusTimer = new DispatcherTimer(DispatcherPriority.Background, Dispatcher.UIThread)
         {
             Interval = TimeSpan.FromSeconds(15)
         };
         _statusTimer.Tick += async (s, e) => await PollStatusAsync();
 
-        _refreshIndicatorTimer = new DispatcherTimer
+        _refreshIndicatorTimer = new DispatcherTimer(DispatcherPriority.Background, Dispatcher.UIThread)
         {
             Interval = TimeSpan.FromSeconds(2)
         };
@@ -446,6 +443,41 @@ public partial class MainViewModel : ViewModelBase
             IsRefreshIndicatorVisible = false;
             _refreshIndicatorTimer.Stop();
         };
+    }
+
+    /// <summary>Exposed so tests can verify the timer is bound to the UI dispatcher.</summary>
+    internal Dispatcher? SyncTimerDispatcher => _syncTimer?.Dispatcher;
+
+    /// <summary>
+    /// Pushes the local playhead to the server. The periodic timer and an explicit
+    /// pause/stop both call this; only one request may run at a time.
+    /// </summary>
+    internal async Task SyncProgressAsync(bool allowPaused = false)
+    {
+        if (_isSyncingProgress) return;
+
+        var stationId = SelectedStation?.Station?.Id;
+        var episodeId = CurrentEpisodeId;
+        if (!IsConnected || (!IsPlaying && !allowPaused) ||
+            string.IsNullOrEmpty(stationId) || string.IsNullOrEmpty(episodeId) ||
+            string.IsNullOrEmpty(CurrentEpisodeStreamUri))
+        {
+            return;
+        }
+
+        _isSyncingProgress = true;
+        try
+        {
+            await _client.SyncStatusAsync(episodeId, stationId, PositionSeconds);
+        }
+        catch
+        {
+            // Transient sync errors are retried on the next tick.
+        }
+        finally
+        {
+            _isSyncingProgress = false;
+        }
     }
 
     partial void OnPositionSecondsChanged(int value)
@@ -535,6 +567,10 @@ public partial class MainViewModel : ViewModelBase
             else
             {
                 _player.Pause();
+                // Store the exact position where the user stopped, rather than
+                // waiting for the next periodic tick (the process may be killed
+                // as soon as Android Auto disconnects).
+                _ = SyncProgressAsync(allowPaused: true);
             }
         }
         catch
@@ -650,6 +686,7 @@ public partial class MainViewModel : ViewModelBase
             ServerUrlInput = server;
             TokenInput = token;
             IsConnected = true;
+            _syncTimer?.Start();
             _ = InitializeAppAsync(keepConnectedOnFailure: true);
         }
         catch (Exception ex)
@@ -744,6 +781,7 @@ public partial class MainViewModel : ViewModelBase
             ServerUrlInput = server;
             TokenInput = token;
             IsConnected = true;
+            _syncTimer?.Start();
             await InitializeAppAsync();
         }
         catch (Exception ex)
@@ -857,8 +895,12 @@ public partial class MainViewModel : ViewModelBase
                 OfflineMessage = "Server unavailable. Playing downloaded episodes.";
             }
 
-            _syncTimer?.Stop();
             _statusTimer?.Stop();
+
+            // A never-connected app has nothing to sync. A transiently offline one
+            // keeps the progress timer running so playback still reaches the server
+            // once the network comes back (e.g. while Android Auto is driving).
+            if (!IsConnected) _syncTimer?.Stop();
         }
     }
 

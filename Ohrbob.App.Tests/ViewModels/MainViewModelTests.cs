@@ -6,6 +6,8 @@ using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia.Headless.NUnit;
+using Avalonia.Threading;
 using NUnit.Framework;
 using Ohrbob.App.Models;
 using Ohrbob.App.Services;
@@ -705,6 +707,7 @@ public class MainViewModelTests
         public List<HttpRequestMessage> Requests { get; } = new();
         public List<string?> RequestBodies { get; } = new();
         public List<string> AudioRequests { get; } = new();
+        public System.Collections.Concurrent.ConcurrentQueue<string?> StatusPosts { get; } = new();
         public bool FailNext { get; set; }
         public string StationsJson { get; set; } = "[{\"station\":{\"id\":\"s1\",\"name\":\"Station One\"},\"feeds\":[]}]";
         public string StatusJson { get; set; } = "{\"stationId\":\"s1\",\"current\":{\"episodeId\":\"e1\",\"title\":\"Current\",\"streamUri\":\"https://audio/1\"}}";
@@ -712,12 +715,18 @@ public class MainViewModelTests
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
+            var requestBody = request.Content != null ? await request.Content.ReadAsStringAsync(ct) : null;
             Requests.Add(request);
-            RequestBodies.Add(request.Content != null ? await request.Content.ReadAsStringAsync(ct) : null);
+            RequestBodies.Add(requestBody);
             if (FailNext)
                 return new HttpResponseMessage(HttpStatusCode.InternalServerError);
 
             var path = request.RequestUri?.AbsolutePath ?? "";
+            if (request.Method == HttpMethod.Post && path.EndsWith("/stream/status") && requestBody is not null)
+            {
+                StatusPosts.Enqueue(requestBody);
+            }
+
             if (path.StartsWith("/audio/"))
             {
                 AudioRequests.Add(path);
@@ -785,6 +794,93 @@ public class MainViewModelTests
 
         Assert.That(vm.IsOffline, Is.False, "reconnect must clear offline mode");
         Assert.That(vm.CurrentEpisodeId, Is.EqualTo("e1"), "server state must still be refreshed after the push");
+    }
+
+    [Test]
+    public async Task Pausing_PushesFinalPositionToServer()
+    {
+        var handler = new RecordingHttpHandler();
+        var config = new ConfigService(_tempConfigPath);
+        config.Save("https://example.com", "token");
+        var vm = new MainViewModel(config, new OhrbobClient(config, handler), null, new TestAudioPlayer(), a => a(),
+            offlineState: new OfflineStateService(_tempOfflinePath));
+
+        await vm.RetryConnectionAsync();
+        handler.Requests.Clear();
+        handler.RequestBodies.Clear();
+        handler.StatusPosts.Clear();
+
+        vm.IsPlaying = true;
+        vm.PositionSeconds = 42;
+        vm.IsPlaying = false;
+
+        var body = await WaitForStatusPostAsync(handler, TimeSpan.FromSeconds(2));
+        Assert.That(body, Is.Not.Null, "pausing must push the current position immediately");
+        Assert.That(body, Does.Contain("e1"));
+        Assert.That(body, Does.Contain("s1"));
+        Assert.That(body, Does.Contain("42"));
+    }
+
+    [Test]
+    public async Task SyncProgress_PushesEvenWhenTheClientIsMarkedOffline()
+    {
+        var handler = new RecordingHttpHandler();
+        var config = new ConfigService(_tempConfigPath);
+        config.Save("https://example.com", "token");
+        var vm = new MainViewModel(config, new OhrbobClient(config, handler), null, new TestAudioPlayer(), a => a(),
+            offlineState: new OfflineStateService(_tempOfflinePath));
+
+        await vm.RetryConnectionAsync();
+        handler.Requests.Clear();
+        handler.RequestBodies.Clear();
+        handler.StatusPosts.Clear();
+
+        // Android Auto may have started before the network was up; the timer keeps
+        // running and must still push once the server is reachable again.
+        vm.IsOffline = true;
+        vm.IsPlaying = true;
+        vm.PositionSeconds = 55;
+
+        await vm.SyncProgressAsync();
+
+        var body = await WaitForStatusPostAsync(handler, TimeSpan.FromSeconds(1));
+        Assert.That(body, Is.Not.Null, "progress must be pushed while the stale offline flag is set");
+        Assert.That(body, Does.Contain("55"));
+    }
+
+    [AvaloniaTest]
+    public async Task SyncTimer_IsBoundToTheUiDispatcher_WhenCreatedOffTheUiThread()
+    {
+        MainViewModel? vm = null;
+
+        // Android Auto constructs the shared view model from a thread-pool thread
+        // (AutoMediaBrowserService). A default DispatcherTimer would bind to that
+        // dead thread's dispatcher and never tick.
+        await Task.Run(() =>
+        {
+            var config = new ConfigService(_tempConfigPath);
+            config.Save("https://example.com", "token");
+            vm = new MainViewModel(config, new OhrbobClient(config, new RecordingHttpHandler()), null,
+                new TestAudioPlayer(), a => a(), offlineState: new OfflineStateService(_tempOfflinePath));
+        });
+
+        Assert.That(vm!.SyncTimerDispatcher, Is.SameAs(Dispatcher.UIThread));
+    }
+
+    private static async Task<string?> WaitForStatusPostAsync(RecordingHttpHandler handler, TimeSpan timeout)
+    {
+        var deadline = DateTime.UtcNow + timeout;
+        while (DateTime.UtcNow < deadline)
+        {
+            if (handler.StatusPosts.TryDequeue(out var body))
+            {
+                return body;
+            }
+
+            await Task.Delay(10);
+        }
+
+        return null;
     }
 
     [Test]
