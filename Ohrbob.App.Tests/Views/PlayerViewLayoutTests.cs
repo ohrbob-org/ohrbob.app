@@ -6,6 +6,7 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Input.GestureRecognizers;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using CommunityToolkit.Mvvm.Input;
@@ -259,6 +260,63 @@ public class PlayerViewLayoutTests
         var realized = view.FindControl<ListBox>("UpNextListBox")!
             .GetVisualDescendants().OfType<ListBoxItem>().Count();
         Assert.That(realized, Is.LessThan(50), $"realized {realized} of {vm.PlaylistItems.Count} items");
+        window.Hide();
+    }
+
+    [AvaloniaTest]
+    public void ImageCache_DoesNotDisposeAnEvictedBitmapStillInUse()
+    {
+        var png = Convert.FromBase64String(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Zl9kAAAAASUVORK5CYII=");
+
+        ImageLoader.ClearMemoryCacheForTests();
+        try
+        {
+            var displayed = new Bitmap(new MemoryStream(png));
+            ImageLoader.AddToMemoryCacheForTests("displayed", displayed);
+
+            for (var i = 0; i <= ImageLoader.MaxMemoryCacheSize; i++)
+            {
+                ImageLoader.AddToMemoryCacheForTests($"other{i}", new Bitmap(new MemoryStream(png)));
+            }
+
+            // The oldest entry is evicted. An Image may still be displaying it,
+            // so it must remain usable rather than being disposed.
+            Assert.DoesNotThrow(() => { _ = displayed.PixelSize; },
+                "an evicted bitmap that is still on screen must not be disposed");
+        }
+        finally
+        {
+            ImageLoader.ClearMemoryCacheForTests();
+        }
+    }
+
+    [AvaloniaTest]
+    public void EpisodeArt_IsDecodedAtDisplaySize()
+    {
+        var vm = CreateViewModel();
+        vm.IsUpNextOpen = true;
+        vm.PlaylistItems.Add(new PlaylistItem { EpisodeId = "e1", Title = "One" });
+
+        var view = new PlayerView { DataContext = vm };
+        var window = new Window { Width = 1200, Height = 800, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(ImageLoader.GetMaxWidth(view.FindControl<Image>("CurrentCoverImage")!), Is.EqualTo(640),
+            "the large episode art must not be decoded at full source size");
+
+        var barCovers = view.GetVisualDescendants().OfType<Image>()
+            .Where(i => i.Classes.Contains("currentCover")).ToList();
+        Assert.That(barCovers, Is.Not.Empty);
+        Assert.That(barCovers.All(i => ImageLoader.GetMaxWidth(i) == 112), Is.True,
+            "the player-bar cover must be decoded small");
+
+        var thumbnail = view.GetVisualDescendants().OfType<Image>()
+            .FirstOrDefault(i => i.Classes.Contains("episodeThumb"));
+        Assert.That(thumbnail, Is.Not.Null);
+        Assert.That(ImageLoader.GetMaxWidth(thumbnail!), Is.EqualTo(96),
+            "up-next thumbnails must be decoded small");
         window.Hide();
     }
 
