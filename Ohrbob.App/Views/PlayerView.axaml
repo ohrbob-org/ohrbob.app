@@ -60,6 +60,9 @@
         <!-- Right-side overlays slide in/out instead of appearing instantly. -->
         <Style Selector="Panel.overlay">
             <Setter Property="IsHitTestVisible" Value="False" />
+            <!-- The closed panel is translated past the right edge; clip it so the
+                 renderer does not keep drawing offscreen list rows. -->
+            <Setter Property="ClipToBounds" Value="True" />
         </Style>
         <Style Selector="Panel.overlay.open">
             <Setter Property="IsHitTestVisible" Value="True" />
@@ -291,6 +294,12 @@
                         <Border x:Name="UpNextPanel" Classes="overlayPanel" MaxWidth="360" HorizontalAlignment="Right"
                                 Background="{DynamicResource AppSurfaceBrush}"
                                 BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1,0,0,0">
+                            <!-- Rasterize the list once for the slide: re-recording every
+                                 visible row on every frame is what made long playlists
+                                 stutter. The cache is invalidated when the list changes. -->
+                            <Border.CacheMode>
+                                <BitmapCache SnapsToDevicePixels="True" EnableClearType="True" />
+                            </Border.CacheMode>
                             <Grid RowDefinitions="Auto,Auto,*">
                                 <StackPanel Grid.Row="0" Margin="16">
                                     <TextBlock Text="Up next" Classes="h2" />
@@ -364,6 +373,9 @@
                         <Border x:Name="SettingsPanel" Classes="overlayPanel" MaxWidth="360" HorizontalAlignment="Right"
                                 Background="{DynamicResource AppSurfaceBrush}"
                                 BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1,0,0,0">
+                            <Border.CacheMode>
+                                <BitmapCache SnapsToDevicePixels="True" EnableClearType="True" />
+                            </Border.CacheMode>
                             <Grid RowDefinitions="Auto,*">
                                 <StackPanel Grid.Row="0" Margin="16">
                                     <TextBlock Text="Settings" Classes="h2" />

@@ -234,6 +234,35 @@ public class PlayerViewLayoutTests
     }
 
     [AvaloniaTest]
+    public void UpNextOverlay_CachesPanelForTheSlide()
+    {
+        var vm = CreateViewModel();
+        for (var i = 0; i < 500; i++)
+        {
+            vm.PlaylistItems.Add(new PlaylistItem { EpisodeId = $"e{i}", Title = $"Episode {i}" });
+        }
+
+        vm.IsUpNextOpen = true;
+        var view = new PlayerView { DataContext = vm };
+        var window = new Window { Width = 1200, Height = 800, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var overlay = view.FindControl<Panel>("UpNextOverlay")!;
+        var panel = view.FindControl<Border>("UpNextPanel")!;
+        Assert.That(overlay.ClipToBounds, Is.True, "the offscreen end of the slide must be clipped");
+        Assert.That(panel.CacheMode, Is.InstanceOf<BitmapCache>(), "the sliding panel must be cached as one bitmap");
+        Assert.That(((BitmapCache)panel.CacheMode!).EnableClearType, Is.True);
+        Assert.That(((BitmapCache)panel.CacheMode!).SnapsToDevicePixels, Is.True);
+
+        // A long list must stay virtualized; otherwise the cache would be huge.
+        var realized = view.FindControl<ListBox>("UpNextListBox")!
+            .GetVisualDescendants().OfType<ListBoxItem>().Count();
+        Assert.That(realized, Is.LessThan(50), $"realized {realized} of {vm.PlaylistItems.Count} items");
+        window.Hide();
+    }
+
+    [AvaloniaTest]
     public void UpNextPanel_ShowsDownloadStatePublishedDateAndClosesByCommand()
     {
         var vm = CreateViewModel();
