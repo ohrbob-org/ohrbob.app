@@ -232,6 +232,8 @@
                     <!-- Center Info Pane (Episode details, Cover Art, Description).
                          The widget floats over it so the backdrop can be blurred. -->
                     <Panel x:Name="PlayerOverlayHost" Grid.Row="1">
+                    <RefreshContainer x:Name="EpisodeRefresh" PullDirection="TopToBottom" IsMouseEnabled="True"
+                                      RefreshRequested="OnEpisodeRefreshRequested">
                     <ScrollViewer Name="EpisodeScroll" Margin="0,0,0,0" Padding="32,32,32,120" VerticalScrollBarVisibility="Auto">
                     <StackPanel HorizontalAlignment="Center" MaxWidth="680" Spacing="16">
                         <!-- Station Title -->
@@ -285,6 +287,7 @@
                         </Border>
                     </StackPanel>
                     </ScrollViewer>
+                    </RefreshContainer>
 
                     <!-- Bottom Controller Deck, floating over the scroll content -->
                     <views:AudioWidget VerticalAlignment="Bottom"

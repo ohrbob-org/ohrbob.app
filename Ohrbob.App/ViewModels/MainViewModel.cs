@@ -187,6 +187,16 @@ public partial class MainViewModel : ViewModelBase
 
     partial void OnVolumeChanged(int value) => _player.Volume = Math.Clamp(value, 0, 100) / 100f;
 
+    partial void OnIsUpNextOpenChanged(bool value)
+    {
+        if (!value || !IsConnected || IsOffline) return;
+
+        // Let the panel start sliding in, then fetch the newest queue. Only the
+        // playlist is refreshed: the panel is about to show it and stations/status
+        // are already kept current by their own timers.
+        _dispatch(() => _ = RefreshPlaylistAsync());
+    }
+
     [ObservableProperty]
     private int _durationSeconds;
 
