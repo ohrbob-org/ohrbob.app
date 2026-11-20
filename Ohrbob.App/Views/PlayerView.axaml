@@ -271,6 +271,13 @@
                                    FontSize="24" FontWeight="Bold" Foreground="{DynamicResource AppForegroundBrush}"
                                    TextWrapping="Wrap" TextAlignment="Center" HorizontalAlignment="Center" />
 
+                        <!-- Publish date of the episode playing now -->
+                        <TextBlock x:Name="EpisodePublishedAt"
+                                   Text="{Binding CurrentEpisodePublishedAtLabel}"
+                                   FontSize="12" Foreground="{DynamicResource AppMutedTextBrush}"
+                                   HorizontalAlignment="Center"
+                                   IsVisible="{Binding CurrentEpisodePublishedAtLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+
                         <!-- Episode Description -->
                         <views:LinkTextBlock x:Name="EpisodeDescription" SourceText="{Binding CurrentEpisodeDescription}"
                                              LinkCommand="{Binding OpenLinkCommand}"

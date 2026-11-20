@@ -325,6 +325,50 @@ public class PlayerViewLayoutTests
     }
 
     [AvaloniaTest]
+    public void Player_ShowsCurrentEpisodePublishedDateBelowTitle()
+    {
+        var vm = CreateViewModel();
+        vm.CurrentEpisodeId = "e1";
+        vm.CurrentEpisodeTitle = "Episode One";
+        vm.CurrentEpisodeDescription = "A description.";
+        vm.PlaylistItems.Add(new PlaylistItem { EpisodeId = "e1", PublishedAt = new DateTime(2026, 11, 1) });
+        var view = new PlayerView { DataContext = vm };
+        var window = new Window { Width = 900, Height = 600, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var title = view.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "EpisodeTitle");
+        var published = view.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "EpisodePublishedAt");
+        Assert.That(published.Text, Is.EqualTo("Nov 1, 2026"));
+        Assert.That(published.IsVisible, Is.True);
+
+        var titleBottom = title.TranslatePoint(new Point(0, title.Bounds.Height), window);
+        var publishedTop = published.TranslatePoint(new Point(0, 0), window);
+        Assert.That(titleBottom, Is.Not.Null);
+        Assert.That(publishedTop, Is.Not.Null);
+        Assert.That(publishedTop!.Value.Y, Is.GreaterThanOrEqualTo(titleBottom!.Value.Y),
+            "the publish date must sit directly below the episode title");
+        window.Hide();
+    }
+
+    [AvaloniaTest]
+    public void Player_HidesPublishedDateWhenUnknown()
+    {
+        var vm = CreateViewModel();
+        vm.CurrentEpisodeId = "e1";
+        vm.CurrentEpisodeTitle = "Episode One";
+        vm.PlaylistItems.Add(new PlaylistItem { EpisodeId = "e1" });
+        var view = new PlayerView { DataContext = vm };
+        var window = new Window { Width = 900, Height = 600, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var published = view.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "EpisodePublishedAt");
+        Assert.That(published.IsVisible, Is.False, "no known date must hide the line");
+        window.Hide();
+    }
+
+    [AvaloniaTest]
     public void UpNextPanel_ShowsDownloadStatePublishedDateAndClosesByCommand()
     {
         var vm = CreateViewModel();

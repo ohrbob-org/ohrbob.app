@@ -104,6 +104,7 @@ public partial class MainViewModel : ViewModelBase
     private StationWithFeedsDto? _selectedStation;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CurrentEpisodePublishedAtLabel))]
     private string _currentEpisodeId = "";
 
     [ObservableProperty]
@@ -124,6 +125,10 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     private string? _nextEpisodeTitle;
 
+    /// <summary>The publish date of the episode playing now, formatted for display.</summary>
+    public string? CurrentEpisodePublishedAtLabel =>
+        PlaylistItems.FirstOrDefault(item => item.EpisodeId == CurrentEpisodeId)?.PublishedAtLabel;
+
     private static readonly IReadOnlyList<BufferOption> AllBufferOptions = new[]
     {
         new BufferOption(0, "Off"),
@@ -140,6 +145,7 @@ public partial class MainViewModel : ViewModelBase
     private BufferOption _selectedBufferOption = AllBufferOptions[0];
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CurrentEpisodePublishedAtLabel))]
     private ObservableCollection<PlaylistItem> _playlistItems = new();
 
     [ObservableProperty]
