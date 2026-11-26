@@ -139,6 +139,26 @@ public class MetroShellLayoutTests
     }
 
     [AvaloniaTest]
+    public void NarrowStationsHeader_DoesNotSqueezeTheHeadline()
+    {
+        var vm = CreateViewModel();
+        vm.IsNowPlayingOpen = false;
+        vm.ProfileName = "Kai Wegner";
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 360, Height = 780, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var title = view.FindControl<TextBlock>("StationsTitle")!;
+        var point = title.TranslatePoint(new Point(0, 0), view);
+
+        Assert.That(title.Bounds.Width, Is.GreaterThanOrEqualTo(title.DesiredSize.Width - 1),
+            "the stations headline must get its full width instead of being clipped by the profile actions");
+        Assert.That(point!.Value.X + title.Bounds.Width, Is.LessThanOrEqualTo(view.Bounds.Width + 1));
+        window.Close();
+    }
+
+    [AvaloniaTest]
     public void NarrowTransport_KeepsForwardButtonInsideThePane()
     {
         var vm = CreateViewModel();
