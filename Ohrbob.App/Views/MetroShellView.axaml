@@ -50,10 +50,12 @@
 
         <Style Selector="Button.stationTile">
             <Setter Property="Padding" Value="0" />
-            <Setter Property="Margin" Value="0,0,18,18" />
+            <Setter Property="Margin" Value="0" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="CornerRadius" Value="0" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="VerticalAlignment" Value="Stretch" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="VerticalContentAlignment" Value="Stretch" />
         </Style>
@@ -70,8 +72,32 @@
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="BoxShadow" Value="0 18 60 0 #66000000" />
         </Style>
-        <Style Selector="Button#DisconnectIconButton">
-            <Setter Property="IsVisible" Value="False" />
+        <!-- Small action list opened by the profile avatar. -->
+        <Style Selector="Button.profileMenuAction">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="0" />
+            <Setter Property="Padding" Value="16,11" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="{DynamicResource MetroInkBrush}" />
+        </Style>
+        <Style Selector="Button.profileMenuAction:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource MetroTileBrush}" />
+        </Style>
+        <Style Selector="Button.profileMenuAction.danger">
+            <Setter Property="Foreground" Value="{StaticResource MetroAccentBrush}" />
+        </Style>
+
+        <!-- Gutters live in styles so the narrow query can tighten them; local
+             values would always win over the query. -->
+        <Style Selector="Grid#StationsHeader">
+            <Setter Property="Margin" Value="44,32,32,12" />
+        </Style>
+        <Style Selector="ItemsControl#StationGrid">
+            <Setter Property="Margin" Value="44,4,26,26" />
         </Style>
 
         <ContainerQuery Name="shell" Query="max-width: 760">
@@ -80,19 +106,10 @@
                 <Setter Property="LineHeight" Value="54" />
             </Style>
             <Style Selector="Grid#StationsHeader">
-                <Setter Property="Margin" Value="24,22,18,10" />
-            </Style>
-            <Style Selector="TextBlock#ListeningAsLabel">
-                <Setter Property="IsVisible" Value="False" />
-            </Style>
-            <Style Selector="Button#DisconnectButton">
-                <Setter Property="IsVisible" Value="False" />
-            </Style>
-            <Style Selector="Button#DisconnectIconButton">
-                <Setter Property="IsVisible" Value="True" />
+                <Setter Property="Margin" Value="16,20,16,10" />
             </Style>
             <Style Selector="ItemsControl#StationGrid">
-                <Setter Property="Margin" Value="18,4,0,18" />
+                <Setter Property="Margin" Value="16,4,16,18" />
             </Style>
         </ContainerQuery>
     </UserControl.Styles>
@@ -100,60 +117,24 @@
     <Grid Background="{DynamicResource MetroCanvasBrush}">
         <!-- Screen 2: the station grid / Metro start screen. -->
         <Border x:Name="StationsLayer" Classes="screen" Classes.closed="{Binding IsNowPlayingOpen}">
-            <Grid RowDefinitions="Auto,*">
-                <Grid x:Name="StationsHeader" Grid.Row="0"
-                      RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto"
-                      Margin="44,32,32,12">
-                    <StackPanel Grid.Row="0" Grid.Column="0" Spacing="0">
-                        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                            <views:OhrbobLogoText FontSize="18" />
-                            <TextBlock Text="player" FontSize="11" FontWeight="Bold" LetterSpacing="2"
-                                       Foreground="{DynamicResource MetroMutedBrush}" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </StackPanel>
-
-                    <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Top">
-                        <Button Classes="metroGhost" Command="{Binding OpenProfileSettingsCommand}"
-                                ToolTip.Tip="Open profile settings">
-                            <StackPanel Spacing="0" HorizontalAlignment="Right">
-                                <TextBlock x:Name="ListeningAsLabel" Text="listening as" Classes="metroLabel"
-                                           HorizontalAlignment="Right" />
-                                <TextBlock Text="{Binding ProfileName, FallbackValue='profile'}"
-                                           FontSize="14" FontWeight="Bold" MaxWidth="120"
-                                           TextTrimming="CharacterEllipsis"
-                                           Foreground="{DynamicResource MetroInkBrush}"
-                                           HorizontalAlignment="Right" />
-                            </StackPanel>
-                        </Button>
-                        <Button x:Name="DisconnectButton" Classes="metroGhost" Content="disconnect" FontSize="11"
-                                Command="{Binding DisconnectCommand}" Opacity="0.7" />
-                        <Button x:Name="DisconnectIconButton" Classes="metroTool"
-                                Command="{Binding DisconnectCommand}" Opacity="0.7"
-                                ToolTip.Tip="Disconnect">
-                            <PathIcon Data="M16,17V14H9V10H16V7L21,12L16,17M14,2A2,2 0 0,1 16,4V6H14V4H5V20H14V18H16V20A2,2 0 0,1 14,22H5A2,2 0 0,1 3,20V4A2,2 0 0,1 5,2H14Z"
-                                      Width="17" Height="17" Foreground="{DynamicResource MetroInkBrush}" />
-                        </Button>
-                    </StackPanel>
-
-                    <TextBlock x:Name="StationsTitle" Grid.Row="1" Grid.ColumnSpan="2"
-                               Text="stations" Classes="metroDisplay" Margin="0,10,0,0" />
-                </Grid>
-
-                <RefreshContainer x:Name="StationsRefresh" Grid.Row="1"
+            <Grid>
+                <!-- The list owns the whole screen so it can scroll behind the
+                     title once the header has collapsed. -->
+                <RefreshContainer x:Name="StationsRefresh"
                                   PullDirection="TopToBottom" IsMouseEnabled="True"
                                   RefreshRequested="OnStationsRefreshRequested">
                 <ScrollViewer x:Name="StationsScroll" VerticalScrollBarVisibility="Auto">
                     <Panel x:Name="StationsContent">
-                        <ItemsControl x:Name="StationGrid" ItemsSource="{Binding Stations}" Margin="44,4,26,26">
+                        <ItemsControl x:Name="StationGrid" ItemsSource="{Binding Stations}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
-                                    <WrapPanel ItemWidth="272" ItemHeight="184" />
+                                    <WrapPanel ItemWidth="{Binding $parent[views:MetroShellView].StationTileWidth}"
+                                               ItemHeight="184" />
                                 </ItemsPanelTemplate>
                             </ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <Button Classes="stationTile"
-                                            Width="272" Height="184"
                                             Tag="{Binding}"
                                             Click="OnStationTileClick"
                                             PointerPressed="OnStationTilePointerPressed"
@@ -161,8 +142,8 @@
                                             PointerCaptureLost="OnStationTilePointerCaptureLost"
                                             ToolTip.Tip="Tap to listen · long-press for settings">
                                         <Border Background="{DynamicResource StationTileBaseBrush}"
-                                                ClipToBounds="True" Width="272" Height="184"
-                                                BorderBrush="{DynamicResource MetroCanvasBrush}" BorderThickness="0,0,16,16">
+                                                ClipToBounds="True"
+                                                BorderBrush="{DynamicResource MetroCanvasBrush}" BorderThickness="0,0,8,8">
                                             <Panel ClipToBounds="True">
                                                 <ItemsControl ItemsSource="{Binding Feeds}" Opacity="0.72">
                                                     <ItemsControl.ItemsPanel>
@@ -224,6 +205,56 @@
                     </Panel>
                 </ScrollViewer>
                 </RefreshContainer>
+
+                <!-- Content fades out as it passes behind the header. -->
+                <Border x:Name="StationsHeaderFade" IsHitTestVisible="False" VerticalAlignment="Top" Height="220"
+                        Background="{DynamicResource MetroHeaderFadeBrush}" />
+
+                <Grid x:Name="StationsHeader" VerticalAlignment="Top"
+                      RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto">
+                    <StackPanel Grid.Row="0" Grid.Column="0" Spacing="0" IsHitTestVisible="False">
+                        <views:OhrbobLogoText FontSize="18" VerticalAlignment="Center" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Top">
+                        <Button x:Name="ProfileMenuButton" Classes="metroGhost"
+                                Padding="0"
+                                ToolTip.Tip="Profile menu">
+                            <Button.Flyout>
+                                <Flyout Placement="BottomEdgeAlignedRight" VerticalOffset="4">
+                                    <Border MinWidth="190"
+                                            Background="{DynamicResource MetroCanvasBrush}"
+                                            BorderBrush="{DynamicResource MetroHairlineBrush}"
+                                            BorderThickness="1">
+                                        <StackPanel>
+                                            <Button x:Name="ManageProfileMenuItem" Classes="profileMenuAction"
+                                                    Content="manage"
+                                                    Click="OnProfileMenuActionClick"
+                                                    Command="{Binding OpenProfileSettingsCommand}" />
+                                            <Border Height="1" Background="{DynamicResource MetroHairlineBrush}" />
+                                            <Button x:Name="DisconnectMenuItem" Classes="profileMenuAction danger"
+                                                    Content="disconnect"
+                                                    Click="OnProfileMenuActionClick"
+                                                    Command="{Binding DisconnectCommand}" />
+                                        </StackPanel>
+                                    </Border>
+                                </Flyout>
+                            </Button.Flyout>
+                            <Border x:Name="ProfileAvatar" Width="34" Height="34"
+                                    Background="{Binding ProfileColorHex, Converter={x:Static views:HexColorBrushConverter.Instance}}">
+                                <TextBlock x:Name="ProfileInitialText" Text="{Binding ProfileInitial}"
+                                           FontFamily="{StaticResource SulphurPoint}"
+                                           FontSize="17" FontWeight="Bold" Foreground="White"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                        </Button>
+                    </StackPanel>
+
+                    <views:MetroTitleHost x:Name="StationsTitleHost" Grid.Row="1" Grid.ColumnSpan="2"
+                                          Margin="0,10,0,0" IsHitTestVisible="False">
+                        <TextBlock x:Name="StationsTitle" Text="stations" Classes="metroDisplay" />
+                    </views:MetroTitleHost>
+                </Grid>
             </Grid>
         </Border>
 
@@ -252,19 +283,13 @@
                 <Grid RowDefinitions="Auto,*">
                     <Border Grid.Row="0" Height="6" Background="{StaticResource MetroAccentBrush}" />
                     <Grid Grid.Row="1" RowDefinitions="Auto,*" Margin="28,22,28,24">
-                        <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
-                            <StackPanel Spacing="2">
-                                <TextBlock Text="station settings" Classes="metroHeadline" FontSize="34" />
-                                <TextBlock Text="{Binding SettingsStation.Station.Name, FallbackValue='No station selected'}"
-                                           FontSize="12" FontWeight="Bold" LetterSpacing="2"
-                                           Foreground="{StaticResource MetroAccentBrush}"
-                                           TextTrimming="CharacterEllipsis" />
-                            </StackPanel>
-                            <Button Grid.Column="1" Classes="metroTool" Command="{Binding CloseSettingsCommand}"
-                                    VerticalAlignment="Top" ToolTip.Tip="Close">
-                                <TextBlock Text="×" FontSize="26" FontWeight="Light" />
-                            </Button>
-                        </Grid>
+                        <StackPanel Grid.Row="0" Spacing="2">
+                            <TextBlock Text="station settings" Classes="metroHeadline" FontSize="34" />
+                            <TextBlock Text="{Binding SettingsStation.Station.Name, FallbackValue='No station selected'}"
+                                       FontSize="12" FontWeight="Bold" LetterSpacing="2"
+                                       Foreground="{StaticResource MetroAccentBrush}"
+                                       TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
 
                         <StackPanel Grid.Row="1" Spacing="16" Margin="0,22,0,0">
                             <TextBlock Text="buffer ahead" Classes="metroLabel" />
@@ -289,7 +314,7 @@
                             </Border>
                             <Grid ColumnDefinitions="*,Auto">
                                 <Button Classes="metroGhost" Command="{Binding OpenStationSettingsCommand}"
-                                        Content="more" FontSize="11" HorizontalAlignment="Left" />
+                                        Content="more settings" FontSize="11" HorizontalAlignment="Left" />
                                 <Button Grid.Column="1" Classes="metroGhost" Command="{Binding CloseSettingsCommand}"
                                         Content="done" HorizontalAlignment="Right" />
                             </Grid>

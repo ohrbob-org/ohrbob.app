@@ -13,6 +13,20 @@
              ClipToBounds="True">
 
     <UserControl.Styles>
+        <Style Selector="TextBlock#NowPlayingStationTitle">
+            <Setter Property="FontFamily" Value="{StaticResource SulphurPoint}" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="LetterSpacing" Value="-2" />
+            <Setter Property="FontSize" Value="58" />
+            <Setter Property="LineHeight" Value="58" />
+        </Style>
+        <Style Selector="TextBlock#NowPlayingTitle">
+            <Setter Property="FontFamily" Value="{StaticResource SulphurPoint}" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="LetterSpacing" Value="-1" />
+            <Setter Property="FontSize" Value="40" />
+            <Setter Property="LineHeight" Value="42" />
+        </Style>
         <Style Selector="Slider.metroSlider">
             <Setter Property="Foreground" Value="{StaticResource MetroAccentBrush}" />
             <Setter Property="Background" Value="Transparent" />
@@ -89,12 +103,13 @@
             <Style Selector="Button#PortraitVolumeButton">
                 <Setter Property="IsVisible" Value="True" />
             </Style>
-            <Style Selector="TextBlock#NowPlayingTitle">
+            <Style Selector="TextBlock#NowPlayingStationTitle">
                 <Setter Property="FontSize" Value="40" />
                 <Setter Property="LineHeight" Value="40" />
             </Style>
-            <Style Selector="TextBlock#NowPlayingStation">
-                <Setter Property="FontSize" Value="11" />
+            <Style Selector="TextBlock#NowPlayingTitle">
+                <Setter Property="FontSize" Value="30" />
+                <Setter Property="LineHeight" Value="32" />
             </Style>
             <Style Selector="StackPanel#TransportButtons">
                 <Setter Property="Spacing" Value="4" />
@@ -126,61 +141,19 @@
                     Background="{DynamicResource NowPlayingTopFadeBrush}" />
         </Panel>
 
-        <Grid RowDefinitions="Auto,*,Auto">
-            <!-- Eyebrow: back, station, state, settings. -->
-            <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="24,26,32,0">
-                <Button x:Name="BackToStations" Grid.Column="0" Classes="metroGhost"
-                        Command="{Binding ShowStationsCommand}"
-                        Width="40" Height="40" Padding="0" Margin="0,0,8,0"
-                        Foreground="{DynamicResource NowPlayingIconBrush}"
-                        VerticalAlignment="Top" ToolTip.Tip="Stations">
-                    <PathIcon Data="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z"
-                              Width="20" Height="20" Foreground="{DynamicResource NowPlayingIconBrush}" />
-                </Button>
-
-                <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
-                    <TextBlock x:Name="NowPlayingStation"
-                               Text="{Binding SelectedStation.Station.Name, FallbackValue='ohrbob'}"
-                               FontSize="12" FontWeight="Bold" LetterSpacing="3"
-                               Foreground="{DynamicResource NowPlayingAccentBrush}"
-                               TextTrimming="CharacterEllipsis" />
-                    <TextBlock Text="now playing" FontSize="11" FontWeight="SemiBold"
-                               LetterSpacing="2" Foreground="{DynamicResource NowPlayingMutedBrush}" />
-                </StackPanel>
-
-                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Top">
-                    <Border x:Name="BufferingChip"
-                            Background="{StaticResource MetroAccentBrush}" Padding="7,3"
-                            IsVisible="{Binding IsBuffering}" IsHitTestVisible="False">
-                        <TextBlock Text="BUFFERING" FontSize="9" FontWeight="Bold" LetterSpacing="1" Foreground="White" />
-                    </Border>
-                    <Button x:Name="StationSettingsButton"
-                            Classes="metroGhost"
-                            Command="{Binding OpenSettingsCommand}"
-                            IsVisible="{Binding $parent[views:MetroShellView].IsNarrow}"
-                            Foreground="{DynamicResource NowPlayingIconBrush}"
-                            ToolTip.Tip="Station settings">
-                        <PathIcon Data="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.98C19.47,12.66 19.5,12.34 19.5,12C19.5,11.66 19.47,11.34 19.43,11.02L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.65 15.48,5.32 14.87,5.07L14.49,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.51,2.42L9.13,5.07C8.52,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11.02C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.52,18.68 9.13,18.93L9.51,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.49,21.58L14.87,18.93C15.48,18.68 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.98Z"
-                                  Width="18" Height="18" Foreground="{DynamicResource NowPlayingIconBrush}" />
-                    </Button>
-                </StackPanel>
-            </Grid>
-
+        <Grid RowDefinitions="*,Auto">
             <!-- Title, date and description share one scroller. Short episodes
-                 stay anchored to the bottom; long metadata can scroll. -->
-            <ScrollViewer x:Name="NowPlayingDetailsScroll" Grid.Row="1"
-                          Margin="40,20,40,12"
+                 stay anchored to the bottom; long metadata can scroll, and it
+                 passes behind the page header as the title shrinks. -->
+            <ScrollViewer x:Name="NowPlayingDetailsScroll" Grid.Row="0"
+                          Margin="24,20,40,12"
                           VerticalScrollBarVisibility="Hidden"
                           HorizontalScrollBarVisibility="Disabled">
-                <Grid x:Name="NowPlayingDetailsContent"
-                      MinHeight="{Binding $parent[ScrollViewer].Viewport.Height}">
+                <Grid x:Name="NowPlayingDetailsContent">
                     <StackPanel Spacing="12" MaxWidth="820" HorizontalAlignment="Left"
                                 VerticalAlignment="Bottom">
                     <TextBlock x:Name="NowPlayingTitle"
                                Text="{Binding CurrentEpisodeTitle}"
-                               Classes="metroDisplay"
-                               FontSize="58"
-                               LineHeight="56"
                                Foreground="{DynamicResource NowPlayingTextBrush}"
                                TextWrapping="Wrap" />
                     <TextBlock x:Name="NowPlayingDate"
@@ -200,9 +173,9 @@
             </ScrollViewer>
 
             <!-- Transport deck: solid, oversized, thumb-friendly. -->
-            <Border Grid.Row="2" Background="{DynamicResource NowPlayingChromeBrush}"
+            <Border x:Name="TransportDeck" Grid.Row="1" Background="{DynamicResource NowPlayingChromeBrush}"
                     BorderBrush="{DynamicResource NowPlayingChromeBorderBrush}" BorderThickness="0,1,0,0"
-                    Padding="28,14,28,18">
+                    Padding="24,14,28,18">
                 <Grid RowDefinitions="Auto,Auto" RowSpacing="8">
                     <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="12">
                         <TextBlock Text="{Binding PositionText}" Width="42" VerticalAlignment="Center"
@@ -297,7 +270,7 @@
             <!-- Station switch loading veil. The header keeps the back button
                  usable; everything that would show the old station's data is
                  covered until the new player and playlist are populated. -->
-            <Border x:Name="StationLoadingOverlay" Grid.Row="1" Grid.RowSpan="2"
+            <Border x:Name="StationLoadingOverlay" Grid.Row="0" Grid.RowSpan="2"
                     Background="{DynamicResource NowPlayingBaseBrush}"
                     IsVisible="{Binding IsStationLoading}">
                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="14">
@@ -309,6 +282,57 @@
                                Foreground="{DynamicResource NowPlayingMutedBrush}" />
                 </StackPanel>
             </Border>
+
+            <!-- Same fade as the playlist/stations headers. -->
+            <Border x:Name="NowPlayingHeaderFade" IsHitTestVisible="False"
+                    VerticalAlignment="Top" Height="220"
+                    Background="{DynamicResource MetroHeaderFadeBrush}" />
+
+            <!-- Page header: navigation above, station title below. The
+                 metadata scrolls behind it once the title shrinks. The title
+                 layer ignores input so drags still reach the details. -->
+            <Grid x:Name="NowPlayingHeader" Grid.Row="0" Grid.RowSpan="2"
+                  RowDefinitions="Auto,Auto" ColumnDefinitions="Auto,*,Auto"
+                  Margin="24,26,32,0" VerticalAlignment="Top" IsHitTestVisible="False">
+                <Grid Grid.Row="0" Grid.ColumnSpan="3" Height="40" />
+                <views:MetroTitleHost x:Name="NowPlayingStationTitleHost" Grid.Row="1" Grid.ColumnSpan="3"
+                                      Margin="0,8,0,0">
+                    <TextBlock x:Name="NowPlayingStationTitle"
+                               Text="{Binding SelectedStation.Station.Name, FallbackValue='ohrbob'}"
+                               Foreground="{DynamicResource NowPlayingTextBrush}"
+                               TextWrapping="NoWrap" MaxLines="1" TextTrimming="CharacterEllipsis" />
+                </views:MetroTitleHost>
+            </Grid>
+
+            <Grid x:Name="NowPlayingHeaderActions" Grid.Row="0" Grid.RowSpan="2"
+                  RowDefinitions="Auto" ColumnDefinitions="Auto,*,Auto"
+                  Margin="24,26,32,0" VerticalAlignment="Top">
+                <Button x:Name="BackToStations" Grid.Row="0" Grid.Column="0" Classes="metroGhost"
+                        Command="{Binding ShowStationsCommand}"
+                        Width="40" Height="40" Padding="0" Margin="0,0,8,0"
+                        HorizontalContentAlignment="Left"
+                        Foreground="{DynamicResource NowPlayingIconBrush}"
+                        VerticalAlignment="Top" ToolTip.Tip="Stations">
+                    <PathIcon Data="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z"
+                              Width="20" Height="20" Foreground="{DynamicResource NowPlayingIconBrush}" />
+                </Button>
+
+                <StackPanel Grid.Row="0" Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Top">
+                    <Border x:Name="BufferingChip"
+                            Background="{StaticResource MetroAccentBrush}" Padding="7,3"
+                            IsVisible="{Binding IsBuffering}" IsHitTestVisible="False">
+                        <TextBlock Text="BUFFERING" FontSize="9" FontWeight="Bold" LetterSpacing="1" Foreground="White" />
+                    </Border>
+                    <Button x:Name="StationSettingsButton"
+                            Classes="metroGhost"
+                            Command="{Binding OpenSettingsCommand}"
+                            Foreground="{DynamicResource NowPlayingIconBrush}"
+                            ToolTip.Tip="Station settings">
+                        <PathIcon Data="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.98C19.47,12.66 19.5,12.34 19.5,12C19.5,11.66 19.47,11.34 19.43,11.02L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.65 15.48,5.32 14.87,5.07L14.49,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.51,2.42L9.13,5.07C8.52,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11.02C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.52,18.68 9.13,18.93L9.51,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.49,21.58L14.87,18.93C15.48,18.68 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.98Z"
+                                  Width="18" Height="18" Foreground="{DynamicResource NowPlayingIconBrush}" />
+                    </Button>
+                </StackPanel>
+            </Grid>
         </Grid>
 
     </Grid>

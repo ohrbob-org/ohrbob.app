@@ -6,6 +6,7 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -150,6 +151,82 @@ public class MetroShellLayoutTests
 
         Assert.That(transform.X, Is.EqualTo(-(viewport.Bounds.Width - 128)).Within(2),
             "opening the playlist should leave the player peeking on the left");
+        window.Close();
+    }
+
+    [AvaloniaTest]
+    public async Task StationZoom_CachesBothLayersOnlyDuringTheTransition()
+    {
+        var vm = CreateViewModel();
+        vm.IsNowPlayingOpen = false;
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 420, Height = 820, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var stations = view.FindControl<Border>("StationsLayer")!;
+        var player = view.FindControl<Border>("PlayerLayer")!;
+        Assert.That(stations.CacheMode, Is.Null);
+        Assert.That(player.CacheMode, Is.Null);
+
+        vm.IsNowPlayingOpen = true;
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(stations.CacheMode, Is.TypeOf<BitmapCache>(),
+            "the station grid must be rasterized for the zoom");
+        Assert.That(player.CacheMode, Is.TypeOf<BitmapCache>(),
+            "the player layer must be rasterized for the zoom");
+
+        await Task.Delay(900);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(stations.CacheMode, Is.Null,
+            "the zoom cache must be released after the transition");
+        Assert.That(player.CacheMode, Is.Null,
+            "the zoom cache must be released after the transition");
+        window.Close();
+    }
+
+    [AvaloniaTest]
+    public void StationTiles_UseTightMetroGutters()
+    {
+        var vm = CreateViewModel();
+        vm.IsNowPlayingOpen = false;
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 900, Height = 700, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var tile = view.GetVisualDescendants().OfType<Button>()
+            .First(button => button.Classes.Contains("stationTile"));
+        var gap = tile.GetVisualDescendants().OfType<Border>()
+            .First(border => border.BorderThickness.Right > 0);
+
+        Assert.That(tile.Margin, Is.EqualTo(default(Thickness)),
+            "the tile itself must not add an outer gap");
+        Assert.That(gap.BorderThickness, Is.EqualTo(new Thickness(0, 0, 8, 8)),
+            "station tiles use a tight Metro gutter");
+        window.Close();
+    }
+
+    [AvaloniaTest]
+    public void PlaylistRows_UseTightGuttersWithoutDividers()
+    {
+        var vm = CreateViewModel();
+        vm.PlaylistItems.Add(new PlaylistItem { EpisodeId = "e1", Title = "Episode" });
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 1200, Height = 800, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var playlist = view.GetVisualDescendants().OfType<PlaylistView>().Single();
+        var row = playlist.GetVisualDescendants().OfType<Border>()
+            .First(border => border.Classes.Contains("episodeRow"));
+
+        Assert.That(row.BorderThickness, Is.EqualTo(default(Thickness)),
+            "playlist rows no longer draw a divider");
+        Assert.That(row.Padding.Top, Is.EqualTo(8).Within(0.1),
+            "playlist rows use a tight vertical gutter");
         window.Close();
     }
 
@@ -488,7 +565,7 @@ public class MetroShellLayoutTests
     }
 
     [AvaloniaTest]
-    public void PortraitStationsHeader_ShowsDisconnectAndUsesPullRefresh()
+    public void PortraitStationsHeader_ProfileMenuHoldsManageAndDisconnect()
     {
         var vm = CreateViewModel();
         vm.IsNowPlayingOpen = false;
@@ -497,16 +574,140 @@ public class MetroShellLayoutTests
         window.Show();
         Dispatcher.UIThread.RunJobs();
 
-        Assert.That(view.FindControl<Button>("DisconnectIconButton")!.IsEffectivelyVisible, Is.True,
-            "disconnect must remain available in portrait");
-        Assert.That(view.FindControl<Button>("DisconnectButton")!.IsEffectivelyVisible, Is.False,
-            "portrait uses the compact disconnect icon");
+        Assert.That(view.FindControl<Button>("ProfileMenuButton"), Is.Not.Null,
+            "the profile avatar opens the menu");
+        Assert.That(view.FindControl<Button>("DisconnectButton"), Is.Null,
+            "the standalone disconnect button moved into the profile menu");
+        Assert.That(view.FindControl<Button>("DisconnectIconButton"), Is.Null,
+            "the compact standalone disconnect icon moved into the profile menu");
 
         var refresh = view.FindControl<RefreshContainer>("StationsRefresh");
         Assert.That(refresh, Is.Not.Null);
         Assert.That(refresh!.PullDirection, Is.EqualTo(PullDirection.TopToBottom));
         Assert.That(view.GetVisualDescendants().OfType<Button>().Any(b => ReferenceEquals(b.Command, vm.RefreshAllCommand)),
             Is.False, "the header refresh button was removed");
+        window.Close();
+    }
+
+    [AvaloniaTest]
+    public void StationTile_TouchTap_OpensStation()
+    {
+        var vm = CreateViewModel();
+        vm.IsNowPlayingOpen = false;
+        vm.SelectedStation = null;
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 1200, Height = 800, Content = view };
+        window.Show();
+        window.Activate();
+        window.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+
+        var tile = view.GetVisualDescendants().OfType<Button>()
+            .First(button => button.Classes.Contains("stationTile"));
+        var start = tile.TranslatePoint(
+            new Point(tile.Bounds.Width / 2, tile.Bounds.Height / 2), window)!.Value;
+
+        var pointer = window.TouchBegin(start, RawInputModifiers.None);
+        window.TouchEnd(pointer, start, RawInputModifiers.None);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(vm.SelectedStation, Is.SameAs(vm.Stations[0]),
+            "a touch tap must open the station");
+        window.Close();
+    }
+
+    [AvaloniaTest]
+    public void StationTile_TouchTapWithSmallMovement_OpensStation()
+    {
+        var vm = CreateViewModel();
+        vm.IsNowPlayingOpen = false;
+        vm.SelectedStation = null;
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 1200, Height = 800, Content = view };
+        window.Show();
+        window.Activate();
+        window.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+
+        var tile = view.GetVisualDescendants().OfType<Button>()
+            .First(button => button.Classes.Contains("stationTile"));
+        var start = tile.TranslatePoint(
+            new Point(tile.Bounds.Width / 2, tile.Bounds.Height / 2), window)!.Value;
+
+        var pointer = window.TouchBegin(start, RawInputModifiers.None);
+        window.TouchMove(pointer, start + new Point(0, 10), RawInputModifiers.None);
+        window.TouchEnd(pointer, start + new Point(0, 10), RawInputModifiers.None);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(vm.SelectedStation, Is.SameAs(vm.Stations[0]),
+            "a few pixels of finger drift must still count as a tap");
+        window.Close();
+    }
+
+    [AvaloniaTest]
+    public void StationTile_TouchDrag_DoesNotOpenStation()
+    {
+        var vm = CreateViewModel();
+        vm.IsNowPlayingOpen = false;
+        vm.SelectedStation = null;
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 1200, Height = 800, Content = view };
+        window.Show();
+        window.Activate();
+        window.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+
+        var tile = view.GetVisualDescendants().OfType<Button>()
+            .First(button => button.Classes.Contains("stationTile"));
+        var start = tile.TranslatePoint(
+            new Point(tile.Bounds.Width / 2, tile.Bounds.Height / 2), window)!.Value;
+
+        var pointer = window.TouchBegin(start, RawInputModifiers.None);
+        window.TouchMove(pointer, start + new Point(0, 60), RawInputModifiers.None);
+        window.TouchEnd(pointer, start + new Point(0, 60), RawInputModifiers.None);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(vm.SelectedStation, Is.Null,
+            "a real drag must scroll/bounce instead of opening the station");
+        window.Close();
+    }
+
+    [AvaloniaTest]
+    public void ProfileMenu_ListsManageAboveDisconnect()
+    {
+        var vm = CreateViewModel();
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 900, Height = 700, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var trigger = view.FindControl<Button>("ProfileMenuButton")!;
+        var flyout = trigger.Flyout as Flyout;
+        Assert.That(flyout, Is.Not.Null, "the profile avatar must open a flyout menu");
+
+        flyout!.ShowAt(trigger);
+        Dispatcher.UIThread.RunJobs();
+
+        var content = (Control)flyout.Content!;
+        var buttons = content.GetVisualDescendants().OfType<Button>().ToList();
+        var manage = buttons.Single(button => Equals(button.Content, "manage"));
+        var disconnect = buttons.Single(button => Equals(button.Content, "disconnect"));
+
+        Assert.That(manage.Command, Is.SameAs(vm.OpenProfileSettingsCommand),
+            "manage keeps the previous avatar action");
+        Assert.That(disconnect.Command, Is.SameAs(vm.DisconnectCommand),
+            "disconnect is available from the profile menu");
+
+        var managePoint = manage.TranslatePoint(default, content)!.Value;
+        var disconnectPoint = disconnect.TranslatePoint(default, content)!.Value;
+        Assert.That(disconnectPoint.Y, Is.GreaterThan(managePoint.Y),
+            "the menu options are stacked vertically");
+        Assert.That(disconnectPoint.X, Is.EqualTo(managePoint.X).Within(0.5));
+
+        manage.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(flyout.IsOpen, Is.False, "choosing a menu action closes the overlay");
+
         window.Close();
     }
 
@@ -534,7 +735,7 @@ public class MetroShellLayoutTests
     }
 
     [AvaloniaTest]
-    public void Landscape_OnlyShowsThePlaylistSettingsCog()
+    public void Landscape_ShowsThePlayerCogAndLeavesThePlaylistHeaderEmpty()
     {
         var vm = CreateViewModel();
         var view = new MetroShellView { DataContext = vm };
@@ -545,10 +746,10 @@ public class MetroShellLayoutTests
         var nowPlaying = view.GetVisualDescendants().OfType<NowPlayingView>().Single();
         var playlist = view.GetVisualDescendants().OfType<PlaylistView>().Single();
 
-        Assert.That(nowPlaying.FindControl<Button>("StationSettingsButton")!.IsEffectivelyVisible, Is.False,
-            "the player-side cog is redundant when both panes are visible");
-        Assert.That(playlist.FindControl<Button>("PlaylistSettingsButton")!.IsEffectivelyVisible, Is.True,
-            "the playlist cog remains the single settings entry in landscape");
+        Assert.That(nowPlaying.FindControl<Button>("StationSettingsButton")!.IsEffectivelyVisible, Is.True,
+            "the player header always owns the settings cog");
+        Assert.That(playlist.FindControl<Button>("PlaylistSettingsButton"), Is.Null,
+            "the playlist header has no actions and stays empty");
         window.Close();
     }
 
@@ -565,9 +766,9 @@ public class MetroShellLayoutTests
         var playlist = view.GetVisualDescendants().OfType<PlaylistView>().Single();
 
         Assert.That(nowPlaying.FindControl<Button>("StationSettingsButton")!.IsEffectivelyVisible, Is.True,
-            "the player-side cog is the single settings entry in portrait");
-        Assert.That(playlist.FindControl<Button>("PlaylistSettingsButton")!.IsEffectivelyVisible, Is.False,
-            "the playlist cog would duplicate the player cog in portrait");
+            "the player header owns the settings cog");
+        Assert.That(playlist.FindControl<Button>("PlaylistSettingsButton"), Is.Null,
+            "the playlist header has no actions in portrait either");
         window.Close();
     }
 
@@ -808,8 +1009,8 @@ public class MetroShellLayoutTests
             Is.False, "the settings link at the bottom was removed");
 
         var playlistSettings = playlist.FindControl<Button>("PlaylistSettingsButton");
-        Assert.That(playlistSettings, Is.Not.Null);
-        Assert.That(playlistSettings!.Command, Is.SameAs(vm.OpenSettingsCommand));
+        Assert.That(playlistSettings, Is.Null,
+            "the playlist header is empty, so settings live only in the player header");
         window.Close();
     }
 
@@ -896,6 +1097,89 @@ public class MetroShellLayoutTests
     }
 
     [AvaloniaTest]
+    public void NarrowPanorama_HorizontalDragOwnsTheGestureFromTheDetailsScroller()
+    {
+        var vm = CreateViewModel();
+        vm.CurrentEpisodeTitle = "A long title that makes the details area scrollable";
+        vm.CurrentEpisodeDescription = string.Join(" ", Enumerable.Repeat(
+            "Long description that makes the details area scrollable.", 20));
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 420, Height = 820, Content = view };
+        window.Show();
+        window.Activate();
+        window.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+
+        var nowPlaying = view.GetVisualDescendants().OfType<NowPlayingView>().Single();
+        var scroll = nowPlaying.FindControl<ScrollViewer>("NowPlayingDetailsScroll")!;
+        var details = nowPlaying.FindControl<Grid>("NowPlayingDetailsContent")!;
+        var bounce = (TranslateTransform)details.RenderTransform!;
+        var canvas = view.FindControl<Canvas>("PanoramaCanvas")!;
+        var transform = (TranslateTransform)canvas.RenderTransform!;
+        var start = scroll.TranslatePoint(
+            new Point(scroll.Bounds.Width / 2, scroll.Bounds.Height / 2), window)!.Value;
+        var offset = scroll.Offset.Y;
+
+        window.MouseDown(start, MouseButton.Left);
+        window.MouseMove(start - new Point(60, 0), RawInputModifiers.LeftMouseButton);
+        window.MouseMove(start - new Point(80, 100), RawInputModifiers.LeftMouseButton);
+        window.MouseMove(start - new Point(80, -80), RawInputModifiers.LeftMouseButton);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(transform.X, Is.LessThan(-10),
+            "the horizontal drag should move the panorama");
+        Assert.That(scroll.Offset.Y, Is.EqualTo(offset).Within(1),
+            "the details scroller must not take over a horizontal drag");
+        Assert.That(bounce.Y, Is.EqualTo(0).Within(0.01),
+            "the details rubber-band must not react once the panorama owns the pointer");
+
+        window.MouseUp(start - new Point(80, -80), MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(vm.IsPlaylistOpen, Is.False,
+            "a short drag should settle back on the player");
+        window.Close();
+    }
+
+    [AvaloniaTest]
+    public void PlayerHeaderButtons_StillReceiveTaps()
+    {
+        var vm = CreateViewModel();
+        vm.IsNowPlayingOpen = true;
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 420, Height = 820, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var nowPlaying = view.GetVisualDescendants().OfType<NowPlayingView>().Single();
+        var settings = nowPlaying.FindControl<Button>("StationSettingsButton")!;
+        var settingsPoint = settings.TranslatePoint(
+            new Point(settings.Bounds.Width / 2, settings.Bounds.Height / 2), window)!.Value;
+
+        window.MouseDown(settingsPoint, MouseButton.Left);
+        window.MouseUp(settingsPoint, MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(vm.IsSettingsOpen, Is.True,
+            "the settings cog must still receive taps through the panorama handlers");
+
+        vm.CloseSettingsCommand.Execute(null);
+        Dispatcher.UIThread.RunJobs();
+
+        var back = nowPlaying.FindControl<Button>("BackToStations")!;
+        var backPoint = back.TranslatePoint(
+            new Point(back.Bounds.Width / 2, back.Bounds.Height / 2), window)!.Value;
+
+        window.MouseDown(backPoint, MouseButton.Left);
+        window.MouseUp(backPoint, MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(vm.IsNowPlayingOpen, Is.False,
+            "the back button must still receive taps through the panorama handlers");
+        window.Close();
+    }
+
+    [AvaloniaTest]
     public void NarrowPanorama_SwipesToThePlaylistAndBack()
     {
         var vm = CreateViewModel();
@@ -911,6 +1195,115 @@ public class MetroShellLayoutTests
         view.SwipeForTests(300);
         Dispatcher.UIThread.RunJobs();
         Assert.That(vm.IsPlaylistOpen, Is.False, "a right swipe should return to now playing");
+        window.Close();
+    }
+
+    [AvaloniaTest]
+    public void NarrowPanorama_InterruptedSwipeSettlesOnAPage()
+    {
+        var vm = CreateViewModel();
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 420, Height = 820, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var viewport = view.FindControl<Panel>("PanoramaViewport")!;
+        var canvas = view.FindControl<Canvas>("PanoramaCanvas")!;
+        var transform = (TranslateTransform)canvas.RenderTransform!;
+
+        // Simulate the transform being left halfway with no active pan flag,
+        // as happens when a snap is interrupted and the release is missed.
+        transform.Transitions = null;
+        transform.X = -(viewport.Bounds.Width - 128) / 2;
+        view.SettlePanoramaForTests();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(transform.X, Is.EqualTo(0).Within(1),
+            "an interrupted swipe on the player must settle back to the player");
+
+        vm.IsPlaylistOpen = true;
+        Dispatcher.UIThread.RunJobs();
+        transform.Transitions = null;
+        transform.X = -(viewport.Bounds.Width - 128) / 2;
+        view.SettlePanoramaForTests();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(transform.X, Is.EqualTo(-(viewport.Bounds.Width - 128)).Within(1),
+            "an interrupted swipe on the playlist must settle back to the playlist");
+        window.Close();
+    }
+
+    [AvaloniaTest]
+    public void NarrowStationsHeader_RemovesPlayerLabelAndTightensGutters()
+    {
+        var vm = CreateViewModel();
+        vm.IsNowPlayingOpen = false;
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 360, Height = 780, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var header = view.FindControl<Grid>("StationsHeader")!;
+        var grid = view.FindControl<ItemsControl>("StationGrid")!;
+
+        Assert.That(header.GetVisualDescendants().OfType<TextBlock>().Any(t => t.Text == "player"),
+            Is.False, "the redundant 'player' label was removed from the wordmark");
+        Assert.That(header.Margin.Left, Is.EqualTo(16).Within(0.1),
+            "portrait should use the tighter header gutter");
+        Assert.That(grid.Margin.Left, Is.EqualTo(16).Within(0.1),
+            "portrait should use the tighter content gutter");
+        Assert.That(grid.Margin.Right, Is.EqualTo(16).Within(0.1));
+        window.Close();
+    }
+
+    [AvaloniaTest]
+    public void PlayerLayer_IsImmersiveButOtherScreensKeepSafeAreaPadding()
+    {
+        var vm = CreateViewModel();
+        vm.IsNowPlayingOpen = false;
+        var view = new MainView { DataContext = vm };
+        var window = new Window { Width = 420, Height = 820, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(TopLevel.GetAutoSafeAreaPadding(view), Is.True,
+            "the station screen should stay inside the safe area");
+
+        vm.IsNowPlayingOpen = true;
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(TopLevel.GetAutoSafeAreaPadding(view), Is.False,
+            "the player should paint behind the status and navigation bars");
+
+        vm.IsNowPlayingOpen = false;
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(TopLevel.GetAutoSafeAreaPadding(view), Is.True,
+            "leaving the player should restore the safe-area padding");
+        window.Close();
+    }
+
+    [AvaloniaTest]
+    public void NarrowStationsGrid_TilesFillTheAvailableWidth()
+    {
+        var vm = CreateViewModel();
+        vm.IsNowPlayingOpen = false;
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 360, Height = 780, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var grid = view.FindControl<ItemsControl>("StationGrid")!;
+        var wrap = grid.GetVisualDescendants().OfType<WrapPanel>().Single();
+        var tile = grid.GetVisualDescendants().OfType<Button>()
+            .First(button => button.Classes.Contains("stationTile"));
+
+        Assert.That(view.StationTileWidth, Is.EqualTo(328).Within(1),
+            $"computed slot width (WrapPanel={wrap.ItemWidth}, tile={tile.Bounds.Width})");
+        Assert.That(wrap.ItemWidth, Is.EqualTo(view.StationTileWidth).Within(0.5),
+            "the WrapPanel should take its slot width from the shell");
+        Assert.That(tile.Bounds.Width, Is.GreaterThan(280),
+            "the station tile should grow into the tighter portrait gutters");
+        Assert.That(tile.Bounds.Width, Is.LessThanOrEqualTo(view.Bounds.Width - 32),
+            "the tile must stay inside the portrait gutters");
         window.Close();
     }
 
@@ -996,6 +1389,500 @@ public class MetroShellLayoutTests
         var overlay = view.FindControl<Panel>("SettingsOverlay")!;
         Assert.That(overlay.IsVisible, Is.True);
         Assert.That(view.GetVisualDescendants().OfType<TextBlock>().Any(t => t.Text == "Morning Brief"), Is.True);
+
+        Assert.That(overlay.GetVisualDescendants().OfType<TextBlock>().Any(t => t.Text == "×"), Is.False,
+            "the settings modal no longer has a close X");
+        Assert.That(overlay.GetVisualDescendants().OfType<Button>()
+                .Any(b => Equals(b.Content, "more settings")), Is.True,
+            "the external settings action is labelled 'more settings'");
+        Assert.That(overlay.GetVisualDescendants().OfType<Button>()
+                .Any(b => Equals(b.Content, "done")), Is.True,
+            "the done button remains as the close action");
+        window.Close();
+    }
+
+    [AvaloniaTest]
+    public void StationsHeader_ShowsTheProfileInitialInItsColor()
+    {
+        var vm = CreateViewModel();
+        vm.ProfileName = "kai";
+        vm.ProfileColor = "#3b82f6";
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 900, Height = 700, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var avatar = view.FindControl<Border>("ProfileAvatar")!;
+        var initial = view.FindControl<TextBlock>("ProfileInitialText")!;
+        var header = view.FindControl<Grid>("StationsHeader")!;
+
+        Assert.That(initial.Text, Is.EqualTo("K"),
+            "the profile avatar shows only the first letter");
+        Assert.That(avatar.Background, Is.InstanceOf<ISolidColorBrush>());
+        Assert.That(((ISolidColorBrush)avatar.Background!).Color, Is.EqualTo(Color.Parse("#3B82F6")),
+            "the avatar uses the profile's color");
+        Assert.That(header.GetVisualDescendants().OfType<TextBlock>().Any(t => t.Text == "kai"), Is.False,
+            "the full profile name is no longer shown in the header");
+        window.Close();
+    }
+
+    [AvaloniaTest]
+    public void PlayerHeader_UsesTheStationNameAsItsPageTitle()
+    {
+        var vm = CreateViewModel();
+        vm.SelectedStation!.Station!.Name = "Die Maus zum Hören";
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 1200, Height = 800, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var nowPlaying = view.GetVisualDescendants().OfType<NowPlayingView>().Single();
+        var title = nowPlaying.FindControl<TextBlock>("NowPlayingStationTitle")!;
+        var back = nowPlaying.FindControl<Button>("BackToStations")!;
+        var settings = nowPlaying.FindControl<Button>("StationSettingsButton")!;
+
+        Assert.That(title.Text, Is.EqualTo("Die Maus zum Hören"));
+        Assert.That(title.IsEffectivelyVisible, Is.True,
+            "the station name belongs in the page title slot");
+        Assert.That(nowPlaying.GetVisualDescendants().OfType<TextBlock>()
+                .Any(t => t.Text == "now playing" && t.IsEffectivelyVisible), Is.False,
+            "the now playing eyebrow was dropped");
+        Assert.That(back.IsEffectivelyVisible, Is.True);
+        Assert.That(settings.IsEffectivelyVisible, Is.True);
+        Assert.That(back.TranslatePoint(default, nowPlaying)!.Value.Y,
+            Is.LessThan(title.TranslatePoint(default, nowPlaying)!.Value.Y),
+            "back and settings occupy the header row above the title");
+        window.Close();
+    }
+
+    [AvaloniaTest]
+    public void PlaylistHeader_MatchesThePlayerTitleAndHasNoActions()
+    {
+        var vm = CreateViewModel();
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 1200, Height = 800, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var nowPlaying = view.GetVisualDescendants().OfType<NowPlayingView>().Single();
+        var playlist = view.GetVisualDescendants().OfType<PlaylistView>().Single();
+        var playerTitle = nowPlaying.FindControl<TextBlock>("NowPlayingStationTitle")!;
+        var playlistTitle = playlist.FindControl<TextBlock>("PlaylistTitle")!;
+
+        Assert.That(playlistTitle.Text, Is.EqualTo("playlist"));
+        Assert.That(playlistTitle.FontFamily!.Name, Is.EqualTo(playerTitle.FontFamily!.Name),
+            "both page titles use the Metro display face");
+        Assert.That(playlistTitle.FontSize, Is.EqualTo(playerTitle.FontSize).Within(0.5),
+            "both page titles use the same display size");
+        Assert.That(playlistTitle.TranslatePoint(default, view)!.Value.Y,
+            Is.EqualTo(playerTitle.TranslatePoint(default, view)!.Value.Y).Within(1.5),
+            "the playlist title sits in the same row as the player title");
+        Assert.That(playlist.FindControl<StackPanel>("PlaylistHeader")!
+                .GetVisualDescendants().OfType<Button>(), Is.Empty,
+            "the playlist header control row is empty");
+        window.Close();
+    }
+
+    [AvaloniaTest]
+    public void StationTitle_CollapsesWhileTheListScrollsBehindIt()
+    {
+        var vm = CreateViewModel();
+        vm.IsNowPlayingOpen = false;
+        for (var i = 0; i < 24; i++)
+            vm.Stations.Add(new StationWithFeedsDto
+            {
+                Station = new Station { Id = $"s{i}", Name = $"Station {i}" },
+            });
+
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 420, Height = 820, Content = view };
+        window.Show();
+        window.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+
+        var scroll = view.FindControl<ScrollViewer>("StationsScroll")!;
+        var title = view.FindControl<TextBlock>("StationsTitle")!;
+        var titleHost = view.FindControl<MetroTitleHost>("StationsTitleHost")!;
+        var transform = (ScaleTransform)title.RenderTransform!;
+        var titleTop = title.TranslatePoint(default, view)!.Value.Y;
+        var scrollTop = scroll.TranslatePoint(default, view)!.Value.Y;
+        var expandedHostHeight = titleHost.Bounds.Height;
+        var expandedInset = scroll.Padding.Top;
+
+        Assert.That(scroll.Padding.Top, Is.GreaterThan(40),
+            "the list must reserve room for the title at rest");
+        Assert.That(scrollTop, Is.LessThan(titleTop),
+            "the list paints underneath the header");
+        Assert.That(transform.ScaleX, Is.EqualTo(1).Within(0.01));
+
+        scroll.Offset = new Vector(0, 240);
+        window.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(transform.ScaleX, Is.LessThan(0.8),
+            "scrolling the stations must shrink the title");
+        Assert.That(titleHost.Bounds.Height, Is.LessThan(expandedHostHeight * 0.8),
+            "the title host must shrink with the title");
+        Assert.That(titleHost.Bounds.Height,
+            Is.EqualTo(title.LineHeight * 0.45).Within(1),
+            "the host must take exactly the scaled line height");
+        Assert.That(title.Bounds.Height, Is.EqualTo(title.LineHeight).Within(1),
+            "the title must keep its natural layout height so glyphs are not clipped");
+        Assert.That(scroll.Padding.Top, Is.LessThan(expandedInset - 20),
+            "the shrunken header must release space to the list");
+        Assert.That(title.TranslatePoint(default, view)!.Value.Y,
+            Is.EqualTo(titleTop).Within(0.5),
+            "the title stays put while the content scrolls behind it");
+        window.Close();
+    }
+
+    [AvaloniaTest]
+    public void PlaylistTitle_CollapsesWhileTheListScrollsBehindIt()
+    {
+        var vm = CreateViewModel();
+        for (var i = 0; i < 24; i++)
+            vm.PlaylistItems.Add(new PlaylistItem { EpisodeId = $"e{i}", Title = $"Episode {i}" });
+
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 1200, Height = 800, Content = view };
+        window.Show();
+        window.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+
+        var playlist = view.GetVisualDescendants().OfType<PlaylistView>().Single();
+        var scroll = playlist.FindControl<ListBox>("PlaylistList")!
+            .GetVisualDescendants().OfType<ScrollViewer>().Single();
+        var title = playlist.FindControl<TextBlock>("PlaylistTitle")!;
+        var titleHost = playlist.FindControl<MetroTitleHost>("PlaylistTitleHost")!;
+        var transform = (ScaleTransform)title.RenderTransform!;
+        var titleTop = title.TranslatePoint(default, view)!.Value.Y;
+        var expandedHostHeight = titleHost.Bounds.Height;
+        var expandedInset = scroll.Padding.Top;
+
+        Assert.That(scroll.Padding.Top, Is.GreaterThan(40),
+            "the list must reserve room for the header");
+        Assert.That(transform.ScaleX, Is.EqualTo(1).Within(0.01));
+
+        scroll.Offset = new Vector(0, 200);
+        window.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(transform.ScaleX, Is.LessThan(0.8),
+            "scrolling the playlist must shrink its title");
+        Assert.That(titleHost.Bounds.Height, Is.LessThan(expandedHostHeight * 0.8),
+            "the title host must shrink with the title");
+        Assert.That(titleHost.Bounds.Height,
+            Is.EqualTo(title.LineHeight * 0.45).Within(1),
+            "the host must take exactly the scaled line height");
+        Assert.That(title.Bounds.Height, Is.EqualTo(title.LineHeight).Within(1),
+            "the title must keep its natural layout height so glyphs are not clipped");
+        Assert.That(scroll.Padding.Top, Is.LessThan(expandedInset - 20),
+            "the shrunken header must release space to the list");
+        Assert.That(title.TranslatePoint(default, view)!.Value.Y,
+            Is.EqualTo(titleTop).Within(0.5));
+        window.Close();
+    }
+
+    [AvaloniaTest]
+    public void LongPlayerMetadata_StartsBelowTheHeaderAndFadesBehindIt()
+    {
+        var vm = CreateViewModel();
+        vm.CurrentEpisodeDescription = string.Join(" ", Enumerable.Repeat(
+            "Long description that makes the details area scrollable.", 100));
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 420, Height = 820, Content = view };
+        window.Show();
+        window.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+
+        var nowPlaying = view.GetVisualDescendants().OfType<NowPlayingView>().Single();
+        var header = nowPlaying.FindControl<Grid>("NowPlayingHeader")!;
+        var content = nowPlaying.FindControl<Grid>("NowPlayingDetailsContent")!;
+        var fade = nowPlaying.FindControl<Border>("NowPlayingHeaderFade");
+
+        Assert.That(header.Bounds.Height, Is.GreaterThan(40));
+        Assert.That(content.Margin.Top, Is.GreaterThanOrEqualTo(header.Bounds.Height),
+            "long metadata must start below the page header, not underneath it");
+        Assert.That(fade, Is.Not.Null,
+            "the player needs a fade layer between the scrolling details and the header");
+        Assert.That(fade!.IsHitTestVisible, Is.False);
+        Assert.That(fade.Height, Is.GreaterThanOrEqualTo(header.Bounds.Height),
+            "the fade must cover the header");
+
+        var descendants = nowPlaying.GetVisualDescendants().ToList();
+        var scroll = nowPlaying.FindControl<ScrollViewer>("NowPlayingDetailsScroll")!;
+        Assert.That(descendants.IndexOf(fade), Is.GreaterThan(descendants.IndexOf(scroll)),
+            "the fade paints above the scrolling details");
+        Assert.That(descendants.IndexOf(fade), Is.LessThan(descendants.IndexOf(header)),
+            "the header text paints above the fade");
+        window.Close();
+    }
+
+    [AvaloniaTest]
+    public void PlayerTitle_CollapsesWhenLongMetadataScrolls()
+    {
+        var vm = CreateViewModel();
+        vm.CurrentEpisodeDescription = string.Join(" ", Enumerable.Repeat(
+            "Long description that makes the details area scrollable.", 100));
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 1200, Height = 800, Content = view };
+        window.Show();
+        window.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+
+        var nowPlaying = view.GetVisualDescendants().OfType<NowPlayingView>().Single();
+        var scroll = nowPlaying.FindControl<ScrollViewer>("NowPlayingDetailsScroll")!;
+        var title = nowPlaying.FindControl<TextBlock>("NowPlayingStationTitle")!;
+        var titleHost = nowPlaying.FindControl<MetroTitleHost>("NowPlayingStationTitleHost")!;
+        var header = nowPlaying.FindControl<Grid>("NowPlayingHeader")!;
+        var content = nowPlaying.FindControl<Grid>("NowPlayingDetailsContent")!;
+        var transform = (ScaleTransform)title.RenderTransform!;
+        var expandedHostHeight = titleHost.Bounds.Height;
+        var expandedHeaderHeight = header.Bounds.Height;
+        var expandedInset = content.Margin.Top;
+
+        Assert.That(scroll.Extent.Height, Is.GreaterThan(scroll.Viewport.Height),
+            "long metadata must be scrollable for the title to collapse");
+        Assert.That(transform.ScaleX, Is.EqualTo(1).Within(0.01));
+
+        scroll.Offset = new Vector(0, 160);
+        window.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(transform.ScaleX, Is.LessThan(0.8),
+            "scrolling the player details must shrink the station title");
+        Assert.That(titleHost.Bounds.Height, Is.LessThan(expandedHostHeight * 0.8),
+            "the title host must shrink with the title");
+        Assert.That(titleHost.Bounds.Height,
+            Is.EqualTo(title.LineHeight * 0.5).Within(1),
+            "the host must take exactly the scaled line height");
+        Assert.That(title.Bounds.Height, Is.EqualTo(title.LineHeight).Within(1),
+            "the title must keep its natural layout height so glyphs are not clipped");
+        Assert.That(header.Bounds.Height, Is.LessThan(expandedHeaderHeight - 10),
+            "the header must collapse as its title shrinks");
+        Assert.That(content.Margin.Top, Is.LessThan(expandedInset),
+            "the details must move up into the space released by the header");
+        window.Close();
+    }
+
+    [AvaloniaTest]
+    public void PlayerHeaderFade_UsesTheSameGradientAsThePlaylist()
+    {
+        var vm = CreateViewModel();
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 1200, Height = 800, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var nowPlaying = view.GetVisualDescendants().OfType<NowPlayingView>().Single();
+        var playlist = view.GetVisualDescendants().OfType<PlaylistView>().Single();
+        var playerFade = nowPlaying.FindControl<Border>("NowPlayingHeaderFade")!;
+        var playlistFade = playlist.FindControl<Border>("PlaylistHeaderFade")!;
+        var stationsFade = view.FindControl<Border>("StationsHeaderFade")!;
+
+        Assert.That(playerFade.Height, Is.EqualTo(playlistFade.Height).Within(0.5),
+            "the player header fade must use the same height as the playlist");
+        Assert.That(ReferenceEquals(playerFade.Background, playlistFade.Background), Is.True,
+            "the player header fade must use the same brush as the playlist");
+        Assert.That(ReferenceEquals(playerFade.Background, stationsFade.Background), Is.True,
+            "all three page headers share one fade brush");
+        window.Close();
+    }
+
+    [AvaloniaTest]
+    public void SelectingAStation_ResetsTheDetailsScrollAndRestoresTheFullTitle()
+    {
+        var vm = CreateViewModel();
+        vm.Stations.Add(new StationWithFeedsDto
+        {
+            Station = new Station { Id = "s2", Name = "Morning Briefing" },
+        });
+        vm.CurrentEpisodeDescription = string.Join(" ", Enumerable.Repeat(
+            "Long description that makes the details area scrollable.", 100));
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 420, Height = 820, Content = view };
+        window.Show();
+        window.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+
+        var nowPlaying = view.GetVisualDescendants().OfType<NowPlayingView>().Single();
+        var scroll = nowPlaying.FindControl<ScrollViewer>("NowPlayingDetailsScroll")!;
+        var title = nowPlaying.FindControl<TextBlock>("NowPlayingStationTitle")!;
+        var titleHost = nowPlaying.FindControl<MetroTitleHost>("NowPlayingStationTitleHost")!;
+        var transform = (ScaleTransform)title.RenderTransform!;
+
+        scroll.Offset = new Vector(0, 200);
+        window.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(transform.ScaleX, Is.LessThan(0.8), "sanity: the title is collapsed");
+        Assert.That(titleHost.Bounds.Height, Is.LessThan(title.LineHeight * 0.8));
+
+        vm.SelectedStation = vm.Stations[1];
+        window.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(scroll.Offset.Y, Is.EqualTo(0).Within(0.5),
+            "a newly selected station must start at the top");
+        Assert.That(transform.ScaleX, Is.EqualTo(1).Within(0.01),
+            "the station title must expand again for the new station");
+        Assert.That(titleHost.Bounds.Height, Is.EqualTo(title.LineHeight).Within(1),
+            "the title host must return to the full line height");
+        Assert.That(title.IsEffectivelyVisible, Is.True);
+        window.Close();
+    }
+
+    [AvaloniaTest]
+    public void PlayerHeaderTitle_PassesScrollGesturesToTheDetails()
+    {
+        var vm = CreateViewModel();
+        vm.CurrentEpisodeDescription = string.Join(" ", Enumerable.Repeat(
+            "Long description that makes the details area scrollable.", 100));
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 1200, Height = 800, Content = view };
+        window.Show();
+        window.Activate();
+        window.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+
+        var nowPlaying = view.GetVisualDescendants().OfType<NowPlayingView>().Single();
+        var scroll = nowPlaying.FindControl<ScrollViewer>("NowPlayingDetailsScroll")!;
+        var title = nowPlaying.FindControl<TextBlock>("NowPlayingStationTitle")!;
+        var start = title.TranslatePoint(
+            new Point(title.Bounds.Width / 2, title.Bounds.Height / 2), window)!.Value;
+
+        window.MouseWheel(start, new Vector(0, -3));
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(scroll.Offset.Y, Is.GreaterThan(20),
+            "a wheel over the page title must still scroll the content behind it");
+        window.Close();
+    }
+
+    [AvaloniaTest]
+    public void PlaylistHeader_PassesScrollGesturesToTheList()
+    {
+        var vm = CreateViewModel();
+        for (var i = 0; i < 24; i++)
+            vm.PlaylistItems.Add(new PlaylistItem { EpisodeId = $"e{i}", Title = $"Episode {i}" });
+
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 1200, Height = 800, Content = view };
+        window.Show();
+        window.Activate();
+        window.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+
+        var playlist = view.GetVisualDescendants().OfType<PlaylistView>().Single();
+        var scroll = playlist.FindControl<ListBox>("PlaylistList")!
+            .GetVisualDescendants().OfType<ScrollViewer>().Single();
+        var title = playlist.FindControl<TextBlock>("PlaylistTitle")!;
+        var start = title.TranslatePoint(
+            new Point(title.Bounds.Width / 2, title.Bounds.Height / 2), window)!.Value;
+
+        window.MouseDown(start, MouseButton.Left);
+        window.MouseMove(start - new Point(0, 160), RawInputModifiers.LeftMouseButton);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(scroll.Offset.Y, Is.GreaterThan(20),
+            "a drag over the playlist title must still scroll the list behind it");
+        window.MouseUp(start - new Point(0, 160), MouseButton.Left);
+        window.Close();
+    }
+
+    [AvaloniaTest]
+    public void NowPlayingHeader_AlignsBackButtonStationTitleAndMetadata()
+    {
+        var vm = CreateViewModel();
+        vm.PlaylistItems.Add(new PlaylistItem
+        {
+            EpisodeId = "e1",
+            Title = "Episode",
+            Artist = "Artist",
+            PublishedAt = new DateTime(2026, 11, 26),
+        });
+        vm.CurrentEpisodeId = "e1";
+        vm.CurrentEpisodeDescription = "A description.";
+
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 1200, Height = 800, Content = view };
+        window.Show();
+        window.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+
+        var nowPlaying = view.GetVisualDescendants().OfType<NowPlayingView>().Single();
+        var backIcon = nowPlaying.FindControl<Button>("BackToStations")!
+            .GetVisualDescendants().OfType<PathIcon>().Single();
+        var stationTitle = nowPlaying.FindControl<TextBlock>("NowPlayingStationTitle")!;
+        var episodeTitle = nowPlaying.FindControl<TextBlock>("NowPlayingTitle")!;
+        var date = nowPlaying.FindControl<TextBlock>("NowPlayingDate")!;
+        var description = nowPlaying.FindControl<LinkTextBlock>("NowPlayingDescription")!;
+
+        double Left(Control control) => control.TranslatePoint(default, view)!.Value.X;
+        var gutter = Left(stationTitle);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(gutter, Is.EqualTo(24).Within(0.5),
+                "the now-playing page uses a 24px left gutter");
+            Assert.That(nowPlaying.FindControl<Border>("TransportDeck")!.Padding.Left,
+                Is.EqualTo(24).Within(0.5),
+                "the transport deck must share the same left gutter");
+            Assert.That(Left(backIcon), Is.EqualTo(gutter).Within(0.5),
+                "the back arrow must share the page gutter");
+            Assert.That(Left(episodeTitle), Is.EqualTo(gutter).Within(0.5),
+                "the episode title must share the page gutter");
+            Assert.That(Left(date), Is.EqualTo(gutter).Within(0.5),
+                "the episode date must share the page gutter");
+            Assert.That(Left(description), Is.EqualTo(gutter).Within(0.5),
+                "the episode description must share the page gutter");
+        });
+
+        window.Close();
+    }
+
+    [AvaloniaTest]
+    public void PlaylistCoverArt_AlignsWithTheHeaderGutter()
+    {
+        var vm = CreateViewModel();
+        vm.DownloadStatusMessage = "Set a buffer in Settings to download episodes.";
+        vm.PlaylistItems.Add(new PlaylistItem
+        {
+            EpisodeId = "e1",
+            Title = "Current episode",
+            CoverUrl = "cover.png",
+            IsCurrent = true,
+        });
+        vm.PlaylistItems.Add(new PlaylistItem
+        {
+            EpisodeId = "e2",
+            Title = "Next episode",
+            CoverUrl = "cover.png",
+        });
+
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 1200, Height = 800, Content = view };
+        window.Show();
+        window.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+
+        var playlist = view.GetVisualDescendants().OfType<PlaylistView>().Single();
+        var header = playlist.FindControl<TextBlock>("PlaylistTitle")!;
+        var covers = playlist.GetVisualDescendants().OfType<Border>()
+            .Where(border => Math.Abs(border.Width - 58) < 0.1)
+            .ToList();
+
+        Assert.That(covers, Has.Count.EqualTo(2),
+            "both the current and the next episode should render a cover");
+
+        double Left(Control control) => control.TranslatePoint(default, view)!.Value.X;
+        var gutter = Left(header);
+        Assert.Multiple(() =>
+        {
+            foreach (var cover in covers)
+                Assert.That(Left(cover), Is.EqualTo(gutter).Within(0.5),
+                    "every episode cover must line up with the playlist header");
+        });
+
         window.Close();
     }
 }

@@ -20,6 +20,13 @@ public partial class MetroShellView : UserControl
     private const double WideAspectMinWidth = 720;
     private const double WideAspectRatio = 1.15;
     private const double NarrowPeek = 64;
+    private const double CompactThreshold = 760;
+    private const double StationGutterCompact = 16;
+    private const double StationGutterWideLeft = 44;
+    private const double StationGutterWideRight = 26;
+    private const double StationTileMinWidth = 272;
+    private const double StationTileGap = 8;
+    private const double StationTapSlop = 20;
 
     public static readonly StyledProperty<bool> IsNarrowProperty =
         AvaloniaProperty.Register<MetroShellView, bool>(nameof(IsNarrow));
@@ -30,14 +37,41 @@ public partial class MetroShellView : UserControl
         set => SetValue(IsNarrowProperty, value);
     }
 
+    /// <summary>The item slot width used by the station grid's WrapPanel.</summary>
+    public static readonly StyledProperty<double> StationTileWidthProperty =
+        AvaloniaProperty.Register<MetroShellView, double>(nameof(StationTileWidth), StationTileMinWidth);
+
+    public double StationTileWidth
+    {
+        get => GetValue(StationTileWidthProperty);
+        set => SetValue(StationTileWidthProperty, value);
+    }
+
     private readonly TranslateTransform _panoramaTransform = new();
     private readonly Transitions _panoramaTransitions;
     private readonly TranslateTransform _stationsBounce = new();
     private readonly Transitions _stationsBounceTransitions;
     private readonly DispatcherTimer _stationLongPressTimer;
+    private readonly MetroTitleCollapse _stationsTitleCollapse;
+    private readonly BitmapCache _stationsZoomCache = new()
+    {
+        SnapsToDevicePixels = true,
+        EnableClearType = true,
+    };
+    private readonly BitmapCache _playerZoomCache = new()
+    {
+        SnapsToDevicePixels = true,
+        EnableClearType = true,
+    };
+    private DispatcherTimer? _zoomCacheTimer;
     private Point _stationsDragOrigin;
     private bool _trackingStationsDrag;
     private StationWithFeedsDto? _pressedStation;
+    private StationWithFeedsDto? _tapStation;
+    private Point _tapStart;
+    private bool _tapInProgress;
+    private bool _tapMoved;
+    private bool _pendingStationTap;
     private bool _suppressStationClick;
     private bool _isApplyingLayout;
     private MainViewModel? _viewModel;
@@ -51,6 +85,14 @@ public partial class MetroShellView : UserControl
     public MetroShellView()
     {
         InitializeComponent();
+
+        _stationsTitleCollapse = new MetroTitleCollapse(StationsTitle, StationsScroll, StationsTitleHost);
+        StationsHeader.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == BoundsProperty)
+                UpdateStationsHeaderInset();
+        };
+        StationsScroll.SizeChanged += (_, _) => UpdateStationsHeaderInset();
 
         _panoramaTransitions = new Transitions
         {
@@ -112,6 +154,16 @@ public partial class MetroShellView : UserControl
         StationsScroll.AddHandler(
             PointerWheelChangedEvent, OnStationsWheel,
             RoutingStrategies.Bubble, handledEventsToo: true);
+        // The pull-to-refresh recognizer captures the pointer on the first
+        // downward movement (no touch slop), so Avalonia stops raising public
+        // pointer moves/releases. These gesture events keep the tap candidate
+        // up to date and let it commit on release.
+        StationsRefresh.AddHandler(
+            InputElement.PullGestureEvent, OnStationsPullGesture,
+            RoutingStrategies.Bubble, handledEventsToo: true);
+        StationsRefresh.AddHandler(
+            InputElement.PullGestureEndedEvent, OnStationsPullGestureEnded,
+            RoutingStrategies.Bubble, handledEventsToo: true);
 
         PanoramaViewport.SizeChanged += (_, _) => ApplyResponsiveLayout();
         Loaded += (_, _) => ApplyResponsiveLayout();
@@ -140,6 +192,20 @@ public partial class MetroShellView : UserControl
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(MainViewModel.IsNowPlayingOpen))
+        {
+            // The view model can be driven by media keys / platform services; the
+            // zoom caches themselves must always be touched on the UI thread.
+            if (!Dispatcher.UIThread.CheckAccess())
+            {
+                Dispatcher.UIThread.Post(BeginZoomCache);
+                return;
+            }
+
+            BeginZoomCache();
+            return;
+        }
+
         if (e.PropertyName != nameof(MainViewModel.IsPlaylistOpen)) return;
 
         // The view model can be driven by media keys / platform services; the
@@ -151,6 +217,47 @@ public partial class MetroShellView : UserControl
         }
 
         ApplyPanoramaOffset(animate: !_instantPanoramaForTests);
+    }
+
+    /// <summary>
+    /// Rasterize both zoom layers for the duration of the station/player
+    /// transition. Re-recording the station grid, the player text and every
+    /// playlist row on each frame is what makes the zoom stutter on phones.
+    /// The cache is removed afterwards so normal scrolling is not re-rasterized.
+    /// </summary>
+    private void BeginZoomCache()
+    {
+        StationsLayer.CacheMode = _stationsZoomCache;
+        PlayerLayer.CacheMode = _playerZoomCache;
+
+        _zoomCacheTimer ??= new DispatcherTimer(DispatcherPriority.Normal, Dispatcher.UIThread)
+        {
+            Interval = TimeSpan.FromMilliseconds(700),
+        };
+        _zoomCacheTimer.Stop();
+        _zoomCacheTimer.Tick -= OnZoomCacheTimerTick;
+        _zoomCacheTimer.Tick += OnZoomCacheTimerTick;
+        _zoomCacheTimer.Start();
+    }
+
+    private void OnZoomCacheTimerTick(object? sender, EventArgs e)
+    {
+        _zoomCacheTimer?.Stop();
+        StationsLayer.CacheMode = null;
+        PlayerLayer.CacheMode = null;
+    }
+
+    private void UpdateStationsHeaderInset()
+    {
+        var inset = StationsHeader.Bounds.Height +
+                    StationsHeader.Margin.Top +
+                    StationsHeader.Margin.Bottom;
+        if (inset <= 0) return;
+
+        var padding = StationsScroll.Padding;
+        if (Math.Abs(padding.Top - inset) <= 0.5) return;
+
+        StationsScroll.Padding = new Thickness(padding.Left, inset, padding.Right, padding.Bottom);
     }
 
     private void ApplyResponsiveLayout()
@@ -171,6 +278,19 @@ public partial class MetroShellView : UserControl
             var narrow = !wide;
             if (IsNarrow != narrow)
                 IsNarrow = narrow;
+
+            // Fill each station row with as many ~272px tiles as fit, then
+            // split the leftover width evenly so portrait phones use their
+            // tighter gutters instead of leaving a gap on the right.
+            var compact = width <= CompactThreshold;
+            var leftGutter = compact ? StationGutterCompact : StationGutterWideLeft;
+            var rightGutter = compact ? StationGutterCompact : StationGutterWideRight;
+            var stationWidth = Math.Max(1, width - leftGutter - rightGutter);
+            var stationColumns = Math.Max(1,
+                (int)Math.Floor((stationWidth + StationTileGap) / StationTileMinWidth));
+            var tileWidth = Math.Max(200, stationWidth / stationColumns);
+            if (Math.Abs(StationTileWidth - tileWidth) > 0.5)
+                StationTileWidth = tileWidth;
 
             var nowPlayingWidth = narrow ? Math.Max(1, width - NarrowPeek) : Math.Max(1, width * 0.58);
             var playlistWidth = narrow ? Math.Max(1, width - NarrowPeek) : Math.Max(1, width - nowPlayingWidth);
@@ -238,7 +358,12 @@ public partial class MetroShellView : UserControl
         if (!_isPanning)
         {
             if (Math.Abs(dx) < 10 || Math.Abs(dx) <= Math.Abs(dy)) return;
+
+            // Once the gesture is clearly horizontal, own the pointer. Without
+            // this the scroll view underneath keeps reacting to vertical
+            // wobble and the two gestures fight each other.
             _isPanning = true;
+            e.Pointer.Capture(PanoramaViewport);
             _panoramaTransform.Transitions = null;
         }
 
@@ -249,9 +374,19 @@ public partial class MetroShellView : UserControl
 
     private void OnPanoramaPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
-        if (_panPointer != e.Pointer) return;
+        var wasPanning = _isPanning;
+        if (_panPointer == e.Pointer)
+            _panPointer = null;
+
+        // Only release the capture we took for a pan. On a plain tap the
+        // button owns the capture, and clearing it here would cancel the click.
+        if (wasPanning)
+            e.Pointer.Capture(null);
+
+        // Commit even when the release belongs to a pointer we stopped
+        // tracking: an interrupted gesture can otherwise leave the panorama
+        // parked between the player and playlist.
         CommitPan();
-        _panPointer = null;
     }
 
     private void OnPanoramaPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
@@ -262,10 +397,21 @@ public partial class MetroShellView : UserControl
 
     private void CommitPan()
     {
-        if (!_isPanning) return;
+        var maximum = MaxPanOffset();
+
+        if (!_isPanning)
+        {
+            // A release can arrive after the pan flag was cleared (for example
+            // when a snap is interrupted by a new touch). Never leave the
+            // panorama parked between the two pages.
+            var settled = _viewModel?.IsPlaylistOpen == true ? -maximum : 0;
+            if (maximum > 0 && Math.Abs(_panoramaTransform.X - settled) > 0.5)
+                AnimatePanoramaTo(settled);
+            return;
+        }
+
         _isPanning = false;
 
-        var maximum = MaxPanOffset();
         var open = maximum > 0 && _panoramaTransform.X < -maximum * 0.35;
 
         if (_viewModel is not null && _viewModel.IsPlaylistOpen != open)
@@ -314,8 +460,27 @@ public partial class MetroShellView : UserControl
 
     private void AnimatePanoramaTo(double offset)
     {
-        _panoramaTransform.Transitions = _panoramaTransitions;
+        _panoramaTransform.Transitions = _instantPanoramaForTests ? null : _panoramaTransitions;
         _panoramaTransform.X = offset;
+    }
+
+    internal void SettlePanoramaForTests()
+    {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(SettlePanoramaForTests);
+            return;
+        }
+
+        _instantPanoramaForTests = true;
+        try
+        {
+            CommitPan();
+        }
+        finally
+        {
+            _instantPanoramaForTests = false;
+        }
     }
 
     private void OnStationTilePointerPressed(object? sender, PointerPressedEventArgs e)
@@ -349,13 +514,27 @@ public partial class MetroShellView : UserControl
         _pressedStation = null;
         _suppressStationClick = true;
 
+        // A long press must never fall through to the tap fallback on release.
+        _tapInProgress = false;
+        _tapStation = null;
+        _tapMoved = false;
+
         if (DataContext is MainViewModel vm)
             vm.OpenStationSettingsForCommand.Execute(station);
+    }
+
+    private void OnProfileMenuActionClick(object? sender, RoutedEventArgs e)
+    {
+        ProfileMenuButton.Flyout?.Hide();
     }
 
     private void OnStationTileClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (sender is not Control { Tag: StationWithFeedsDto station }) return;
+
+        // Touch taps are committed from the container's release handler. The
+        // button's Click is only used for mouse/keyboard activation.
+        if (_pendingStationTap) return;
 
         if (_suppressStationClick)
         {
@@ -395,11 +574,27 @@ public partial class MetroShellView : UserControl
 
     private void OnStationsPointerPressed(object? sender, PointerPressedEventArgs e)
     {
+        _tapInProgress = false;
+        _tapStation = null;
+        _tapMoved = false;
+        _pendingStationTap = false;
+
         var point = e.GetCurrentPoint(StationsScroll);
         if (e.Pointer.Type != PointerType.Touch && !point.Properties.IsLeftButtonPressed) return;
         if (e.Source is Visual source &&
             source.FindAncestorOfType<Avalonia.Controls.Primitives.ScrollBar>() is not null)
             return;
+
+        // Remember taps on a station tile even if the scroll/refresh gesture
+        // recognizer captures the pointer a few pixels later and cancels the
+        // button's Click.
+        if (e.Pointer.Type is PointerType.Touch or PointerType.Pen &&
+            FindStationTile(e.Source as Visual) is { Tag: StationWithFeedsDto station })
+        {
+            _tapInProgress = true;
+            _tapStation = station;
+            _tapStart = e.GetPosition(this);
+        }
 
         _trackingStationsDrag = true;
         _stationsDragOrigin = e.GetPosition(StationsScroll);
@@ -409,6 +604,14 @@ public partial class MetroShellView : UserControl
 
     private void OnStationsPointerMoved(object? sender, PointerEventArgs e)
     {
+        if (_tapInProgress && !_tapMoved)
+        {
+            var position = e.GetPosition(this);
+            if (Math.Abs(position.X - _tapStart.X) > StationTapSlop ||
+                Math.Abs(position.Y - _tapStart.Y) > StationTapSlop)
+                _tapMoved = true;
+        }
+
         if (!_trackingStationsDrag) return;
 
         // Hover moves arrive on the same route after the button was released
@@ -428,8 +631,65 @@ public partial class MetroShellView : UserControl
         _stationsBounce.Y = RubberBand.Offset(offset, maximum, delta);
     }
 
-    private void OnStationsPointerReleased(object? sender, PointerReleasedEventArgs e) =>
+    private void OnStationsPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        var station = _tapStation;
+        var moved = _tapMoved;
+        var wasTap = _tapInProgress;
+        _tapInProgress = false;
+        _tapStation = null;
+        _tapMoved = false;
+
+        if (wasTap && !moved && station is not null)
+        {
+            // Post after the routed event so a normal button Click can mark
+            // itself; captured taps still open from here.
+            _pendingStationTap = true;
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (!_pendingStationTap) return;
+                _pendingStationTap = false;
+
+                if (DataContext is MainViewModel vm)
+                    vm.OpenStationCommand.Execute(station);
+            });
+        }
+
         ReleaseStationsRubberBand();
+    }
+
+    private void OnStationsPullGesture(object? sender, PullGestureEventArgs e)
+    {
+        if (!_tapInProgress) return;
+
+        if (Math.Abs(e.Delta.X) > StationTapSlop || Math.Abs(e.Delta.Y) > StationTapSlop)
+            _tapMoved = true;
+    }
+
+    private void OnStationsPullGestureEnded(object? sender, PullGestureEndedEventArgs e)
+    {
+        var station = _tapStation;
+        var moved = _tapMoved;
+        var wasTap = _tapInProgress;
+        _tapInProgress = false;
+        _tapStation = null;
+        _tapMoved = false;
+
+        if (wasTap && !moved && station is not null && DataContext is MainViewModel vm)
+            vm.OpenStationCommand.Execute(station);
+    }
+
+    private static Button? FindStationTile(Visual? source)
+    {
+        if (source is null) return null;
+        if (source is Button { } button && button.Classes.Contains("stationTile"))
+            return button;
+
+        var ancestor = source.FindAncestorOfType<Button>();
+        return ancestor is not null && ancestor.Classes.Contains("stationTile")
+            ? ancestor
+            : null;
+    }
 
     private void ReleaseStationsRubberBand()
     {

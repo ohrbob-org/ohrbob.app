@@ -27,16 +27,57 @@
             <Setter Property="FontSize" Value="13" />
         </Style>
 
+        <!-- Layout gutters live in styles so the narrow container query can
+             tighten them; local values would win over the query. -->
+        <Style Selector="Grid#OnboardingHeader">
+            <Setter Property="Margin" Value="46,34,42,0" />
+        </Style>
+        <Style Selector="Grid#OnboardingBody">
+            <Setter Property="Margin" Value="46,0,46,0" />
+        </Style>
+        <Style Selector="Border#ConnectPanel">
+            <Setter Property="Margin" Value="0,20,0,34" />
+            <Setter Property="MaxWidth" Value="470" />
+        </Style>
+        <Style Selector="Grid#OnboardingFooter">
+            <Setter Property="Margin" Value="46,0,46,24" />
+        </Style>
+
+        <!-- The footer link is a button so it gets a real, thumb-sized hit
+             target on phones instead of only the glyph bounds. -->
+        <Style Selector="Button.onboardingFooterLink">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="0" />
+            <Setter Property="Padding" Value="0,12" />
+            <Setter Property="MinHeight" Value="44" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="Button.onboardingFooterLink:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="Button.onboardingFooterLink:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+
         <ContainerQuery Name="onboarding" Query="max-width: 880">
+            <!-- The body already contributes the outer gutter; the panel must
+                 not add a second one or the hosted-connect label gets clipped. -->
             <Style Selector="Border#ConnectPanel">
-                <Setter Property="Margin" Value="24,10,24,24" />
+                <Setter Property="Margin" Value="0,10,0,24" />
                 <Setter Property="MaxWidth" Value="560" />
             </Style>
             <Style Selector="TextBlock#OnboardingWordmark">
                 <Setter Property="FontSize" Value="58" />
             </Style>
             <Style Selector="Grid#OnboardingHeader">
-                <Setter Property="Margin" Value="24,20,24,0" />
+                <Setter Property="Margin" Value="20,20,20,0" />
+            </Style>
+            <Style Selector="Grid#OnboardingBody">
+                <Setter Property="Margin" Value="20,0,20,0" />
+            </Style>
+            <Style Selector="Grid#OnboardingFooter">
+                <Setter Property="Margin" Value="20,0,20,18" />
             </Style>
         </ContainerQuery>
     </UserControl.Styles>
@@ -62,13 +103,10 @@
         </Canvas>
 
         <Grid RowDefinitions="Auto,*,Auto" Margin="0">
-            <Grid x:Name="OnboardingHeader" Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="46,34,42,0">
+            <Grid x:Name="OnboardingHeader" Grid.Row="0" ColumnDefinitions="Auto,*,Auto">
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                    <Border Width="38" Height="38" Background="{StaticResource MetroAccentBrush}">
-                        <TextBlock Text="o" FontFamily="{StaticResource SulphurPoint}" FontWeight="Bold"
-                                   FontSize="26" Foreground="White"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
-                    </Border>
+                    <Image x:Name="OnboardingLogo" Source="../Assets/ohrbob-logo.png"
+                           Width="44" Height="44" VerticalAlignment="Center" />
                     <StackPanel Spacing="0" VerticalAlignment="Center">
                         <TextBlock Text="ohrbob" FontFamily="{StaticResource SulphurPoint}" FontWeight="Bold"
                                    FontSize="20" Foreground="White" />
@@ -81,7 +119,7 @@
                            Foreground="#80FFFFFF" VerticalAlignment="Center" />
             </Grid>
 
-            <Grid x:Name="OnboardingBody" Grid.Row="1" ColumnDefinitions="*,470" Margin="46,0,46,0">
+            <Grid x:Name="OnboardingBody" Grid.Row="1" ColumnDefinitions="*,470">
                 <StackPanel x:Name="OnboardingHero" Grid.Column="0" VerticalAlignment="Center"
                             Spacing="18" Margin="0,0,40,0" MaxWidth="700">
                     <StackPanel Orientation="Horizontal" Spacing="6">
@@ -102,9 +140,9 @@
                                TextWrapping="Wrap" MaxWidth="520" />
                 </StackPanel>
 
-                <Border x:Name="ConnectPanel" Grid.Column="1" Margin="0,20,0,34"
+                <Border x:Name="ConnectPanel" Grid.Column="1"
                         Background="#CC080D18" BorderBrush="#26FFFFFF" BorderThickness="1"
-                        VerticalAlignment="Center" MaxWidth="470">
+                        VerticalAlignment="Center">
                     <Grid RowDefinitions="Auto,*">
                         <Border Grid.Row="0" Height="7" Background="{StaticResource MetroAccentBrush}" />
                         <StackPanel Grid.Row="1" Spacing="16" Margin="30,26,30,30">
@@ -210,12 +248,25 @@
                 </Border>
             </Grid>
 
-            <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="46,0,46,24">
-                <TextBlock Grid.Column="0" Text="self-hosted · host pace · private by default"
-                           FontSize="10" FontWeight="SemiBold" LetterSpacing="1"
-                           Foreground="#66FFFFFF" />
-                <TextBlock Grid.Column="1" Text="METRO" FontSize="9" FontWeight="Bold"
-                           LetterSpacing="3" Foreground="#66FFFFFF" />
+            <Grid x:Name="OnboardingFooter" Grid.Row="2" ColumnDefinitions="*,Auto"
+                  ColumnSpacing="12">
+                <Button x:Name="OnboardingFooterLink" Grid.Column="0"
+                        Classes="onboardingFooterLink"
+                        Command="{Binding OpenLearnMoreCommand}"
+                        HorizontalAlignment="Left" VerticalAlignment="Center"
+                        ToolTip.Tip="Open ohrbob.org">
+                    <TextBlock x:Name="OnboardingFooterText"
+                               Text="learn more on ohrbob.org"
+                               FontSize="10" FontWeight="SemiBold" LetterSpacing="1"
+                               Foreground="#99FFFFFF" TextWrapping="NoWrap"
+                               TextDecorations="Underline"
+                               TextTrimming="CharacterEllipsis" />
+                </Button>
+                <TextBlock x:Name="OnboardingVersionText" Grid.Column="1"
+                           Text="{Binding AppVersionLabel}"
+                           FontSize="10" FontWeight="Bold" LetterSpacing="1"
+                           Foreground="#66FFFFFF" TextWrapping="NoWrap"
+                           VerticalAlignment="Center" />
             </Grid>
         </Grid>
     </Grid>

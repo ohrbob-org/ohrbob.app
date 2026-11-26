@@ -104,6 +104,9 @@ public partial class MainViewModel : ViewModelBase
 
     public bool HasStations => Stations.Count > 0;
 
+    /// <summary>The running build's version, stamped in at compile time.</summary>
+    public string AppVersionLabel => AppInfo.DisplayVersion;
+
     [ObservableProperty]
     private StationWithFeedsDto? _selectedStation;
 
@@ -115,8 +118,12 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isStationLoading;
 
-    /// <summary>How long a station switch may take before the player opens with a loader.</summary>
-    internal TimeSpan StationOpenDelay { get; set; } = TimeSpan.FromSeconds(1);
+    /// <summary>
+    /// How long a station switch may take before the player opens with a loader.
+    /// Keep this short: the player already has a loading veil, so waiting on the
+    /// grid only makes the tap feel unresponsive.
+    /// </summary>
+    internal TimeSpan StationOpenDelay { get; set; } = TimeSpan.FromMilliseconds(200);
 
     /// <summary>The pending station switch/open sequence, exposed for tests.</summary>
     internal Task StationOpenTask { get; private set; } = Task.CompletedTask;
@@ -147,7 +154,17 @@ public partial class MainViewModel : ViewModelBase
     private string _currentEpisodeTitle = "No Track Selected";
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ProfileInitial))]
+    [NotifyPropertyChangedFor(nameof(ProfileColorHex))]
     private string _profileName = "";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ProfileColorHex))]
+    private string _profileColor = "";
+
+    public string ProfileInitial => ProfileColors.Initial(ProfileName);
+
+    public string ProfileColorHex => ProfileColors.Resolve(ProfileColor, ProfileName);
 
     [ObservableProperty]
     private string _currentEpisodeDescription = "Please choose a station to start listening.";
@@ -895,6 +912,10 @@ public partial class MainViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private Task OpenLearnMore() =>
+        _uriLauncher.LaunchAsync(new Uri("https://ohrbob.org"));
+
+    [RelayCommand]
     private async Task OpenHostedConnectPage()
     {
         var hostName = Environment.MachineName;
@@ -994,6 +1015,7 @@ public partial class MainViewModel : ViewModelBase
         SelectedStation = null;
         CurrentEpisodeId = "";
         ProfileName = "";
+        ProfileColor = "";
         CurrentEpisodeTitle = "No Track Selected";
         CurrentEpisodeDescription = "Please choose a station to start listening.";
         CurrentEpisodeCoverUrl = null;
@@ -1153,6 +1175,9 @@ public partial class MainViewModel : ViewModelBase
             {
                 if (status.TryGetProperty("profileName", out var profileNameProp))
                     ProfileName = profileNameProp.GetString() ?? "";
+
+                if (status.TryGetProperty("profileColor", out var profileColorProp))
+                    ProfileColor = profileColorProp.GetString() ?? "";
 
                 if (status.TryGetProperty("stationId", out var stationIdProp))
                 {
@@ -1436,6 +1461,7 @@ public partial class MainViewModel : ViewModelBase
             }
 
             ProfileName = snapshot.ProfileName ?? "";
+            ProfileColor = snapshot.ProfileColor ?? "";
             SelectedStation = Stations.FirstOrDefault(s => s.Station?.Id == snapshot.ActiveStationId)
                 ?? Stations.FirstOrDefault();
 
@@ -1517,6 +1543,7 @@ public partial class MainViewModel : ViewModelBase
         snapshot.SavedAt = DateTimeOffset.UtcNow;
         snapshot.ActiveStationId = stationId;
         snapshot.ProfileName = ProfileName;
+        snapshot.ProfileColor = ProfileColor;
 
         // Preserve stations that still have downloaded content even when the server
         // temporarily returns an empty list, so offline selection stays usable.

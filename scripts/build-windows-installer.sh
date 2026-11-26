@@ -59,6 +59,7 @@ dotnet publish Ohrbob.App.Desktop/Ohrbob.App.Desktop.csproj \
     --runtime "$RID" \
     --self-contained true \
     -p:Version="$VERSION" \
+    -p:OhrbobVersion="$VERSION" \
     --output "$PUBLISH_DIR"
 
 mkdir -p "$OUTPUT_DIR"

@@ -72,6 +72,7 @@ jobs:
           --runtime win-x64
           --self-contained true
           -p:Version=${{ needs.version.outputs.value }}
+          -p:OhrbobVersion=${{ needs.version.outputs.value }}
           --output publish/win
 
       # Inno Setup 6 is preinstalled on the windows-latest image.

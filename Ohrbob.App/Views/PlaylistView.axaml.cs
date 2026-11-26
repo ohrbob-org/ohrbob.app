@@ -5,6 +5,7 @@ using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Animation.Easings;
 using Avalonia.Controls;
+using Avalonia.Controls.Platform;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -27,6 +28,7 @@ public partial class PlaylistView : UserControl
     private readonly DispatcherTimer _inertiaTimer;
     private readonly TranslateTransform _playlistBounce = new();
     private readonly Transitions _bounceTransitions;
+    private MetroTitleCollapse? _titleCollapse;
     private PlaylistItem? _pressedItem;
     private ScrollViewer? _scroll;
     private Control? _scrollContent;
@@ -40,10 +42,16 @@ public partial class PlaylistView : UserControl
     private double _inertiaOffset;
     private double _inertiaVelocity;
     private long _inertiaLastTimestamp;
+    private IInsetsManager? _insets;
+    private TopLevel? _topLevel;
 
     public PlaylistView()
     {
         InitializeComponent();
+
+        AttachedToVisualTree += OnAttachedToVisualTree;
+        DetachedFromVisualTree += OnDetachedFromVisualTree;
+        Loaded += (_, _) => ApplySafeArea();
 
         _longPressTimer = new DispatcherTimer
         {
@@ -77,12 +85,86 @@ public partial class PlaylistView : UserControl
         };
     }
 
+    private void OnAttachedToVisualTree(object? sender, VisualTreeAttachmentEventArgs e)
+    {
+        _topLevel = TopLevel.GetTopLevel(this);
+
+        if (_topLevel is not null)
+            _topLevel.ScalingChanged += OnScalingChanged;
+
+        if (_topLevel?.InsetsManager is { } insets && !ReferenceEquals(insets, _insets))
+        {
+            if (_insets is not null)
+                _insets.SafeAreaChanged -= OnSafeAreaChanged;
+
+            _insets = insets;
+            _insets.SafeAreaChanged += OnSafeAreaChanged;
+        }
+
+        ApplySafeArea();
+    }
+
+    private void OnDetachedFromVisualTree(object? sender, VisualTreeAttachmentEventArgs e)
+    {
+        if (_topLevel is not null)
+        {
+            _topLevel.ScalingChanged -= OnScalingChanged;
+            _topLevel = null;
+        }
+
+        if (_insets is null) return;
+
+        _insets.SafeAreaChanged -= OnSafeAreaChanged;
+        _insets = null;
+    }
+
+    private void OnSafeAreaChanged(object? sender, SafeAreaChangedArgs e) => ApplySafeArea();
+
+    private void OnScalingChanged(object? sender, EventArgs e) => ApplySafeArea();
+
+    /// <summary>The list background stays full-bleed; its content avoids the system bars.</summary>
+    private void ApplySafeArea()
+    {
+        var safe = _insets?.SafeAreaPadding ?? default;
+
+        PlaylistHeader.Margin = new Thickness(
+            28 + safe.Left, 26 + safe.Top, 24 + safe.Right, 0);
+        PlaylistList.Margin = new Thickness(
+            12 + safe.Left, 0, 12 + safe.Right, 12 + safe.Bottom);
+        UpdateHeaderInset();
+    }
+
+    private void UpdateHeaderInset()
+    {
+        if (_scroll is null) return;
+
+        var inset = PlaylistHeader.Bounds.Height +
+                    PlaylistHeader.Margin.Top +
+                    PlaylistHeader.Margin.Bottom;
+        if (inset <= 0) return;
+
+        var padding = _scroll.Padding;
+        if (Math.Abs(padding.Top - inset) <= 0.5) return;
+
+        _scroll.Padding = new Thickness(padding.Left, inset, padding.Right, padding.Bottom);
+    }
+
     private void AttachScrollBehavior()
     {
         if (_scroll is not null) return;
 
         _scroll = PlaylistList.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault();
         if (_scroll is null) return;
+
+        _titleCollapse = new MetroTitleCollapse(PlaylistTitle, _scroll, PlaylistTitleHost, distance: 72)
+            .FadeWithCollapse(PlaylistHint);
+        PlaylistHeader.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == BoundsProperty)
+                UpdateHeaderInset();
+        };
+        _scroll.SizeChanged += (_, _) => UpdateHeaderInset();
+        UpdateHeaderInset();
 
         // Explicit even though the theme defaults it on: inertia is part of the
         // Metro feel and must never disappear with a template change.

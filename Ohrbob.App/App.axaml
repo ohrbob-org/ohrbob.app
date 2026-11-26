@@ -73,6 +73,14 @@
                     <SolidColorBrush x:Key="MetroScrimBrush" Color="#B8000A14" />
                     <SolidColorBrush x:Key="MetroOverlayBrush" Color="#E6000A14" />
 
+                    <!-- Lets scrolled content show through the fading page header. -->
+                    <LinearGradientBrush x:Key="MetroHeaderFadeBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+                        <GradientStop Offset="0" Color="#FFF4F1EA" />
+                        <GradientStop Offset="0.35" Color="#E6F4F1EA" />
+                        <GradientStop Offset="0.7" Color="#A6F4F1EA" />
+                        <GradientStop Offset="1" Color="#00F4F1EA" />
+                    </LinearGradientBrush>
+
                     <!-- Station tiles fade to paper in light mode, with dark titles. -->
                     <SolidColorBrush x:Key="StationTileBaseBrush" Color="#EDE8DE" />
                     <SolidColorBrush x:Key="StationTileTitleBrush" Color="#111217" />
@@ -140,6 +148,14 @@
                     <SolidColorBrush x:Key="MetroFieldBrush" Color="#17191F" />
                     <SolidColorBrush x:Key="MetroScrimBrush" Color="#D9000000" />
                     <SolidColorBrush x:Key="MetroOverlayBrush" Color="#F2000000" />
+
+                    <!-- Lets scrolled content show through the fading page header. -->
+                    <LinearGradientBrush x:Key="MetroHeaderFadeBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+                        <GradientStop Offset="0" Color="#FF0E0F13" />
+                        <GradientStop Offset="0.35" Color="#E60E0F13" />
+                        <GradientStop Offset="0.7" Color="#A60E0F13" />
+                        <GradientStop Offset="1" Color="#000E0F13" />
+                    </LinearGradientBrush>
 
                     <SolidColorBrush x:Key="StationTileBaseBrush" Color="#001957" />
                     <SolidColorBrush x:Key="StationTileTitleBrush" Color="#FFFFFFFF" />

@@ -236,6 +236,9 @@ public sealed class AndroidMediaSession : IMediaSessionService
                 PlaybackStateCompat.ActionPlay |
                 PlaybackStateCompat.ActionPause |
                 PlaybackStateCompat.ActionPlayPause |
+                // Android Auto needs this action before it will route a tapped
+                // browsable item into OnPlayFromMediaId.
+                PlaybackStateCompat.ActionPlayFromMediaId |
                 PlaybackStateCompat.ActionSeekTo)
             .SetState(
                 _info.IsPlaying ? PlaybackStateCompat.StatePlaying : PlaybackStateCompat.StatePaused,

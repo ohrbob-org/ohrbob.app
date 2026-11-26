@@ -15,7 +15,7 @@ public partial class OnboardingView : UserControl
     {
         if (Bounds.Width <= 1) return;
 
-        var narrow = Bounds.Width < 880;
+        var narrow = Bounds.Width <= 880;
         OnboardingHero.IsVisible = !narrow;
         OnboardingBody.ColumnDefinitions = narrow
             ? new ColumnDefinitions("*")

@@ -140,7 +140,7 @@ public class MainViewModelTests
     {
         var config = new ConfigService(_tempConfigPath);
         var handler = new StatusHttpHandler(
-            "{\"profileName\":\"Kai\",\"current\":{\"episodeId\":\"ep1\",\"title\":\"Episode One\",\"playheadPositionSeconds\":10}}");
+            "{\"profileName\":\"Kai\",\"profileColor\":\"#3b82f6\",\"current\":{\"episodeId\":\"ep1\",\"title\":\"Episode One\",\"playheadPositionSeconds\":10}}");
         var vm = new MainViewModel(config, new OhrbobClient(config, handler), null, new TestAudioPlayer(), a => a());
         // Configure after construction so no initial load races the poll.
         config.Save("https://example.com", "token");
@@ -151,6 +151,9 @@ public class MainViewModelTests
         await vm.PollStatusAsync();
 
         Assert.That(vm.ProfileName, Is.EqualTo("Kai"));
+        Assert.That(vm.ProfileColor, Is.EqualTo("#3b82f6"));
+        Assert.That(vm.ProfileInitial, Is.EqualTo("K"));
+        Assert.That(vm.ProfileColorHex, Is.EqualTo("#3b82f6"));
         Assert.That(vm.CurrentEpisodeTitle, Is.EqualTo("Episode One"));
         Assert.That(vm.PositionSeconds, Is.EqualTo(100), "server playhead must not drag local playback back");
     }
@@ -687,6 +690,7 @@ public class MainViewModelTests
         {
             ActiveStationId = "s1",
             ProfileName = "Kai",
+            ProfileColor = "#3b82f6",
             Stations = new List<StationWithFeedsDto> { new() { Station = new Station { Id = "s1", Name = "One" } } },
             StationStates = new Dictionary<string, StationOfflineState>
             {
@@ -711,6 +715,7 @@ public class MainViewModelTests
         Assert.That(vm.IsOffline, Is.True);
         Assert.That(vm.Stations.Single().Station!.Id, Is.EqualTo("s1"));
         Assert.That(vm.ProfileName, Is.EqualTo("Kai"));
+        Assert.That(vm.ProfileColor, Is.EqualTo("#3b82f6"));
         Assert.That(vm.CurrentEpisodeId, Is.EqualTo("e1"));
         Assert.That(vm.PositionSeconds, Is.EqualTo(42));
         Assert.That(vm.PlaylistItems.Single().EpisodeId, Is.EqualTo("e1"));

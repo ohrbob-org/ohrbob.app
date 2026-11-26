@@ -52,6 +52,7 @@ dotnet publish Ohrbob.App.Desktop/Ohrbob.App.Desktop.csproj \
     --runtime "$RID" \
     --self-contained true \
     -p:Version="$VERSION" \
+    -p:OhrbobVersion="$VERSION" \
     --output "$WORK/publish"
 
 echo "=> Assembling the AppDir..."

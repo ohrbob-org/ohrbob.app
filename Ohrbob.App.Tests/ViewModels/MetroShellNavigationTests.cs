@@ -101,6 +101,24 @@ public class MetroShellNavigationTests
     }
 
     [Test]
+    public async Task OpenStation_OpensThePlayerPromptlyByDefault()
+    {
+        var (vm, handler, station) = CreateGatedViewModel();
+
+        vm.OpenStationCommand.Execute(station);
+        await Task.Delay(400);
+
+        Assert.That(vm.IsNowPlayingOpen, Is.True,
+            "a tapped station must not leave the user staring at the grid");
+        Assert.That(vm.IsStationLoading, Is.True,
+            "the player shows a loader while the station content is still loading");
+
+        handler.Release();
+        await vm.StationOpenTask;
+        Assert.That(vm.IsStationLoading, Is.False);
+    }
+
+    [Test]
     public async Task OpenStation_ZoomsInWithALoaderAfterTheTimeout()
     {
         var (vm, handler, station) = CreateGatedViewModel();
