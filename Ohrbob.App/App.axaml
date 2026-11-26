@@ -82,6 +82,27 @@
                         <GradientStop Offset="1" Color="#F2FFFFFF" />
                     </LinearGradientBrush>
 
+                    <!-- Now playing / player chrome in light mode. -->
+                    <SolidColorBrush x:Key="PlayerChromeBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="PlayerChromeBorderBrush" Color="#D8D2C5" />
+                    <SolidColorBrush x:Key="PlayerChromeForegroundBrush" Color="#111217" />
+                    <SolidColorBrush x:Key="NowPlayingBaseBrush" Color="#F4F1EA" />
+                    <SolidColorBrush x:Key="NowPlayingTextBrush" Color="#111217" />
+                    <SolidColorBrush x:Key="NowPlayingMutedBrush" Color="#5F5B53" />
+                    <SolidColorBrush x:Key="NowPlayingAccentBrush" Color="#C2410C" />
+                    <SolidColorBrush x:Key="NowPlayingChromeBrush" Color="#F2FFFFFF" />
+                    <SolidColorBrush x:Key="NowPlayingChromeBorderBrush" Color="#D8D2C5" />
+                    <SolidColorBrush x:Key="NowPlayingTransportBrush" Color="#0F111217" />
+                    <SolidColorBrush x:Key="NowPlayingIconBrush" Color="#111217" />
+                    <SolidColorBrush x:Key="NowPlayingTrackBrush" Color="#24000000" />
+                    <SolidColorBrush x:Key="NowPlayingThumbBrush" Color="#111217" />
+                    <SolidColorBrush x:Key="NowPlayingScrimBrush" Color="#E6FFFFFF" />
+                    <LinearGradientBrush x:Key="NowPlayingFadeBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+                        <GradientStop Offset="0" Color="#00FFFFFF" />
+                        <GradientStop Offset="0.42" Color="#B8FFFFFF" />
+                        <GradientStop Offset="1" Color="#F2FFFFFF" />
+                    </LinearGradientBrush>
+
                     <!-- TextBox focused / hover overrides to prevent white-on-white text -->
                     <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#FFF4D8" />
                     <SolidColorBrush x:Key="TextControlForegroundFocused" Color="#001957" />
@@ -121,6 +142,26 @@
                         <GradientStop Offset="0" Color="#33000A14" />
                         <GradientStop Offset="0.55" Color="#99000A14" />
                         <GradientStop Offset="1" Color="#E6000A14" />
+                    </LinearGradientBrush>
+
+                    <SolidColorBrush x:Key="PlayerChromeBrush" Color="#0A0E18" />
+                    <SolidColorBrush x:Key="PlayerChromeBorderBrush" Color="#26FFFFFF" />
+                    <SolidColorBrush x:Key="PlayerChromeForegroundBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="NowPlayingBaseBrush" Color="#001957" />
+                    <SolidColorBrush x:Key="NowPlayingTextBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="NowPlayingMutedBrush" Color="#B3FFFFFF" />
+                    <SolidColorBrush x:Key="NowPlayingAccentBrush" Color="#FF9A00" />
+                    <SolidColorBrush x:Key="NowPlayingChromeBrush" Color="#D90A0E18" />
+                    <SolidColorBrush x:Key="NowPlayingChromeBorderBrush" Color="#26FFFFFF" />
+                    <SolidColorBrush x:Key="NowPlayingTransportBrush" Color="#26FFFFFF" />
+                    <SolidColorBrush x:Key="NowPlayingIconBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="NowPlayingTrackBrush" Color="#33FFFFFF" />
+                    <SolidColorBrush x:Key="NowPlayingThumbBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="NowPlayingScrimBrush" Color="#D90A0E18" />
+                    <LinearGradientBrush x:Key="NowPlayingFadeBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+                        <GradientStop Offset="0" Color="#7A06101F" />
+                        <GradientStop Offset="0.42" Color="#B80A1220" />
+                        <GradientStop Offset="1" Color="#F2000A14" />
                     </LinearGradientBrush>
 
                     <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#2A2A2A" />

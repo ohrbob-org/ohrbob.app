@@ -54,7 +54,8 @@
                 Padding="28,30,24,18">
             <Grid ColumnDefinitions="*,Auto">
                 <StackPanel Grid.Column="0" Spacing="6">
-                    <TextBlock Text="playlist" Classes="metroHeadline" FontSize="46" />
+                    <TextBlock x:Name="PlaylistTitle" Text="playlist" Classes="metroHeadline"
+                               FontSize="46" LineHeight="56" />
                     <TextBlock Text="{Binding SelectedStation.Station.Name, FallbackValue='station playlist'}"
                                FontSize="12" FontWeight="Bold" LetterSpacing="2"
                                Foreground="{StaticResource MetroAccentBrush}"

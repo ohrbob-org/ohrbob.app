@@ -231,11 +231,13 @@
              show both columns; narrow layouts slide the panorama by a peek. -->
         <Border x:Name="PlayerLayer" Classes="screen" Classes.open="{Binding IsNowPlayingOpen}">
             <Grid RowDefinitions="Auto,*" Background="{DynamicResource MetroCanvasBrush}">
-                <Border Grid.Row="0" Background="#0A0E18" BorderBrush="#26FFFFFF" BorderThickness="0,0,0,1"
+                <Border Grid.Row="0" Background="{DynamicResource PlayerChromeBrush}"
+                        BorderBrush="{DynamicResource PlayerChromeBorderBrush}" BorderThickness="0,0,0,1"
                         Padding="18,8">
                     <Grid ColumnDefinitions="Auto,*,Auto">
                         <Button x:Name="BackToStations" Grid.Column="0" Classes="metroGhost"
-                                Command="{Binding ShowStationsCommand}" Foreground="White">
+                                Command="{Binding ShowStationsCommand}"
+                                Foreground="{DynamicResource PlayerChromeForegroundBrush}">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <TextBlock Text="←" FontSize="17" VerticalAlignment="Center" />
                                 <TextBlock Text="stations" FontSize="12" FontWeight="Bold"
@@ -246,11 +248,13 @@
                         <TextBlock Grid.Column="1" Text="{Binding SelectedStation.Station.Name, FallbackValue='ohrbob'}"
                                    HorizontalAlignment="Center" VerticalAlignment="Center"
                                    FontSize="12" FontWeight="Bold" LetterSpacing="2"
-                                   Foreground="#B3FFFFFF" TextTrimming="CharacterEllipsis" MaxWidth="420" />
+                                   Foreground="{DynamicResource MetroMutedBrush}"
+                                   TextTrimming="CharacterEllipsis" MaxWidth="420" />
 
                         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
                             <Button Classes="metroGhost" Command="{Binding OpenProfileSettingsCommand}"
-                                    Foreground="White" ToolTip.Tip="Profile settings">
+                                    Foreground="{DynamicResource PlayerChromeForegroundBrush}"
+                                    ToolTip.Tip="Profile settings">
                                 <TextBlock Text="{Binding ProfileName, FallbackValue='profile'}" FontSize="11"
                                            FontWeight="SemiBold" MaxWidth="120" TextTrimming="CharacterEllipsis" />
                             </Button>

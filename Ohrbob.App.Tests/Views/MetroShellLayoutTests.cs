@@ -180,6 +180,23 @@ public class MetroShellLayoutTests
     }
 
     [AvaloniaTest]
+    public void PlaylistHeadline_HasRoomForDescenders()
+    {
+        var vm = CreateViewModel();
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 900, Height = 700, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var playlist = view.GetVisualDescendants().OfType<PlaylistView>().Single();
+        var title = playlist.FindControl<TextBlock>("PlaylistTitle")!;
+
+        Assert.That(title.LineHeight, Is.GreaterThanOrEqualTo(title.FontSize + 8),
+            "the playlist line box must leave room for the p/y descenders");
+        window.Close();
+    }
+
+    [AvaloniaTest]
     public void PlayerPages_ExposeStationSettingsCogInsteadOfPlaylistShortcut()
     {
         var vm = CreateViewModel();
