@@ -69,16 +69,7 @@ public partial class NowPlayingView : UserControl
         var offset = NowPlayingDetailsScroll.Offset.Y;
         var maximum = Math.Max(0, NowPlayingDetailsScroll.Extent.Height - NowPlayingDetailsScroll.Viewport.Height);
 
-        _detailsBounce.Y = RubberBandOffset(offset, maximum, delta);
-    }
-
-    internal static double RubberBandOffset(double offset, double maximum, double dragDelta)
-    {
-        if (offset <= 0.5 && dragDelta > 0)
-            return RubberBand(dragDelta);
-        if (offset >= maximum - 0.5 && dragDelta < 0)
-            return -RubberBand(-dragDelta);
-        return 0;
+        _detailsBounce.Y = RubberBand.Offset(offset, maximum, delta);
     }
 
     private void OnDetailsPointerReleased(object? sender, PointerReleasedEventArgs e) =>
@@ -97,9 +88,6 @@ public partial class NowPlayingView : UserControl
         else if (offset >= maximum - 0.5 && e.Delta.Y < 0)
             BounceTo(-12);
     }
-
-    private static double RubberBand(double distance) =>
-        Math.Min(90, distance * 0.4);
 
     private void BounceTo(double distance)
     {

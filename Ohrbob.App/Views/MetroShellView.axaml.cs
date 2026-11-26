@@ -32,7 +32,11 @@ public partial class MetroShellView : UserControl
 
     private readonly TranslateTransform _panoramaTransform = new();
     private readonly Transitions _panoramaTransitions;
+    private readonly TranslateTransform _stationsBounce = new();
+    private readonly Transitions _stationsBounceTransitions;
     private readonly DispatcherTimer _stationLongPressTimer;
+    private Point _stationsDragOrigin;
+    private bool _trackingStationsDrag;
     private StationWithFeedsDto? _pressedStation;
     private bool _suppressStationClick;
     private bool _isApplyingLayout;
@@ -60,6 +64,17 @@ public partial class MetroShellView : UserControl
         _panoramaTransform.Transitions = _panoramaTransitions;
         PanoramaCanvas.RenderTransform = _panoramaTransform;
 
+        _stationsBounceTransitions = new Transitions
+        {
+            new DoubleTransition
+            {
+                Property = TranslateTransform.YProperty,
+                Duration = TimeSpan.FromMilliseconds(320),
+                Easing = new CubicEaseOut(),
+            },
+        };
+        StationsContent.RenderTransform = _stationsBounce;
+
         _stationLongPressTimer = new DispatcherTimer
         {
             Interval = TimeSpan.FromMilliseconds(520),
@@ -81,6 +96,19 @@ public partial class MetroShellView : UserControl
             PointerCaptureLostEvent, OnPanoramaPointerCaptureLost,
             RoutingStrategies.Tunnel, handledEventsToo: true);
 
+        // Observe the station scroll gestures without taking them from the
+        // ScrollViewer or the pull-to-refresh container. Watching the
+        // RefreshContainer (the parent) keeps these events coming even after
+        // it captures the pointer for a pull-to-refresh gesture.
+        StationsRefresh.AddHandler(
+            PointerPressedEvent, OnStationsPointerPressed,
+            RoutingStrategies.Tunnel, handledEventsToo: true);
+        StationsRefresh.AddHandler(
+            PointerMovedEvent, OnStationsPointerMoved,
+            RoutingStrategies.Tunnel, handledEventsToo: true);
+        StationsRefresh.AddHandler(
+            PointerReleasedEvent, OnStationsPointerReleased,
+            RoutingStrategies.Tunnel, handledEventsToo: true);
         StationsScroll.AddHandler(
             PointerWheelChangedEvent, OnStationsWheel,
             RoutingStrategies.Bubble, handledEventsToo: true);
@@ -361,10 +389,65 @@ public partial class MetroShellView : UserControl
         }
     }
 
+    private void OnStationsPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        var point = e.GetCurrentPoint(StationsScroll);
+        if (e.Pointer.Type != PointerType.Touch && !point.Properties.IsLeftButtonPressed) return;
+        if (e.Source is Visual source &&
+            source.FindAncestorOfType<Avalonia.Controls.Primitives.ScrollBar>() is not null)
+            return;
+
+        _trackingStationsDrag = true;
+        _stationsDragOrigin = e.GetPosition(StationsScroll);
+        _stationsBounce.Transitions = null;
+        _stationsBounce.Y = 0;
+    }
+
+    private void OnStationsPointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (!_trackingStationsDrag) return;
+
+        var delta = e.GetPosition(StationsScroll).Y - _stationsDragOrigin.Y;
+        var offset = StationsScroll.Offset.Y;
+        var maximum = Math.Max(0, StationsScroll.Extent.Height - StationsScroll.Viewport.Height);
+
+        _stationsBounce.Y = RubberBand.Offset(offset, maximum, delta);
+    }
+
+    private void OnStationsPointerReleased(object? sender, PointerReleasedEventArgs e) =>
+        ReleaseStationsRubberBand();
+
+    private void ReleaseStationsRubberBand()
+    {
+        if (!_trackingStationsDrag) return;
+        _trackingStationsDrag = false;
+
+        _stationsBounce.Transitions = _stationsBounceTransitions;
+        _stationsBounce.Y = 0;
+    }
+
     private void OnStationsWheel(object? sender, PointerWheelEventArgs e)
     {
-        if (e.Delta.Y > 0 && StationsScroll.Offset.Y <= 0.5)
+        var offset = StationsScroll.Offset.Y;
+        var maximum = Math.Max(0, StationsScroll.Extent.Height - StationsScroll.Viewport.Height);
+
+        if (e.Delta.Y > 0 && offset <= 0.5)
+        {
+            BounceStationsTo(12);
             StationsRefresh.RequestRefresh();
+        }
+        else if (e.Delta.Y < 0 && offset >= maximum - 0.5)
+        {
+            BounceStationsTo(-12);
+        }
+    }
+
+    private void BounceStationsTo(double distance)
+    {
+        _stationsBounce.Transitions = null;
+        _stationsBounce.Y = distance;
+        _stationsBounce.Transitions = _stationsBounceTransitions;
+        _stationsBounce.Y = 0;
     }
 
     private void OnSettingsScrimPointerPressed(object? sender, PointerPressedEventArgs e)

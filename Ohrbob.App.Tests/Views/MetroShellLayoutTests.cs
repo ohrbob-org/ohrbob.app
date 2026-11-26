@@ -207,6 +207,66 @@ public class MetroShellLayoutTests
     }
 
     [AvaloniaTest]
+    public void StationsList_BouncesAtBothEdgesAndKeepsPullToRefresh()
+    {
+        var vm = CreateViewModel();
+        vm.IsNowPlayingOpen = false;
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 420, Height = 820, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var scroll = view.FindControl<ScrollViewer>("StationsScroll")!;
+        var content = view.FindControl<Panel>("StationsContent")!;
+        var refresh = view.FindControl<RefreshContainer>("StationsRefresh")!;
+
+        Assert.That(content.RenderTransform, Is.TypeOf<TranslateTransform>());
+        Assert.That(refresh.Content, Is.SameAs(scroll),
+            "pull-to-refresh must stay wrapped around the stations scroll");
+        Assert.That(refresh.PullDirection, Is.EqualTo(PullDirection.TopToBottom));
+        Assert.That(RubberBand.Offset(0, 500, 80), Is.GreaterThan(0),
+            "dragging down at the top of the stations should bounce");
+        Assert.That(RubberBand.Offset(500, 500, -80), Is.LessThan(0),
+            "dragging up at the bottom of the stations should bounce");
+        Assert.That(RubberBand.Offset(250, 500, 80), Is.EqualTo(0),
+            "dragging in the middle should scroll normally, not bounce");
+        window.Close();
+    }
+
+    [AvaloniaTest]
+    public void DraggingTheStationListPastTheTopBounces()
+    {
+        var vm = CreateViewModel();
+        vm.IsNowPlayingOpen = false;
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 420, Height = 820, Content = view };
+        window.Show();
+        window.Activate();
+        window.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+
+        var scroll = view.FindControl<ScrollViewer>("StationsScroll")!;
+        var content = view.FindControl<Panel>("StationsContent")!;
+        var bounce = (TranslateTransform)content.RenderTransform!;
+        Assert.That(scroll.Bounds.Height, Is.GreaterThan(100), "the stations list must be laid out");
+        var start = scroll.TranslatePoint(new Point(60, 60), window)!.Value;
+
+        // Small pull: enough to see the bounce without crossing the
+        // pull-to-refresh threshold and starting a network reload.
+        var pointer = window.TouchBegin(start, RawInputModifiers.None);
+        window.TouchMove(pointer, start + new Point(0, 20), RawInputModifiers.None);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(scroll.Offset.Y, Is.LessThanOrEqualTo(0.5),
+            "the list must still be at the top while it bounces");
+        Assert.That(bounce.Y, Is.GreaterThan(0),
+            "a downward drag at the top should move the station content");
+
+        window.TouchEnd(pointer, start + new Point(0, 20), RawInputModifiers.None);
+        window.Close();
+    }
+
+    [AvaloniaTest]
     public void PortraitStationsHeader_ShowsDisconnectAndUsesPullRefresh()
     {
         var vm = CreateViewModel();
@@ -576,11 +636,11 @@ public class MetroShellLayoutTests
         var scroll = nowPlaying.FindControl<ScrollViewer>("NowPlayingDetailsScroll")!;
 
         Assert.That(content.RenderTransform, Is.TypeOf<TranslateTransform>());
-        Assert.That(NowPlayingView.RubberBandOffset(0, 500, 80), Is.GreaterThan(0),
+        Assert.That(RubberBand.Offset(0, 500, 80), Is.GreaterThan(0),
             "dragging down at the top should bounce");
-        Assert.That(NowPlayingView.RubberBandOffset(500, 500, -80), Is.LessThan(0),
+        Assert.That(RubberBand.Offset(500, 500, -80), Is.LessThan(0),
             "dragging up at the bottom should bounce");
-        Assert.That(NowPlayingView.RubberBandOffset(250, 500, 80), Is.EqualTo(0),
+        Assert.That(RubberBand.Offset(250, 500, 80), Is.EqualTo(0),
             "dragging in the middle should scroll normally, not bounce");
         Assert.That(scroll.VerticalScrollBarVisibility,
             Is.EqualTo(Avalonia.Controls.Primitives.ScrollBarVisibility.Hidden));
