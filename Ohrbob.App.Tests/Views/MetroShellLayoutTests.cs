@@ -309,6 +309,114 @@ public class MetroShellLayoutTests
                 System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
             .GetValue(view)!;
 
+    private static (MetroShellView View, Window Window, ScrollViewer Scroll, TranslateTransform Bounce)
+        CreatePlaylistWindow()
+    {
+        var vm = CreateViewModel();
+        for (var i = 0; i < 20; i++)
+            vm.PlaylistItems.Add(new PlaylistItem
+            {
+                EpisodeId = $"e{i}",
+                Title = $"Episode {i}",
+                IsCurrent = i == 0,
+            });
+
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 1200, Height = 800, Content = view };
+        window.Show();
+        window.Activate();
+        window.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+
+        var playlist = view.GetVisualDescendants().OfType<PlaylistView>().Single();
+        var scroll = playlist.FindControl<ListBox>("PlaylistList")!
+            .GetVisualDescendants().OfType<ScrollViewer>().Single();
+        var content = (Control)scroll.Content!;
+        var bounce = (TranslateTransform)content.RenderTransform!;
+        return (view, window, scroll, bounce);
+    }
+
+    [AvaloniaTest]
+    public void PlaylistMouseDrag_ScrollsAndRubberBandsAtTheTop()
+    {
+        var (_, window, scroll, bounce) = CreatePlaylistWindow();
+        var start = scroll.TranslatePoint(new Point(200, 100), window)!.Value;
+
+        // At the top, drag down past the edge: it should rubber-band.
+        window.MouseDown(start, MouseButton.Left);
+        window.MouseMove(start + new Point(0, 60), RawInputModifiers.LeftMouseButton);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(scroll.Offset.Y, Is.LessThanOrEqualTo(0.5),
+            "the list must stay at the top while it bounces");
+        Assert.That(bounce.Y, Is.GreaterThan(0),
+            "dragging down at the top must rubber-band");
+        window.MouseUp(start + new Point(0, 60), MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+
+        // Drag up: the list follows the mouse.
+        window.MouseDown(start, MouseButton.Left);
+        window.MouseMove(start - new Point(0, 120), RawInputModifiers.LeftMouseButton);
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(scroll.Offset.Y, Is.GreaterThan(50),
+            "dragging with the mouse must pan the playlist");
+        Assert.That(bounce.Y, Is.EqualTo(0));
+        window.MouseUp(start - new Point(0, 120), MouseButton.Left);
+        window.Close();
+    }
+
+    [AvaloniaTest]
+    public void PlaylistMouseDrag_StartsInertiaAfterRelease()
+    {
+        var (view, window, scroll, _) = CreatePlaylistWindow();
+        var start = scroll.TranslatePoint(new Point(200, 500), window)!.Value;
+
+        window.MouseDown(start, MouseButton.Left);
+
+        // Space the moves out so the tracker sees a real velocity; the
+        // headless clock otherwise reports zero elapsed time between events.
+        Thread.Sleep(20);
+        window.MouseMove(start - new Point(0, 60), RawInputModifiers.LeftMouseButton);
+        Thread.Sleep(20);
+        window.MouseMove(start - new Point(0, 140), RawInputModifiers.LeftMouseButton);
+        Dispatcher.UIThread.RunJobs();
+        var atRelease = scroll.Offset.Y;
+        Assert.That(atRelease, Is.GreaterThan(50));
+
+        window.MouseUp(start - new Point(0, 140), MouseButton.Left);
+
+        var playlist = view.GetVisualDescendants().OfType<PlaylistView>().Single();
+        var timer = (DispatcherTimer?)typeof(PlaylistView)
+            .GetField("_inertiaTimer", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .GetValue(playlist);
+        Assert.That(timer!.IsEnabled, Is.True,
+            "releasing a fast drag must start the coasting timer");
+
+        timer.Stop();
+        window.Close();
+    }
+
+    [Test]
+    public void ScrollInertia_DeceleratesAndStopsAtTheEdges()
+    {
+        var middle = ScrollInertia.Step(100, 1000, 0.1, 1000);
+        Assert.That(middle.Offset, Is.GreaterThan(100));
+        Assert.That(middle.Velocity, Is.GreaterThan(0).And.LessThan(1000));
+        Assert.That(middle.Stop, Is.EqualTo(ScrollInertia.StopReason.None));
+
+        var top = ScrollInertia.Step(0, -1000, 0.1, 1000);
+        Assert.That(top.Offset, Is.EqualTo(0));
+        Assert.That(top.Stop, Is.EqualTo(ScrollInertia.StopReason.Top));
+
+        var bottom = ScrollInertia.Step(990, 1000, 0.1, 1000);
+        Assert.That(bottom.Offset, Is.EqualTo(1000));
+        Assert.That(bottom.Stop, Is.EqualTo(ScrollInertia.StopReason.Bottom));
+
+        var slow = ScrollInertia.Step(500, 20, 0.1, 1000);
+        Assert.That(slow.Stop, Is.EqualTo(ScrollInertia.StopReason.Slow));
+        Assert.That(slow.Offset, Is.EqualTo(502).Within(0.01));
+    }
+
     [AvaloniaTest]
     public void PlaylistCurrentEpisode_UsesOnlyTheOrangeIndicator()
     {
