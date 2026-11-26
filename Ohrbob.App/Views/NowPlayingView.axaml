@@ -48,6 +48,10 @@
         <Style Selector="Button.transport:pointerover /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="#40FFFFFF" />
         </Style>
+        <Style Selector="Button#PlayButton">
+            <Setter Property="Width" Value="72" />
+            <Setter Property="Height" Value="72" />
+        </Style>
 
         <ContainerQuery Name="nowPlaying" Query="max-width: 640">
             <Style Selector="TextBlock#NowPlayingTitle">
@@ -58,18 +62,18 @@
                 <Setter Property="FontSize" Value="11" />
             </Style>
             <Style Selector="StackPanel#TransportButtons">
-                <Setter Property="Spacing" Value="8" />
+                <Setter Property="Spacing" Value="4" />
             </Style>
             <Style Selector="StackPanel#VolumeGroup">
                 <Setter Property="IsVisible" Value="False" />
             </Style>
             <Style Selector="Button.transport">
-                <Setter Property="Width" Value="40" />
-                <Setter Property="Height" Value="40" />
+                <Setter Property="Width" Value="38" />
+                <Setter Property="Height" Value="38" />
             </Style>
             <Style Selector="Button#PlayButton">
-                <Setter Property="Width" Value="62" />
-                <Setter Property="Height" Value="62" />
+                <Setter Property="Width" Value="58" />
+                <Setter Property="Height" Value="58" />
             </Style>
         </ContainerQuery>
     </UserControl.Styles>
@@ -193,7 +197,7 @@
                             <Button x:Name="PlayButton" Command="{Binding TogglePlayCommand}"
                                     Background="{StaticResource MetroAccentBrush}" Foreground="White"
                                     BorderThickness="0" CornerRadius="0" Padding="0"
-                                    Width="72" Height="72" ToolTip.Tip="Play / pause">
+                                    ToolTip.Tip="Play / pause">
                                 <Panel>
                                     <PathIcon Data="M8,5 L21,14 L8,23 Z" Margin="3,0,0,0"
                                               Width="26" Height="26" Foreground="White"

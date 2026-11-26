@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.Threading;
@@ -134,6 +135,26 @@ public class MetroShellLayoutTests
         Assert.That(view.GetVisualDescendants().OfType<MetroShellView>().Any(), Is.True);
         Assert.That(view.GetVisualDescendants().OfType<PlayerView>().Any(), Is.False,
             "the legacy Bootstrap-style player should not be in the live visual tree");
+        window.Close();
+    }
+
+    [AvaloniaTest]
+    public void NarrowTransport_KeepsForwardButtonInsideThePane()
+    {
+        var vm = CreateViewModel();
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 360, Height = 780, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var nowPlayingView = view.GetVisualDescendants().OfType<NowPlayingView>().Single();
+        var forward = nowPlayingView.FindControl<Button>("NextButton")!;
+        var point = forward.TranslatePoint(new Avalonia.Point(0, 0), nowPlayingView);
+
+        Assert.That(point, Is.Not.Null);
+        Assert.That(point!.Value.X + forward.Bounds.Width,
+            Is.LessThanOrEqualTo(nowPlayingView.Bounds.Width + 1),
+            "the forward transport button must not be clipped on narrow screens");
         window.Close();
     }
 
