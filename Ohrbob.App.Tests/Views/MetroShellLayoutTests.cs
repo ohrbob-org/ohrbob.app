@@ -224,6 +224,28 @@ public class MetroShellLayoutTests
     }
 
     [AvaloniaTest]
+    public void PlayerHeader_OnlyContainsTheStationsBackLink()
+    {
+        var vm = CreateViewModel();
+        vm.IsNowPlayingOpen = true;
+        vm.SelectedStation!.Station!.Name = "Die Maus zum Hören";
+        vm.ProfileName = "Kai Wegner";
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 900, Height = 700, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var header = view.FindControl<Border>("PlayerHeader")!;
+        var texts = header.GetVisualDescendants().OfType<TextBlock>()
+            .Select(t => t.Text).ToList();
+
+        Assert.That(texts, Does.Contain("stations"));
+        Assert.That(texts, Does.Not.Contain("Kai Wegner"));
+        Assert.That(texts, Does.Not.Contain("Die Maus zum Hören"));
+        window.Close();
+    }
+
+    [AvaloniaTest]
     public void PlayerPages_ExposeStationSettingsCogInsteadOfPlaylistShortcut()
     {
         var vm = CreateViewModel();
