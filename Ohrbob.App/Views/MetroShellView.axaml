@@ -286,7 +286,7 @@
                             </Border>
                             <Grid ColumnDefinitions="*,Auto">
                                 <Button Classes="metroGhost" Command="{Binding OpenStationSettingsCommand}"
-                                        Content="open in browser" FontSize="11" HorizontalAlignment="Left" />
+                                        Content="more" FontSize="11" HorizontalAlignment="Left" />
                                 <Button Grid.Column="1" Classes="metroGhost" Command="{Binding CloseSettingsCommand}"
                                         Content="done" HorizontalAlignment="Right" />
                             </Grid>
