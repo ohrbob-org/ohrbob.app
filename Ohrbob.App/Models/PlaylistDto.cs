@@ -21,4 +21,5 @@ public class PlaylistEpisodeDto
     public string? StreamUri { get; set; }
     public DateTime? PublishedAt { get; set; }
     public bool IsCurrent { get; set; }
+    public bool IsCompleted { get; set; }
 }

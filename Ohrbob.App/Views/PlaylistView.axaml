@@ -1,0 +1,148 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Ohrbob.App.ViewModels"
+             xmlns:models="using:Ohrbob.App.Models"
+             xmlns:views="using:Ohrbob.App.Views"
+             xmlns:services="using:Ohrbob.App.Services"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="430" d:DesignHeight="700"
+             x:Class="Ohrbob.App.Views.PlaylistView"
+             x:DataType="vm:MainViewModel"
+             Background="{DynamicResource MetroCanvasBrush}"
+             ClipToBounds="True">
+
+    <UserControl.Styles>
+        <Style Selector="Border.episodeRow">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Padding" Value="0,14" />
+            <Setter Property="BorderBrush" Value="{DynamicResource MetroHairlineBrush}" />
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+        </Style>
+        <Style Selector="Border.episodeRow:pointerover">
+            <Setter Property="Background" Value="{DynamicResource MetroTileBrush}" />
+        </Style>
+        <Style Selector="Border.episodeRow.completed TextBlock.episodeTitle">
+            <Setter Property="TextDecorations" Value="Strikethrough" />
+            <Setter Property="Foreground" Value="{DynamicResource MetroMutedBrush}" />
+        </Style>
+        <Style Selector="Border.episodeRow.completed">
+            <Setter Property="Opacity" Value="0.68" />
+        </Style>
+        <Style Selector="ListBox.playlistBox">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="ListBox.playlistBox ListBoxItem">
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="CornerRadius" Value="0" />
+        </Style>
+        <Style Selector="ListBox.playlistBox ListBoxItem:selected /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="ListBox.playlistBox ListBoxItem:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="ListBox.playlistBox ListBoxItem:selected Border.episodeRow">
+            <Setter Property="Background" Value="{DynamicResource MetroTileBrush}" />
+        </Style>
+    </UserControl.Styles>
+
+    <Grid RowDefinitions="Auto,Auto,*" Background="{DynamicResource MetroCanvasBrush}">
+        <Border Grid.Row="0" BorderBrush="{DynamicResource MetroHairlineBrush}" BorderThickness="1,0,0,0"
+                Padding="28,30,24,18">
+            <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Grid.Column="0" Spacing="6">
+                    <TextBlock Text="up next" Classes="metroHeadline" FontSize="46" />
+                    <TextBlock Text="{Binding SelectedStation.Station.Name, FallbackValue='station playlist'}"
+                               FontSize="12" FontWeight="Bold" LetterSpacing="2"
+                               Foreground="{StaticResource MetroAccentBrush}"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="long-press an episode to mark it completed"
+                               FontSize="11" Foreground="{DynamicResource MetroMutedBrush}"
+                               TextWrapping="Wrap" MaxWidth="360" Margin="0,6,0,0" />
+                </StackPanel>
+                <Button Grid.Column="1" Classes="metroTool"
+                        Command="{Binding HidePlaylistCommand}"
+                        IsVisible="{Binding $parent[views:MetroShellView].IsNarrow}"
+                        ToolTip.Tip="Back to now playing">
+                    <TextBlock Text="×" FontSize="26" FontWeight="Light" Foreground="{DynamicResource MetroInkBrush}" />
+                </Button>
+            </Grid>
+        </Border>
+
+        <StackPanel Grid.Row="1" Margin="28,0,24,12" Spacing="8">
+            <Border Padding="10" Background="{StaticResource MetroYellowBrush}"
+                    IsVisible="{Binding DownloadStatusMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                <TextBlock Text="{Binding DownloadStatusMessage}" FontSize="11" TextWrapping="Wrap"
+                           Foreground="{StaticResource OhrbobDarkBlue}" />
+            </Border>
+            <TextBlock Text="Loading…" FontSize="12" Foreground="{DynamicResource MetroMutedBrush}"
+                       IsVisible="{Binding IsPlaylistLoading}" />
+            <TextBlock Text="Up next is not available on this server." FontSize="12" TextWrapping="Wrap"
+                       Foreground="{DynamicResource MetroMutedBrush}"
+                       IsVisible="{Binding IsPlaylistUnavailable}" />
+            <TextBlock Text="No upcoming episodes" FontSize="12"
+                       Foreground="{DynamicResource MetroMutedBrush}"
+                       IsVisible="{Binding IsPlaylistEmpty}" />
+        </StackPanel>
+
+        <ListBox x:Name="PlaylistList" Grid.Row="2" Classes="playlistBox"
+                 ItemsSource="{Binding PlaylistItems}" Margin="18,0,12,12"
+                 SelectionMode="Single">
+            <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="models:PlaylistItem">
+                    <Border Classes="episodeRow"
+                            Classes.completed="{Binding IsCompleted}"
+                            PointerPressed="OnEpisodePointerPressed"
+                            PointerReleased="OnEpisodePointerReleased"
+                            PointerCaptureLost="OnEpisodePointerCaptureLost"
+                            ToolTip.Tip="Long-press for episode actions">
+                        <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="12">
+                            <Border Grid.Column="0" Width="4" Background="{StaticResource MetroAccentBrush}"
+                                    IsVisible="{Binding IsCurrent}" />
+                            <Border Grid.Column="1" Width="58" Height="58" ClipToBounds="True"
+                                    Background="{DynamicResource MetroTileBrush}"
+                                    IsVisible="{Binding CoverUrl, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                <Image Classes="episodeThumb"
+                                       services:ImageLoader.Source="{Binding CoverUrl}"
+                                       services:ImageLoader.MaxWidth="120"
+                                       Stretch="UniformToFill" />
+                            </Border>
+                            <StackPanel Grid.Column="2" Spacing="3" VerticalAlignment="Center">
+                                <TextBlock Classes="episodeTitle" Text="{Binding Title}"
+                                           FontSize="15" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource MetroInkBrush}"
+                                           TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+                                <TextBlock Text="{Binding Artist}" FontSize="11"
+                                           Foreground="{DynamicResource MetroMutedBrush}"
+                                           TextTrimming="CharacterEllipsis" />
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="{Binding PublishedAtLabel}" FontSize="10"
+                                               Foreground="{DynamicResource MetroMutedBrush}" />
+                                    <TextBlock Text="{Binding CompletionLabel}" FontSize="10" FontWeight="Bold"
+                                               LetterSpacing="1"
+                                               Foreground="{StaticResource MetroAccentBrush}"
+                                               IsVisible="{Binding IsCompleted}" />
+                                    <TextBlock Text="{Binding StateLabel}" FontSize="10"
+                                               Foreground="{DynamicResource MetroMutedBrush}"
+                                               IsVisible="{Binding ShowDownloadStateLabel}" />
+                                </StackPanel>
+                            </StackPanel>
+                            <StackPanel Grid.Column="3" VerticalAlignment="Center" Spacing="4"
+                                        HorizontalAlignment="Right">
+                                <TextBlock Text="NOW" FontSize="9" FontWeight="Bold" LetterSpacing="1"
+                                           Foreground="{StaticResource MetroAccentBrush}"
+                                           IsVisible="{Binding IsCurrent}" />
+                                <TextBlock Text="✓" FontSize="18" FontWeight="Bold"
+                                           Foreground="{StaticResource MetroVioletBrush}"
+                                           IsVisible="{Binding IsCompleted}" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </Grid>
+</UserControl>

@@ -29,6 +29,15 @@
             <SolidColorBrush x:Key="ThemeDangerBrush" Color="#dc3545" />
 
             <FontFamily x:Key="SulphurPoint">avares://Ohrbob.App/Assets/Fonts#Sulphur Point</FontFamily>
+            <FontFamily x:Key="InterFont">avares://Avalonia.Fonts.Inter/Assets#Inter</FontFamily>
+
+            <!-- Metro/Modern UI accents -->
+            <SolidColorBrush x:Key="MetroAccentBrush" Color="{StaticResource OhrbobStrongOrange}" />
+            <SolidColorBrush x:Key="MetroAccentSoftBrush" Color="{StaticResource OhrbobOrangeLight}" />
+            <SolidColorBrush x:Key="MetroVioletBrush" Color="{StaticResource OhrbobLightBlue}" />
+            <SolidColorBrush x:Key="MetroYellowBrush" Color="{StaticResource OhrbobYellow}" />
+            <SolidColorBrush x:Key="MetroNavyBrush" Color="{StaticResource OhrbobDarkBlue}" />
+            <SolidColorBrush x:Key="MetroOnAccentBrush" Color="#FFFFFFFF" />
 
             <!-- Theme-sensitive brushes: these switch with the OS light/dark setting. -->
             <ResourceDictionary.ThemeDictionaries>
@@ -53,6 +62,17 @@
                     <SolidColorBrush x:Key="ThemeLightBrush" Color="#FFF4D8" />
                     <SolidColorBrush x:Key="ThemeDarkBrush" Color="#001957" />
 
+                    <!-- Metro canvas: warm paper in light mode, ink in dark mode. -->
+                    <SolidColorBrush x:Key="MetroCanvasBrush" Color="#F4F1EA" />
+                    <SolidColorBrush x:Key="MetroInkBrush" Color="#111217" />
+                    <SolidColorBrush x:Key="MetroMutedBrush" Color="#68645C" />
+                    <SolidColorBrush x:Key="MetroHairlineBrush" Color="#D8D2C5" />
+                    <SolidColorBrush x:Key="MetroTileBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="MetroChromeBrush" Color="#F4F1EA" />
+                    <SolidColorBrush x:Key="MetroFieldBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="MetroScrimBrush" Color="#B8000A14" />
+                    <SolidColorBrush x:Key="MetroOverlayBrush" Color="#E6000A14" />
+
                     <!-- TextBox focused / hover overrides to prevent white-on-white text -->
                     <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#FFF4D8" />
                     <SolidColorBrush x:Key="TextControlForegroundFocused" Color="#001957" />
@@ -76,6 +96,16 @@
                     <SolidColorBrush x:Key="ThemeLightBrush" Color="#151515" />
                     <SolidColorBrush x:Key="ThemeDarkBrush" Color="#F2F2F2" />
 
+                    <SolidColorBrush x:Key="MetroCanvasBrush" Color="#0E0F13" />
+                    <SolidColorBrush x:Key="MetroInkBrush" Color="#F7F4ED" />
+                    <SolidColorBrush x:Key="MetroMutedBrush" Color="#A7A29A" />
+                    <SolidColorBrush x:Key="MetroHairlineBrush" Color="#30323A" />
+                    <SolidColorBrush x:Key="MetroTileBrush" Color="#191B21" />
+                    <SolidColorBrush x:Key="MetroChromeBrush" Color="#0E0F13" />
+                    <SolidColorBrush x:Key="MetroFieldBrush" Color="#17191F" />
+                    <SolidColorBrush x:Key="MetroScrimBrush" Color="#D9000000" />
+                    <SolidColorBrush x:Key="MetroOverlayBrush" Color="#F2000000" />
+
                     <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#2A2A2A" />
                     <SolidColorBrush x:Key="TextControlForegroundFocused" Color="#F2F2F2" />
                     <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="#FC5D00" />
@@ -92,6 +122,49 @@
         <Style Selector="Window">
             <Setter Property="Background" Value="{DynamicResource AppBackgroundBrush}"/>
             <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}"/>
+            <Setter Property="FontFamily" Value="{StaticResource InterFont}"/>
+            <Setter Property="FontSize" Value="14"/>
+        </Style>
+
+        <Style Selector="TextBlock">
+            <Setter Property="FontFamily" Value="{StaticResource InterFont}"/>
+        </Style>
+
+        <Style Selector="TextBlock.metroDisplay">
+            <Setter Property="FontFamily" Value="{StaticResource SulphurPoint}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="76"/>
+            <Setter Property="LineHeight" Value="70"/>
+            <Setter Property="LetterSpacing" Value="-2"/>
+            <Setter Property="Foreground" Value="{DynamicResource MetroInkBrush}"/>
+        </Style>
+
+        <Style Selector="TextBlock.metroHeadline">
+            <Setter Property="FontFamily" Value="{StaticResource SulphurPoint}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="44"/>
+            <Setter Property="LineHeight" Value="42"/>
+            <Setter Property="LetterSpacing" Value="-1"/>
+            <Setter Property="Foreground" Value="{DynamicResource MetroInkBrush}"/>
+        </Style>
+
+        <Style Selector="TextBlock.metroTitle">
+            <Setter Property="FontFamily" Value="{StaticResource SulphurPoint}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="30"/>
+            <Setter Property="LineHeight" Value="32"/>
+            <Setter Property="Foreground" Value="{DynamicResource MetroInkBrush}"/>
+        </Style>
+
+        <Style Selector="TextBlock.metroLabel">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="LetterSpacing" Value="2"/>
+            <Setter Property="Foreground" Value="{DynamicResource MetroMutedBrush}"/>
+        </Style>
+
+        <Style Selector="TextBlock.metroMuted">
+            <Setter Property="Foreground" Value="{DynamicResource MetroMutedBrush}"/>
         </Style>
 
         <Style Selector="TextBlock.h1">
@@ -109,8 +182,10 @@
         </Style>
 
         <Style Selector="Button">
-            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="CornerRadius" Value="0"/>
             <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="FontFamily" Value="{StaticResource InterFont}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
         </Style>
 
         <!-- .btn-primary -->
@@ -131,6 +206,99 @@
             <Setter Property="Background" Value="{StaticResource OhrbobPaleViolet}"/>
             <!-- The hover background stays pale violet in both themes, so the text stays dark blue. -->
             <Setter Property="Foreground" Value="{StaticResource OhrbobDarkBlue}"/>
+        </Style>
+
+        <!-- Metro action surfaces: flat rectangles, strong type, no chrome. -->
+        <Style Selector="Button.metroPrimary">
+            <Setter Property="Background" Value="{StaticResource MetroAccentBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource MetroOnAccentBrush}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="Padding" Value="20,14"/>
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+        </Style>
+        <Style Selector="Button.metroPrimary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{StaticResource MetroAccentSoftBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource OhrbobDarkBlue}"/>
+        </Style>
+
+        <Style Selector="Button.metroViolet">
+            <Setter Property="Background" Value="{StaticResource MetroVioletBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="Padding" Value="20,14"/>
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+        </Style>
+        <Style Selector="Button.metroViolet:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#6D68FF"/>
+        </Style>
+
+        <Style Selector="Button.metroGhost">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource MetroInkBrush}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="Padding" Value="10,8"/>
+        </Style>
+        <Style Selector="Button.metroGhost:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource MetroHairlineBrush}"/>
+        </Style>
+
+        <Style Selector="Button.metroDanger">
+            <Setter Property="Background" Value="{StaticResource ThemeDangerBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="Padding" Value="20,14"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+        </Style>
+
+        <Style Selector="Button.metroTile">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+        </Style>
+        <Style Selector="Button.metroTile:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="Button.metroTile:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+
+        <Style Selector="Button.metroTool">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource MetroInkBrush}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="Padding" Value="10"/>
+        </Style>
+        <Style Selector="Button.metroTool:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource MetroHairlineBrush}"/>
+        </Style>
+
+        <Style Selector="TextBox.metroField">
+            <Setter Property="Background" Value="{DynamicResource MetroFieldBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource MetroInkBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource MetroHairlineBrush}"/>
+            <Setter Property="BorderThickness" Value="0,0,0,2"/>
+            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="Padding" Value="10,10"/>
+            <Setter Property="FontSize" Value="14"/>
+        </Style>
+        <Style Selector="ComboBox.metroCombo">
+            <Setter Property="Background" Value="{DynamicResource MetroFieldBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource MetroInkBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource MetroHairlineBrush}"/>
+            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="Padding" Value="10,8"/>
         </Style>
     </Application.Styles>
 </Application>

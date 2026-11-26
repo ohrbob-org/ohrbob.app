@@ -7,16 +7,43 @@
              mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="600"
              x:Class="Ohrbob.App.Views.MainView"
              x:DataType="vm:MainViewModel"
-             Background="{DynamicResource AppBackgroundBrush}"
-             Foreground="{DynamicResource AppForegroundBrush}">
+             Background="{DynamicResource MetroCanvasBrush}"
+             Foreground="{DynamicResource MetroInkBrush}">
 
     <UserControl.Styles>
-        <Style Selector="SplitView#MainSplitView">
-            <Setter Property="DisplayMode" Value="Inline" />
-            <Setter Property="IsPaneOpen" Value="True" />
+        <Style Selector="Border.screenHost">
+            <Setter Property="ClipToBounds" Value="True" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.34" Easing="CubicEaseOut" />
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.54" Easing="CubicEaseOut" />
+                </Transitions>
+            </Setter>
         </Style>
-        <Style Selector="Button#MenuButton">
-            <Setter Property="IsVisible" Value="False" />
+
+        <Style Selector="Border#OnboardingHost">
+            <Setter Property="Opacity" Value="1" />
+            <Setter Property="RenderTransform" Value="none" />
+            <Setter Property="RenderTransformOrigin" Value="50%,50%" />
+            <Setter Property="IsHitTestVisible" Value="True" />
+        </Style>
+        <Style Selector="Border#OnboardingHost.closed">
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="RenderTransform" Value="scale(0.97)" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+        </Style>
+
+        <!-- Screen 1 -> 2: the whole app swings in from a hinge on the left. -->
+        <Style Selector="Border#ShellHost">
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="RenderTransform" Value="scaleX(0.03)" />
+            <Setter Property="RenderTransformOrigin" Value="0%,50%" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+        </Style>
+        <Style Selector="Border#ShellHost.open">
+            <Setter Property="Opacity" Value="1" />
+            <Setter Property="RenderTransform" Value="none" />
+            <Setter Property="IsHitTestVisible" Value="True" />
         </Style>
     </UserControl.Styles>
 
@@ -25,38 +52,43 @@
     </Design.DataContext>
 
     <Panel>
-        <Grid>
-            <!-- Onboarding Screen (Displayed when not connected) -->
-            <views:OnboardingView IsVisible="{Binding !IsConnected}" />
-
-            <!-- Main App Player Interface (Displayed when connected) -->
-            <views:PlayerView IsVisible="{Binding IsConnected}" />
-        </Grid>
-
-        <!-- Replace-connection confirmation (shown when a link arrives while connected) -->
-        <Border Background="#80000000" IsVisible="{Binding IsReplaceConfirmationVisible}">
-            <Border x:Name="ReplaceConfirmationDialog" MaxWidth="360" Margin="16" Padding="24" CornerRadius="12"
-                    HorizontalAlignment="Center" VerticalAlignment="Center"
-                    Background="{DynamicResource AppBackgroundBrush}"
-                    BoxShadow="0 4 20 0 #40000000">
-                <StackPanel Spacing="16">
-                    <TextBlock Text="Replace the current connection?"
-                               Classes="h2" TextWrapping="Wrap" TextAlignment="Center"
-                               Foreground="{DynamicResource AppForegroundBrush}" />
-                    <TextBlock Text="Connecting this link will disconnect the server you are using now."
-                               FontSize="13" TextWrapping="Wrap" TextAlignment="Center"
-                               Foreground="{DynamicResource ThemeDarkBrush}" />
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="12">
-                        <Button x:Name="CancelReplaceButton" Command="{Binding CancelReplaceCommand}" Content="Cancel"
-                                MinWidth="110" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
-                        <Button x:Name="ConfirmReplaceButton" Command="{Binding ConfirmReplaceCommand}" Content="Replace"
-                                Classes="btn-primary" MinWidth="110"
-                                HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
-                    </StackPanel>
-                </StackPanel>
-            </Border>
+        <Border x:Name="OnboardingHost" Classes="screenHost" Classes.closed="{Binding IsConnected}">
+            <views:OnboardingView />
         </Border>
 
+        <Border x:Name="ShellHost" Classes="screenHost" Classes.open="{Binding IsConnected}">
+            <views:MetroShellView />
+        </Border>
+
+        <!-- Replace-connection confirmation (shown when a link arrives while connected) -->
+        <Panel IsVisible="{Binding IsReplaceConfirmationVisible}">
+            <Border Background="{DynamicResource MetroScrimBrush}" />
+            <Border x:Name="ReplaceConfirmationDialog" MaxWidth="420" Margin="20" Padding="0"
+                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Background="{DynamicResource MetroCanvasBrush}"
+                    BorderBrush="{DynamicResource MetroHairlineBrush}" BorderThickness="1"
+                    BoxShadow="0 18 60 0 #66000000">
+                <Grid RowDefinitions="Auto,Auto">
+                    <Border Height="6" Background="{StaticResource MetroAccentBrush}" />
+                    <StackPanel Grid.Row="1" Spacing="16" Margin="28,22,28,26">
+                        <TextBlock Text="replace connection?"
+                                   Classes="metroHeadline" FontSize="34" TextWrapping="Wrap"
+                                   Foreground="{DynamicResource MetroInkBrush}" />
+                        <TextBlock Text="Connecting this link will disconnect the server you are using now."
+                                   FontSize="13" TextWrapping="Wrap"
+                                   Foreground="{DynamicResource MetroMutedBrush}" />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                            <Button x:Name="CancelReplaceButton" Command="{Binding CancelReplaceCommand}" Content="cancel"
+                                    Classes="metroGhost" MinWidth="100"
+                                    HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
+                            <Button x:Name="ConfirmReplaceButton" Command="{Binding ConfirmReplaceCommand}" Content="replace"
+                                    Classes="metroPrimary" MinWidth="100"
+                                    HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Panel>
     </Panel>
 
 </UserControl>
