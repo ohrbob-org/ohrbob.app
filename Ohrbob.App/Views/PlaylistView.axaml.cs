@@ -20,8 +20,9 @@ public partial class PlaylistView : UserControl
 {
     private const double DragThreshold = 8;
     private const double InertiaVelocityCutoff = 60;
-    private const ulong StaleVelocityMs = 120;
+    private const double StaleVelocityMs = 120;
 
+    private readonly Stopwatch _velocityClock = new();
     private readonly DispatcherTimer _longPressTimer;
     private readonly DispatcherTimer _inertiaTimer;
     private readonly TranslateTransform _playlistBounce = new();
@@ -34,7 +35,7 @@ public partial class PlaylistView : UserControl
     private Point _dragOrigin;
     private double _dragStartOffset;
     private double _lastPointerY;
-    private ulong _lastPointerTimestamp;
+    private double _lastVelocitySampleMs;
     private double _offsetVelocity;
     private double _inertiaOffset;
     private double _inertiaVelocity;
@@ -83,6 +84,10 @@ public partial class PlaylistView : UserControl
         _scroll = PlaylistList.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault();
         if (_scroll is null) return;
 
+        // Explicit even though the theme defaults it on: inertia is part of the
+        // Metro feel and must never disappear with a template change.
+        _scroll.IsScrollInertiaEnabled = true;
+
         _scrollContent = _scroll.Content as Control;
         if (_scrollContent is not null)
             _scrollContent.RenderTransform = _playlistBounce;
@@ -115,7 +120,8 @@ public partial class PlaylistView : UserControl
         _dragOrigin = e.GetPosition(_scroll);
         _dragStartOffset = _scroll.Offset.Y;
         _lastPointerY = _dragOrigin.Y;
-        _lastPointerTimestamp = e.Timestamp;
+        _velocityClock.Restart();
+        _lastVelocitySampleMs = 0;
         _offsetVelocity = 0;
         _playlistBounce.Transitions = null;
         _playlistBounce.Y = 0;
@@ -149,7 +155,7 @@ public partial class PlaylistView : UserControl
             }
 
             ApplyDrag(dy);
-            TrackVelocity(position.Y, e.Timestamp);
+            TrackVelocity(position.Y);
             e.Handled = true;
         }
         else
@@ -179,7 +185,7 @@ public partial class PlaylistView : UserControl
             if (!wasDragging) return;
 
             e.Handled = true;
-            if (e.Timestamp - _lastPointerTimestamp > StaleVelocityMs)
+            if (_velocityClock.Elapsed.TotalMilliseconds - _lastVelocitySampleMs > StaleVelocityMs)
                 velocity = 0;
             StartInertiaOrSpringBack(velocity);
         }
@@ -267,9 +273,12 @@ public partial class PlaylistView : UserControl
         }
     }
 
-    private void TrackVelocity(double y, ulong timestamp)
+    private void TrackVelocity(double y)
     {
-        var elapsedMs = timestamp - _lastPointerTimestamp;
+        // Use our own monotonic clock: platform pointer timestamps are not
+        // guaranteed to advance consistently, which killed the fling.
+        var nowMs = _velocityClock.Elapsed.TotalMilliseconds;
+        var elapsedMs = nowMs - _lastVelocitySampleMs;
         if (elapsedMs > 0)
         {
             var velocity = -(y - _lastPointerY) / (elapsedMs / 1000.0);
@@ -277,7 +286,7 @@ public partial class PlaylistView : UserControl
         }
 
         _lastPointerY = y;
-        _lastPointerTimestamp = timestamp;
+        _lastVelocitySampleMs = nowMs;
     }
 
     private void EndMouseDrag()

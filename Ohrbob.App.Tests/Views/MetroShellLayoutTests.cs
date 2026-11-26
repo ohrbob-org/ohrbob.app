@@ -418,6 +418,26 @@ public class MetroShellLayoutTests
     }
 
     [AvaloniaTest]
+    public void EveryScrollViewer_HasInertiaEnabled()
+    {
+        var vm = CreateViewModel();
+        vm.IsNowPlayingOpen = true;
+        for (var i = 0; i < 20; i++)
+            vm.PlaylistItems.Add(new PlaylistItem { EpisodeId = $"e{i}", Title = $"Episode {i}" });
+
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 1200, Height = 800, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var scrollViewers = view.GetVisualDescendants().OfType<ScrollViewer>().ToList();
+        Assert.That(scrollViewers, Is.Not.Empty);
+        Assert.That(scrollViewers, Has.All.Matches<ScrollViewer>(s => s.IsScrollInertiaEnabled),
+            "every scrollable must keep inertia enabled");
+        window.Close();
+    }
+
+    [AvaloniaTest]
     public void StationLoading_CoversTheOldPlayerAndPlaylistContent()
     {
         var vm = CreateViewModel();
@@ -533,7 +553,7 @@ public class MetroShellLayoutTests
     }
 
     [AvaloniaTest]
-    public void NarrowLayout_KeepsThePlayerSettingsCog()
+    public void NarrowLayout_OnlyShowsThePlayerSettingsCog()
     {
         var vm = CreateViewModel();
         var view = new MetroShellView { DataContext = vm };
@@ -542,7 +562,12 @@ public class MetroShellLayoutTests
         Dispatcher.UIThread.RunJobs();
 
         var nowPlaying = view.GetVisualDescendants().OfType<NowPlayingView>().Single();
-        Assert.That(nowPlaying.FindControl<Button>("StationSettingsButton")!.IsEffectivelyVisible, Is.True);
+        var playlist = view.GetVisualDescendants().OfType<PlaylistView>().Single();
+
+        Assert.That(nowPlaying.FindControl<Button>("StationSettingsButton")!.IsEffectivelyVisible, Is.True,
+            "the player-side cog is the single settings entry in portrait");
+        Assert.That(playlist.FindControl<Button>("PlaylistSettingsButton")!.IsEffectivelyVisible, Is.False,
+            "the playlist cog would duplicate the player cog in portrait");
         window.Close();
     }
 

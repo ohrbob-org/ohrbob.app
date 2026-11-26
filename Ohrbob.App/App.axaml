@@ -369,6 +369,15 @@
             <Setter Property="Padding" Value="10,8"/>
         </Style>
 
+        <!-- Metro scrolling always coasts after a flick; no view or template may
+             turn inertia off for a scrollable. -->
+        <Style Selector="ScrollViewer">
+            <Setter Property="ScrollViewer.IsScrollInertiaEnabled" Value="True"/>
+        </Style>
+        <Style Selector="ListBox">
+            <Setter Property="ScrollViewer.IsScrollInertiaEnabled" Value="True"/>
+        </Style>
+
         <!-- Metro flyouts have no default card chrome; their content draws its own surface. -->
         <Style Selector="FlyoutPresenter">
             <Setter Property="Background" Value="Transparent"/>
