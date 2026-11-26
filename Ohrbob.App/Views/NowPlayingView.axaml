@@ -87,6 +87,8 @@
                    Stretch="UniformToFill"
                    IsVisible="{Binding CurrentEpisodeCoverUrl, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
             <Border Background="{DynamicResource NowPlayingFadeBrush}" />
+            <Border Height="220" VerticalAlignment="Top"
+                    Background="{DynamicResource NowPlayingTopFadeBrush}" />
         </Panel>
 
         <Grid RowDefinitions="Auto,*,Auto">
