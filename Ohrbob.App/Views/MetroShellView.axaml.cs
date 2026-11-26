@@ -42,6 +42,7 @@ public partial class MetroShellView : UserControl
     private bool _isPanning;
     private IPointer? _panPointer;
     private bool _instantPanoramaForTests;
+    private bool _isStationsRefreshing;
 
     public MetroShellView()
     {
@@ -79,6 +80,10 @@ public partial class MetroShellView : UserControl
         PanoramaViewport.AddHandler(
             PointerCaptureLostEvent, OnPanoramaPointerCaptureLost,
             RoutingStrategies.Tunnel, handledEventsToo: true);
+
+        StationsScroll.AddHandler(
+            PointerWheelChangedEvent, OnStationsWheel,
+            RoutingStrategies.Bubble, handledEventsToo: true);
 
         PanoramaViewport.SizeChanged += (_, _) => ApplyResponsiveLayout();
         Loaded += (_, _) => ApplyResponsiveLayout();
@@ -332,6 +337,34 @@ public partial class MetroShellView : UserControl
 
         if (DataContext is MainViewModel vm)
             vm.OpenStationCommand.Execute(station);
+    }
+
+    private async void OnStationsRefreshRequested(object? sender, RefreshRequestedEventArgs e)
+    {
+        var deferral = e.GetDeferral();
+        if (_isStationsRefreshing)
+        {
+            deferral.Complete();
+            return;
+        }
+
+        _isStationsRefreshing = true;
+        try
+        {
+            if (_viewModel is not null)
+                await _viewModel.RefreshAllAsync();
+        }
+        finally
+        {
+            _isStationsRefreshing = false;
+            deferral.Complete();
+        }
+    }
+
+    private void OnStationsWheel(object? sender, PointerWheelEventArgs e)
+    {
+        if (e.Delta.Y > 0 && StationsScroll.Offset.Y <= 0.5)
+            StationsRefresh.RequestRefresh();
     }
 
     private void OnSettingsScrimPointerPressed(object? sender, PointerPressedEventArgs e)

@@ -207,6 +207,29 @@ public class MetroShellLayoutTests
     }
 
     [AvaloniaTest]
+    public void PortraitStationsHeader_ShowsDisconnectAndUsesPullRefresh()
+    {
+        var vm = CreateViewModel();
+        vm.IsNowPlayingOpen = false;
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 420, Height = 820, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(view.FindControl<Button>("DisconnectIconButton")!.IsEffectivelyVisible, Is.True,
+            "disconnect must remain available in portrait");
+        Assert.That(view.FindControl<Button>("DisconnectButton")!.IsEffectivelyVisible, Is.False,
+            "portrait uses the compact disconnect icon");
+
+        var refresh = view.FindControl<RefreshContainer>("StationsRefresh");
+        Assert.That(refresh, Is.Not.Null);
+        Assert.That(refresh!.PullDirection, Is.EqualTo(PullDirection.TopToBottom));
+        Assert.That(view.GetVisualDescendants().OfType<Button>().Any(b => ReferenceEquals(b.Command, vm.RefreshAllCommand)),
+            Is.False, "the header refresh button was removed");
+        window.Close();
+    }
+
+    [AvaloniaTest]
     public void BufferingUsesASmallChipAndDoesNotCoverNavigation()
     {
         var vm = CreateViewModel();

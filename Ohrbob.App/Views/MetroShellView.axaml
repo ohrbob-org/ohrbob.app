@@ -70,6 +70,9 @@
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="BoxShadow" Value="0 18 60 0 #66000000" />
         </Style>
+        <Style Selector="Button#DisconnectIconButton">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
 
         <ContainerQuery Name="shell" Query="max-width: 760">
             <Style Selector="TextBlock#StationsTitle">
@@ -122,15 +125,11 @@
                                            HorizontalAlignment="Right" />
                             </StackPanel>
                         </Button>
-                        <Button Classes="metroTool" Command="{Binding RefreshAllCommand}" ToolTip.Tip="Refresh">
-                            <PathIcon Data="M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z"
-                                      Width="17" Height="17" Foreground="{DynamicResource MetroInkBrush}" />
-                        </Button>
                         <Button x:Name="DisconnectButton" Classes="metroGhost" Content="disconnect" FontSize="11"
                                 Command="{Binding DisconnectCommand}" Opacity="0.7" />
                         <Button x:Name="DisconnectIconButton" Classes="metroTool"
                                 Command="{Binding DisconnectCommand}" Opacity="0.7"
-                                IsVisible="False" ToolTip.Tip="Disconnect">
+                                ToolTip.Tip="Disconnect">
                             <PathIcon Data="M16,17V14H9V10H16V7L21,12L16,17M14,2A2,2 0 0,1 16,4V6H14V4H5V20H14V18H16V20A2,2 0 0,1 14,22H5A2,2 0 0,1 3,20V4A2,2 0 0,1 5,2H14Z"
                                       Width="17" Height="17" Foreground="{DynamicResource MetroInkBrush}" />
                         </Button>
@@ -140,7 +139,10 @@
                                Text="stations" Classes="metroDisplay" Margin="0,10,0,0" />
                 </Grid>
 
-                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                <RefreshContainer x:Name="StationsRefresh" Grid.Row="1"
+                                  PullDirection="TopToBottom" IsMouseEnabled="True"
+                                  RefreshRequested="OnStationsRefreshRequested">
+                <ScrollViewer x:Name="StationsScroll" VerticalScrollBarVisibility="Auto">
                     <Panel>
                         <ItemsControl x:Name="StationGrid" ItemsSource="{Binding Stations}" Margin="44,4,26,26">
                             <ItemsControl.ItemsPanel>
@@ -221,6 +223,7 @@
                         </StackPanel>
                     </Panel>
                 </ScrollViewer>
+                </RefreshContainer>
             </Grid>
         </Border>
 
