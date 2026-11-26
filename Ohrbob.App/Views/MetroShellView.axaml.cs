@@ -369,6 +369,10 @@ public partial class MetroShellView : UserControl
 
     private async void OnStationsRefreshRequested(object? sender, RefreshRequestedEventArgs e)
     {
+        // The refresh takes over the pull gesture; stop following the pointer
+        // so later moves do not keep shifting the list.
+        ReleaseStationsRubberBand();
+
         var deferral = e.GetDeferral();
         if (_isStationsRefreshing)
         {
@@ -406,6 +410,16 @@ public partial class MetroShellView : UserControl
     private void OnStationsPointerMoved(object? sender, PointerEventArgs e)
     {
         if (!_trackingStationsDrag) return;
+
+        // Hover moves arrive on the same route after the button was released
+        // elsewhere; a missed release must not leave the list following the
+        // pointer.
+        if (e.Pointer.Type != PointerType.Touch &&
+            !e.GetCurrentPoint(StationsScroll).Properties.IsLeftButtonPressed)
+        {
+            ReleaseStationsRubberBand();
+            return;
+        }
 
         var delta = e.GetPosition(StationsScroll).Y - _stationsDragOrigin.Y;
         var offset = StationsScroll.Offset.Y;

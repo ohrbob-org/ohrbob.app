@@ -267,6 +267,70 @@ public class MetroShellLayoutTests
     }
 
     [AvaloniaTest]
+    public void TriggeringARefresh_ReleasesTheStationBounce()
+    {
+        var vm = CreateViewModel();
+        vm.IsNowPlayingOpen = false;
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 420, Height = 820, Content = view };
+        window.Show();
+        window.Activate();
+        window.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+
+        var scroll = view.FindControl<ScrollViewer>("StationsScroll")!;
+        var content = view.FindControl<Panel>("StationsContent")!;
+        var bounce = (TranslateTransform)content.RenderTransform!;
+        var refresh = view.FindControl<RefreshContainer>("StationsRefresh")!;
+        var start = scroll.TranslatePoint(new Point(60, 60), window)!.Value;
+
+        window.MouseDown(start, MouseButton.Left);
+        window.MouseMove(start + new Point(0, 40), RawInputModifiers.LeftMouseButton);
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(bounce.Y, Is.GreaterThan(0), "sanity: dragging down at the top bounces");
+
+        refresh.RequestRefresh();
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(IsStationsDragActive(view), Is.False,
+            "a refresh interrupts the drag and must stop following the pointer");
+
+        window.MouseMove(start + new Point(0, 10));
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(IsStationsDragActive(view), Is.False,
+            "after the refresh, plain mouse moves must not restart the drag");
+
+        window.MouseUp(start + new Point(0, 10), MouseButton.Left);
+        window.Close();
+    }
+
+    private static bool IsStationsDragActive(MetroShellView view) =>
+        (bool)typeof(MetroShellView)
+            .GetField("_trackingStationsDrag",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .GetValue(view)!;
+
+    [AvaloniaTest]
+    public void PlaylistCurrentEpisode_UsesOnlyTheOrangeIndicator()
+    {
+        var vm = CreateViewModel();
+        vm.PlaylistItems.Add(new PlaylistItem { EpisodeId = "e1", Title = "Current", IsCurrent = true });
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 1200, Height = 800, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var playlist = view.GetVisualDescendants().OfType<PlaylistView>().Single();
+        Assert.That(playlist.GetVisualDescendants().OfType<TextBlock>()
+                .Any(t => t.Text == "NOW" && t.IsEffectivelyVisible), Is.False,
+            "the clipped NOW label is redundant with the left indicator");
+        Assert.That(playlist.GetVisualDescendants().OfType<Border>().Any(b =>
+                b.Width == 4 && b.IsEffectivelyVisible &&
+                b.Background is ISolidColorBrush { Color: var c } && c == Color.Parse("#FC5D00")),
+            Is.True, "the orange current-episode indicator must remain");
+        window.Close();
+    }
+
+    [AvaloniaTest]
     public void PortraitStationsHeader_ShowsDisconnectAndUsesPullRefresh()
     {
         var vm = CreateViewModel();
