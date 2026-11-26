@@ -139,6 +139,32 @@ public class MetroShellLayoutTests
     }
 
     [AvaloniaTest]
+    public void PlayerPages_ExposeStationSettingsCogInsteadOfPlaylistShortcut()
+    {
+        var vm = CreateViewModel();
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 900, Height = 700, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var nowPlaying = view.GetVisualDescendants().OfType<NowPlayingView>().Single();
+        var playlist = view.GetVisualDescendants().OfType<PlaylistView>().Single();
+
+        Assert.That(nowPlaying.FindControl<Button>("OpenPlaylistButton"), Is.Null,
+            "the content-level playlist shortcut was removed");
+        var nowPlayingSettings = nowPlaying.FindControl<Button>("StationSettingsButton");
+        Assert.That(nowPlayingSettings, Is.Not.Null);
+        Assert.That(nowPlayingSettings!.Command, Is.SameAs(vm.OpenSettingsCommand));
+        Assert.That(nowPlaying.GetVisualDescendants().OfType<TextBlock>().Any(t => t.Text == "station settings"),
+            Is.False, "the settings link at the bottom was removed");
+
+        var playlistSettings = playlist.FindControl<Button>("PlaylistSettingsButton");
+        Assert.That(playlistSettings, Is.Not.Null);
+        Assert.That(playlistSettings!.Command, Is.SameAs(vm.OpenSettingsCommand));
+        window.Close();
+    }
+
+    [AvaloniaTest]
     public void NarrowStationsHeader_DoesNotSqueezeTheHeadline()
     {
         var vm = CreateViewModel();
