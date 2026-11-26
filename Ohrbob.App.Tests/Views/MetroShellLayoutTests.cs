@@ -305,6 +305,25 @@ public class MetroShellLayoutTests
     }
 
     [AvaloniaTest]
+    public void NarrowPanorama_SwipesToThePlaylistAndBack()
+    {
+        var vm = CreateViewModel();
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 420, Height = 820, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        view.SwipeForTests(-300);
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(vm.IsPlaylistOpen, Is.True, "a left swipe should reveal the playlist");
+
+        view.SwipeForTests(300);
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(vm.IsPlaylistOpen, Is.False, "a right swipe should return to now playing");
+        window.Close();
+    }
+
+    [AvaloniaTest]
     public void NarrowStationsHeader_DoesNotSqueezeTheHeadline()
     {
         var vm = CreateViewModel();

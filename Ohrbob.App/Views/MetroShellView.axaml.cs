@@ -5,9 +5,10 @@ using Avalonia.Animation;
 using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Input;
-using Avalonia.Input.GestureRecognizers;
+using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Ohrbob.App.Models;
 using Ohrbob.App.ViewModels;
 
@@ -36,6 +37,11 @@ public partial class MetroShellView : UserControl
     private bool _suppressStationClick;
     private bool _isApplyingLayout;
     private MainViewModel? _viewModel;
+    private Point _panStart;
+    private double _panStartOffset;
+    private bool _isPanning;
+    private IPointer? _panPointer;
+    private bool _instantPanoramaForTests;
 
     public MetroShellView()
     {
@@ -59,13 +65,20 @@ public partial class MetroShellView : UserControl
         };
         _stationLongPressTimer.Tick += OnStationLongPressElapsed;
 
-        var swipe = new SwipeGestureRecognizer
-        {
-            CanHorizontallySwipe = true,
-            IsMouseEnabled = true,
-        };
-        PanoramaViewport.GestureRecognizers.Add(swipe);
-        PanoramaViewport.SwipeGestureEnded += OnPanoramaSwipeEnded;
+        // A direct horizontal drag works over the scrollable now-playing
+        // content, unlike a recognizer competing with its ScrollViewer.
+        PanoramaViewport.AddHandler(
+            PointerPressedEvent, OnPanoramaPointerPressed,
+            RoutingStrategies.Tunnel, handledEventsToo: true);
+        PanoramaViewport.AddHandler(
+            PointerMovedEvent, OnPanoramaPointerMoved,
+            RoutingStrategies.Tunnel, handledEventsToo: true);
+        PanoramaViewport.AddHandler(
+            PointerReleasedEvent, OnPanoramaPointerReleased,
+            RoutingStrategies.Tunnel, handledEventsToo: true);
+        PanoramaViewport.AddHandler(
+            PointerCaptureLostEvent, OnPanoramaPointerCaptureLost,
+            RoutingStrategies.Tunnel, handledEventsToo: true);
 
         PanoramaViewport.SizeChanged += (_, _) => ApplyResponsiveLayout();
         Loaded += (_, _) => ApplyResponsiveLayout();
@@ -104,7 +117,7 @@ public partial class MetroShellView : UserControl
             return;
         }
 
-        ApplyPanoramaOffset(animate: true);
+        ApplyPanoramaOffset(animate: !_instantPanoramaForTests);
     }
 
     private void ApplyResponsiveLayout()
@@ -165,14 +178,111 @@ public partial class MetroShellView : UserControl
         }
     }
 
-    private void OnPanoramaSwipeEnded(object? sender, SwipeGestureEndedEventArgs e)
+    private void OnPanoramaPointerPressed(object? sender, PointerPressedEventArgs e)
     {
+        if (!IsNarrow) return;
+
+        var point = e.GetCurrentPoint(PanoramaViewport);
+        if (e.Pointer.Type != PointerType.Touch && !point.Properties.IsLeftButtonPressed) return;
+
+        // Sliders own horizontal drags inside their own track.
+        if (e.Source is Visual source && source.FindAncestorOfType<Slider>() is not null) return;
+
+        _panPointer = e.Pointer;
+        _panStart = e.GetPosition(PanoramaViewport);
+        _panStartOffset = _panoramaTransform.X;
+        _isPanning = false;
+    }
+
+    private void OnPanoramaPointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (!IsNarrow || _panPointer != e.Pointer) return;
+
+        var position = e.GetPosition(PanoramaViewport);
+        var dx = position.X - _panStart.X;
+        var dy = position.Y - _panStart.Y;
+
+        if (!_isPanning)
+        {
+            if (Math.Abs(dx) < 10 || Math.Abs(dx) <= Math.Abs(dy)) return;
+            _isPanning = true;
+            _panoramaTransform.Transitions = null;
+        }
+
+        var maximum = MaxPanOffset();
+        _panoramaTransform.X = Math.Clamp(_panStartOffset + dx, -maximum, 0);
+        e.Handled = true;
+    }
+
+    private void OnPanoramaPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (_panPointer != e.Pointer) return;
+        CommitPan();
+        _panPointer = null;
+    }
+
+    private void OnPanoramaPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
+    {
+        CommitPan();
+        _panPointer = null;
+    }
+
+    private void CommitPan()
+    {
+        if (!_isPanning) return;
+        _isPanning = false;
+
+        var maximum = MaxPanOffset();
+        var open = maximum > 0 && _panoramaTransform.X < -maximum * 0.35;
+
+        if (_viewModel is not null && _viewModel.IsPlaylistOpen != open)
+        {
+            // The property change animates from the released drag position.
+            _viewModel.IsPlaylistOpen = open;
+            return;
+        }
+
+        AnimatePanoramaTo(open ? -maximum : 0);
+    }
+
+    private double MaxPanOffset()
+    {
+        var width = PanoramaViewport.Bounds.Width;
+        return Math.Max(1, width - NarrowPeek);
+    }
+
+    internal void SwipeForTests(double dx)
+    {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(() => SwipeForTests(dx));
+            return;
+        }
+
         if (!IsNarrow || _viewModel is null) return;
 
-        if (e.Velocity.X < -200)
-            _viewModel.ShowPlaylistCommand.Execute(null);
-        else if (e.Velocity.X > 200)
-            _viewModel.HidePlaylistCommand.Execute(null);
+        _panStartOffset = _panoramaTransform.X;
+        _isPanning = true;
+        _panoramaTransform.Transitions = null;
+        _panoramaTransform.X = Math.Clamp(_panStartOffset + dx, -MaxPanOffset(), 0);
+
+        _instantPanoramaForTests = true;
+        try
+        {
+            CommitPan();
+        }
+        finally
+        {
+            _instantPanoramaForTests = false;
+        }
+
+        _panPointer = null;
+    }
+
+    private void AnimatePanoramaTo(double offset)
+    {
+        _panoramaTransform.Transitions = _panoramaTransitions;
+        _panoramaTransform.X = offset;
     }
 
     private void OnStationTilePointerPressed(object? sender, PointerPressedEventArgs e)
