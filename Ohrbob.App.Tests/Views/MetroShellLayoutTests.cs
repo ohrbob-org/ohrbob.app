@@ -3,7 +3,10 @@ using System.IO;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
+using Avalonia.Input;
+using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using NUnit.Framework;
@@ -139,6 +142,35 @@ public class MetroShellLayoutTests
     }
 
     [AvaloniaTest]
+    public void StationTiles_UseASingleLineMarqueeOnlyWhenTheNameOverflows()
+    {
+        var vm = CreateViewModel();
+        var longName = "A station name that is much too long for a single tile";
+        vm.Stations[0].Station!.Name = longName;
+        vm.Stations.Add(new StationWithFeedsDto
+        {
+            Station = new Station { Id = "s2", Name = "Short" },
+        });
+        vm.IsNowPlayingOpen = false;
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 900, Height = 700, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var longTitle = view.GetVisualDescendants().OfType<TextBlock>().First(t => t.Text == longName);
+        var shortTitle = view.GetVisualDescendants().OfType<TextBlock>().First(t => t.Text == "Short");
+
+        Assert.That(longTitle.TextWrapping, Is.EqualTo(TextWrapping.NoWrap));
+        Assert.That(longTitle.MaxLines, Is.EqualTo(1));
+        Assert.That(MarqueeText.GetIsEnabled(longTitle), Is.True);
+        Assert.That(MarqueeText.MeasureOverflow(longTitle), Is.GreaterThan(0),
+            "a long station name should be prepared for marquee scrolling");
+        Assert.That(MarqueeText.MeasureOverflow(shortTitle), Is.EqualTo(0),
+            "short station names should stay still");
+        window.Close();
+    }
+
+    [AvaloniaTest]
     public void PlayerPages_ExposeStationSettingsCogInsteadOfPlaylistShortcut()
     {
         var vm = CreateViewModel();
@@ -174,6 +206,8 @@ public class MetroShellLayoutTests
         var view = new MetroShellView { DataContext = vm };
         var window = new Window { Width = 420, Height = 600, Content = view };
         window.Show();
+        window.Activate();
+        window.UpdateLayout();
         Dispatcher.UIThread.RunJobs();
 
         var nowPlaying = view.GetVisualDescendants().OfType<NowPlayingView>().Single();
@@ -181,7 +215,8 @@ public class MetroShellLayoutTests
         var title = nowPlaying.FindControl<TextBlock>("NowPlayingTitle")!;
         var description = nowPlaying.FindControl<LinkTextBlock>("NowPlayingDescription")!;
 
-        Assert.That(scroll.VerticalScrollBarVisibility, Is.EqualTo(Avalonia.Controls.Primitives.ScrollBarVisibility.Auto));
+        Assert.That(scroll.VerticalScrollBarVisibility, Is.EqualTo(Avalonia.Controls.Primitives.ScrollBarVisibility.Hidden),
+            "the player uses rubber-band scrolling instead of a visible scrollbar");
         Assert.That(title.GetVisualAncestors().Contains(scroll), Is.True,
             "the title must scroll with the description");
         Assert.That(description.GetVisualAncestors().Contains(scroll), Is.True,
@@ -193,6 +228,31 @@ public class MetroShellLayoutTests
         Dispatcher.UIThread.RunJobs();
         Assert.That(scroll.Offset.Y, Is.GreaterThan(0),
             "the metadata area must scroll down to the description");
+        window.Close();
+    }
+
+    [AvaloniaTest]
+    public void NowPlayingMetadata_BouncesOnlyAtTheScrollEdges()
+    {
+        var vm = CreateViewModel();
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 420, Height = 600, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var nowPlaying = view.GetVisualDescendants().OfType<NowPlayingView>().Single();
+        var content = nowPlaying.FindControl<Grid>("NowPlayingDetailsContent")!;
+        var scroll = nowPlaying.FindControl<ScrollViewer>("NowPlayingDetailsScroll")!;
+
+        Assert.That(content.RenderTransform, Is.TypeOf<TranslateTransform>());
+        Assert.That(NowPlayingView.RubberBandOffset(0, 500, 80), Is.GreaterThan(0),
+            "dragging down at the top should bounce");
+        Assert.That(NowPlayingView.RubberBandOffset(500, 500, -80), Is.LessThan(0),
+            "dragging up at the bottom should bounce");
+        Assert.That(NowPlayingView.RubberBandOffset(250, 500, 80), Is.EqualTo(0),
+            "dragging in the middle should scroll normally, not bounce");
+        Assert.That(scroll.VerticalScrollBarVisibility,
+            Is.EqualTo(Avalonia.Controls.Primitives.ScrollBarVisibility.Hidden));
         window.Close();
     }
 

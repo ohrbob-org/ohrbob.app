@@ -130,9 +130,10 @@
                  stay anchored to the bottom; long metadata can scroll. -->
             <ScrollViewer x:Name="NowPlayingDetailsScroll" Grid.Row="1"
                           Margin="40,20,40,12"
-                          VerticalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Hidden"
                           HorizontalScrollBarVisibility="Disabled">
-                <Grid MinHeight="{Binding $parent[ScrollViewer].Viewport.Height}">
+                <Grid x:Name="NowPlayingDetailsContent"
+                      MinHeight="{Binding $parent[ScrollViewer].Viewport.Height}">
                     <StackPanel Spacing="12" MaxWidth="820" HorizontalAlignment="Left"
                                 VerticalAlignment="Bottom">
                     <TextBlock x:Name="NowPlayingTitle"

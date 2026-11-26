@@ -73,6 +73,15 @@
                     <SolidColorBrush x:Key="MetroScrimBrush" Color="#B8000A14" />
                     <SolidColorBrush x:Key="MetroOverlayBrush" Color="#E6000A14" />
 
+                    <!-- Station tiles fade to paper in light mode, with dark titles. -->
+                    <SolidColorBrush x:Key="StationTileBaseBrush" Color="#EDE8DE" />
+                    <SolidColorBrush x:Key="StationTileTitleBrush" Color="#111217" />
+                    <LinearGradientBrush x:Key="StationTileFadeBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+                        <GradientStop Offset="0" Color="#00FFFFFF" />
+                        <GradientStop Offset="0.5" Color="#BFFFFFFF" />
+                        <GradientStop Offset="1" Color="#F2FFFFFF" />
+                    </LinearGradientBrush>
+
                     <!-- TextBox focused / hover overrides to prevent white-on-white text -->
                     <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#FFF4D8" />
                     <SolidColorBrush x:Key="TextControlForegroundFocused" Color="#001957" />
@@ -105,6 +114,14 @@
                     <SolidColorBrush x:Key="MetroFieldBrush" Color="#17191F" />
                     <SolidColorBrush x:Key="MetroScrimBrush" Color="#D9000000" />
                     <SolidColorBrush x:Key="MetroOverlayBrush" Color="#F2000000" />
+
+                    <SolidColorBrush x:Key="StationTileBaseBrush" Color="#001957" />
+                    <SolidColorBrush x:Key="StationTileTitleBrush" Color="#FFFFFFFF" />
+                    <LinearGradientBrush x:Key="StationTileFadeBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+                        <GradientStop Offset="0" Color="#33000A14" />
+                        <GradientStop Offset="0.55" Color="#99000A14" />
+                        <GradientStop Offset="1" Color="#E6000A14" />
+                    </LinearGradientBrush>
 
                     <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#2A2A2A" />
                     <SolidColorBrush x:Key="TextControlForegroundFocused" Color="#F2F2F2" />
