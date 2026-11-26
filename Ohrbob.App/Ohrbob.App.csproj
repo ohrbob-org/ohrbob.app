@@ -37,4 +37,57 @@
     <None Remove="Resources\Images\ohrbob-logo.svg" />
     <Resource Include="Resources\Images\ohrbob-logo.svg" />
   </ItemGroup>
+
+  <!-- Stamp the version into the assembly at build time so the UI never has to
+       hard-code it. An explicit OhrbobVersion (set by the packaging scripts)
+       wins; otherwise the newest git tag is used, then the platform build
+       version, then the SDK default. -->
+  <Target Name="GenerateOhrbobVersion"
+          BeforeTargets="BeforeCompile"
+          Condition="'$(DesignTimeBuild)' != 'true'">
+    <PropertyGroup>
+      <_OhrbobVersionFile>$(IntermediateOutputPath)OhrbobVersion.g.cs</_OhrbobVersionFile>
+      <_OhrbobGitVersionFile>$(IntermediateOutputPath)OhrbobGitVersion.txt</_OhrbobGitVersionFile>
+      <_OhrbobVersion>$(OhrbobVersion)</_OhrbobVersion>
+    </PropertyGroup>
+
+    <Delete Files="$(_OhrbobGitVersionFile)"
+            Condition="'$(_OhrbobVersion)' == ''" />
+
+    <Exec Command="git describe --tags --abbrev=0 &gt; &quot;$(_OhrbobGitVersionFile)&quot;"
+          WorkingDirectory="$(MSBuildProjectDirectory)"
+          IgnoreExitCode="true"
+          Condition="'$(_OhrbobVersion)' == ''"
+          StandardOutputImportance="low"
+          StandardErrorImportance="low" />
+
+    <ReadLinesFromFile File="$(_OhrbobGitVersionFile)"
+                       Condition="'$(_OhrbobVersion)' == '' and Exists('$(_OhrbobGitVersionFile)')">
+      <Output TaskParameter="Lines" ItemName="_OhrbobGitVersionLines" />
+    </ReadLinesFromFile>
+
+    <PropertyGroup>
+      <_OhrbobGitVersion>@(_OhrbobGitVersionLines)</_OhrbobGitVersion>
+    </PropertyGroup>
+
+    <PropertyGroup>
+      <_OhrbobVersion Condition="'$(_OhrbobVersion)' == ''">$([System.Text.RegularExpressions.Regex]::Replace('$(_OhrbobGitVersion)', '^v', ''))</_OhrbobVersion>
+      <_OhrbobVersion Condition="'$(_OhrbobVersion)' == ''">$(ApplicationDisplayVersion)</_OhrbobVersion>
+      <_OhrbobVersion Condition="'$(_OhrbobVersion)' == ''">$(VersionPrefix)</_OhrbobVersion>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <_OhrbobVersionAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+        <_Parameter1>OhrbobVersion</_Parameter1>
+        <_Parameter2>$(_OhrbobVersion)</_Parameter2>
+      </_OhrbobVersionAttribute>
+    </ItemGroup>
+
+    <WriteCodeFragment AssemblyAttributes="@(_OhrbobVersionAttribute)"
+                       Language="C#"
+                       OutputFile="$(_OhrbobVersionFile)">
+      <Output TaskParameter="OutputFile" ItemName="Compile" />
+      <Output TaskParameter="OutputFile" ItemName="FileWrites" />
+    </WriteCodeFragment>
+  </Target>
 </Project>

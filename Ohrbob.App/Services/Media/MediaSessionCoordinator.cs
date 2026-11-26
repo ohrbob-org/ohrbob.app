@@ -1,5 +1,7 @@
 using System;
 using System.ComponentModel;
+using System.Linq;
+using System.Threading.Tasks;
 using Avalonia.Threading;
 using Ohrbob.App.ViewModels;
 
@@ -86,19 +88,34 @@ public sealed class MediaSessionCoordinator : IDisposable
         _dispatch(() => _viewModel.PositionSeconds = Clamp(_viewModel.PositionSeconds + offset));
 
     private void OnPlayFromMediaIdRequested(object? sender, string? mediaId) =>
-        _dispatch(() => 
+        _dispatch(() => _ = PlayFromMediaIdAsync(mediaId));
+
+    private async Task PlayFromMediaIdAsync(string? mediaId)
+    {
+        if (string.IsNullOrEmpty(mediaId)) return;
+
+        var station = _viewModel.Stations.FirstOrDefault(s =>
+            s.Station?.Id?.ToString() == mediaId || s.Station?.Name == mediaId);
+        if (station is null) return;
+
+        // Route through the same station-open path as a UI tap so the station
+        // switch, playlist and now-playing state stay consistent.
+        _viewModel.OpenStationCommand.Execute(station);
+
+        // Wait for the switch before starting playback; otherwise IsPlaying
+        // starts the previous station's stream while the new one is loading.
+        try
         {
-            if (!string.IsNullOrEmpty(mediaId))
-            {
-                // Find and set station by id
-                var station = System.Linq.Enumerable.FirstOrDefault(_viewModel.Stations, s => s.Station?.Id?.ToString() == mediaId || s.Station?.Name == mediaId);
-                if (station != null)
-                {
-                    _viewModel.SelectedStation = station;
-                    _viewModel.IsPlaying = true;
-                }
-            }
-        });
+            await _viewModel.StationOpenTask;
+        }
+        catch
+        {
+            // The switch failed; let the current content resume instead of
+            // leaving the car controls inert.
+        }
+
+        _viewModel.IsPlaying = true;
+    }
 
     private int Clamp(int seconds)
     {

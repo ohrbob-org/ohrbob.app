@@ -29,6 +29,15 @@
             <SolidColorBrush x:Key="ThemeDangerBrush" Color="#dc3545" />
 
             <FontFamily x:Key="SulphurPoint">avares://Ohrbob.App/Assets/Fonts#Sulphur Point</FontFamily>
+            <FontFamily x:Key="InterFont">avares://Avalonia.Fonts.Inter/Assets#Inter</FontFamily>
+
+            <!-- Metro/Modern UI accents -->
+            <SolidColorBrush x:Key="MetroAccentBrush" Color="{StaticResource OhrbobStrongOrange}" />
+            <SolidColorBrush x:Key="MetroAccentSoftBrush" Color="{StaticResource OhrbobOrangeLight}" />
+            <SolidColorBrush x:Key="MetroVioletBrush" Color="{StaticResource OhrbobLightBlue}" />
+            <SolidColorBrush x:Key="MetroYellowBrush" Color="{StaticResource OhrbobYellow}" />
+            <SolidColorBrush x:Key="MetroNavyBrush" Color="{StaticResource OhrbobDarkBlue}" />
+            <SolidColorBrush x:Key="MetroOnAccentBrush" Color="#FFFFFFFF" />
 
             <!-- Theme-sensitive brushes: these switch with the OS light/dark setting. -->
             <ResourceDictionary.ThemeDictionaries>
@@ -53,6 +62,60 @@
                     <SolidColorBrush x:Key="ThemeLightBrush" Color="#FFF4D8" />
                     <SolidColorBrush x:Key="ThemeDarkBrush" Color="#001957" />
 
+                    <!-- Metro canvas: warm paper in light mode, ink in dark mode. -->
+                    <SolidColorBrush x:Key="MetroCanvasBrush" Color="#F4F1EA" />
+                    <SolidColorBrush x:Key="MetroInkBrush" Color="#111217" />
+                    <SolidColorBrush x:Key="MetroMutedBrush" Color="#68645C" />
+                    <SolidColorBrush x:Key="MetroHairlineBrush" Color="#D8D2C5" />
+                    <SolidColorBrush x:Key="MetroTileBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="MetroChromeBrush" Color="#F4F1EA" />
+                    <SolidColorBrush x:Key="MetroFieldBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="MetroScrimBrush" Color="#B8000A14" />
+                    <SolidColorBrush x:Key="MetroOverlayBrush" Color="#E6000A14" />
+
+                    <!-- Lets scrolled content show through the fading page header. -->
+                    <LinearGradientBrush x:Key="MetroHeaderFadeBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+                        <GradientStop Offset="0" Color="#FFF4F1EA" />
+                        <GradientStop Offset="0.35" Color="#E6F4F1EA" />
+                        <GradientStop Offset="0.7" Color="#A6F4F1EA" />
+                        <GradientStop Offset="1" Color="#00F4F1EA" />
+                    </LinearGradientBrush>
+
+                    <!-- Station tiles fade to paper in light mode, with dark titles. -->
+                    <SolidColorBrush x:Key="StationTileBaseBrush" Color="#EDE8DE" />
+                    <SolidColorBrush x:Key="StationTileTitleBrush" Color="#111217" />
+                    <LinearGradientBrush x:Key="StationTileFadeBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+                        <GradientStop Offset="0" Color="#00FFFFFF" />
+                        <GradientStop Offset="0.5" Color="#BFFFFFFF" />
+                        <GradientStop Offset="1" Color="#F2FFFFFF" />
+                    </LinearGradientBrush>
+
+                    <!-- Now playing / player chrome in light mode. -->
+                    <SolidColorBrush x:Key="PlayerChromeBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="PlayerChromeBorderBrush" Color="#D8D2C5" />
+                    <SolidColorBrush x:Key="PlayerChromeForegroundBrush" Color="#111217" />
+                    <SolidColorBrush x:Key="NowPlayingBaseBrush" Color="#F4F1EA" />
+                    <SolidColorBrush x:Key="NowPlayingTextBrush" Color="#111217" />
+                    <SolidColorBrush x:Key="NowPlayingMutedBrush" Color="#5F5B53" />
+                    <SolidColorBrush x:Key="NowPlayingAccentBrush" Color="#C2410C" />
+                    <SolidColorBrush x:Key="NowPlayingChromeBrush" Color="#F2FFFFFF" />
+                    <SolidColorBrush x:Key="NowPlayingChromeBorderBrush" Color="#D8D2C5" />
+                    <SolidColorBrush x:Key="NowPlayingTransportBrush" Color="#0F111217" />
+                    <SolidColorBrush x:Key="NowPlayingIconBrush" Color="#111217" />
+                    <SolidColorBrush x:Key="NowPlayingTrackBrush" Color="#24000000" />
+                    <SolidColorBrush x:Key="NowPlayingThumbBrush" Color="#111217" />
+                    <SolidColorBrush x:Key="NowPlayingScrimBrush" Color="#E6FFFFFF" />
+                    <LinearGradientBrush x:Key="NowPlayingFadeBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+                        <GradientStop Offset="0" Color="#00FFFFFF" />
+                        <GradientStop Offset="0.42" Color="#B8FFFFFF" />
+                        <GradientStop Offset="1" Color="#F2FFFFFF" />
+                    </LinearGradientBrush>
+                    <LinearGradientBrush x:Key="NowPlayingTopFadeBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+                        <GradientStop Offset="0" Color="#D9FFFFFF" />
+                        <GradientStop Offset="0.55" Color="#8CFFFFFF" />
+                        <GradientStop Offset="1" Color="#00FFFFFF" />
+                    </LinearGradientBrush>
+
                     <!-- TextBox focused / hover overrides to prevent white-on-white text -->
                     <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#FFF4D8" />
                     <SolidColorBrush x:Key="TextControlForegroundFocused" Color="#001957" />
@@ -76,6 +139,57 @@
                     <SolidColorBrush x:Key="ThemeLightBrush" Color="#151515" />
                     <SolidColorBrush x:Key="ThemeDarkBrush" Color="#F2F2F2" />
 
+                    <SolidColorBrush x:Key="MetroCanvasBrush" Color="#0E0F13" />
+                    <SolidColorBrush x:Key="MetroInkBrush" Color="#F7F4ED" />
+                    <SolidColorBrush x:Key="MetroMutedBrush" Color="#A7A29A" />
+                    <SolidColorBrush x:Key="MetroHairlineBrush" Color="#30323A" />
+                    <SolidColorBrush x:Key="MetroTileBrush" Color="#191B21" />
+                    <SolidColorBrush x:Key="MetroChromeBrush" Color="#0E0F13" />
+                    <SolidColorBrush x:Key="MetroFieldBrush" Color="#17191F" />
+                    <SolidColorBrush x:Key="MetroScrimBrush" Color="#D9000000" />
+                    <SolidColorBrush x:Key="MetroOverlayBrush" Color="#F2000000" />
+
+                    <!-- Lets scrolled content show through the fading page header. -->
+                    <LinearGradientBrush x:Key="MetroHeaderFadeBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+                        <GradientStop Offset="0" Color="#FF0E0F13" />
+                        <GradientStop Offset="0.35" Color="#E60E0F13" />
+                        <GradientStop Offset="0.7" Color="#A60E0F13" />
+                        <GradientStop Offset="1" Color="#000E0F13" />
+                    </LinearGradientBrush>
+
+                    <SolidColorBrush x:Key="StationTileBaseBrush" Color="#001957" />
+                    <SolidColorBrush x:Key="StationTileTitleBrush" Color="#FFFFFFFF" />
+                    <LinearGradientBrush x:Key="StationTileFadeBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+                        <GradientStop Offset="0" Color="#33000A14" />
+                        <GradientStop Offset="0.55" Color="#99000A14" />
+                        <GradientStop Offset="1" Color="#E6000A14" />
+                    </LinearGradientBrush>
+
+                    <SolidColorBrush x:Key="PlayerChromeBrush" Color="#0A0E18" />
+                    <SolidColorBrush x:Key="PlayerChromeBorderBrush" Color="#26FFFFFF" />
+                    <SolidColorBrush x:Key="PlayerChromeForegroundBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="NowPlayingBaseBrush" Color="#001957" />
+                    <SolidColorBrush x:Key="NowPlayingTextBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="NowPlayingMutedBrush" Color="#B3FFFFFF" />
+                    <SolidColorBrush x:Key="NowPlayingAccentBrush" Color="#FF9A00" />
+                    <SolidColorBrush x:Key="NowPlayingChromeBrush" Color="#D90A0E18" />
+                    <SolidColorBrush x:Key="NowPlayingChromeBorderBrush" Color="#26FFFFFF" />
+                    <SolidColorBrush x:Key="NowPlayingTransportBrush" Color="#26FFFFFF" />
+                    <SolidColorBrush x:Key="NowPlayingIconBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="NowPlayingTrackBrush" Color="#33FFFFFF" />
+                    <SolidColorBrush x:Key="NowPlayingThumbBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="NowPlayingScrimBrush" Color="#D90A0E18" />
+                    <LinearGradientBrush x:Key="NowPlayingFadeBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+                        <GradientStop Offset="0" Color="#7A06101F" />
+                        <GradientStop Offset="0.42" Color="#B80A1220" />
+                        <GradientStop Offset="1" Color="#F2000A14" />
+                    </LinearGradientBrush>
+                    <LinearGradientBrush x:Key="NowPlayingTopFadeBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+                        <GradientStop Offset="0" Color="#B3000000" />
+                        <GradientStop Offset="0.55" Color="#66000000" />
+                        <GradientStop Offset="1" Color="#00000000" />
+                    </LinearGradientBrush>
+
                     <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#2A2A2A" />
                     <SolidColorBrush x:Key="TextControlForegroundFocused" Color="#F2F2F2" />
                     <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="#FC5D00" />
@@ -92,6 +206,49 @@
         <Style Selector="Window">
             <Setter Property="Background" Value="{DynamicResource AppBackgroundBrush}"/>
             <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}"/>
+            <Setter Property="FontFamily" Value="{StaticResource InterFont}"/>
+            <Setter Property="FontSize" Value="14"/>
+        </Style>
+
+        <Style Selector="TextBlock">
+            <Setter Property="FontFamily" Value="{StaticResource InterFont}"/>
+        </Style>
+
+        <Style Selector="TextBlock.metroDisplay">
+            <Setter Property="FontFamily" Value="{StaticResource SulphurPoint}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="76"/>
+            <Setter Property="LineHeight" Value="70"/>
+            <Setter Property="LetterSpacing" Value="-2"/>
+            <Setter Property="Foreground" Value="{DynamicResource MetroInkBrush}"/>
+        </Style>
+
+        <Style Selector="TextBlock.metroHeadline">
+            <Setter Property="FontFamily" Value="{StaticResource SulphurPoint}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="44"/>
+            <Setter Property="LineHeight" Value="42"/>
+            <Setter Property="LetterSpacing" Value="-1"/>
+            <Setter Property="Foreground" Value="{DynamicResource MetroInkBrush}"/>
+        </Style>
+
+        <Style Selector="TextBlock.metroTitle">
+            <Setter Property="FontFamily" Value="{StaticResource SulphurPoint}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="30"/>
+            <Setter Property="LineHeight" Value="32"/>
+            <Setter Property="Foreground" Value="{DynamicResource MetroInkBrush}"/>
+        </Style>
+
+        <Style Selector="TextBlock.metroLabel">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="LetterSpacing" Value="2"/>
+            <Setter Property="Foreground" Value="{DynamicResource MetroMutedBrush}"/>
+        </Style>
+
+        <Style Selector="TextBlock.metroMuted">
+            <Setter Property="Foreground" Value="{DynamicResource MetroMutedBrush}"/>
         </Style>
 
         <Style Selector="TextBlock.h1">
@@ -109,8 +266,10 @@
         </Style>
 
         <Style Selector="Button">
-            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="CornerRadius" Value="0"/>
             <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="FontFamily" Value="{StaticResource InterFont}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
         </Style>
 
         <!-- .btn-primary -->
@@ -131,6 +290,116 @@
             <Setter Property="Background" Value="{StaticResource OhrbobPaleViolet}"/>
             <!-- The hover background stays pale violet in both themes, so the text stays dark blue. -->
             <Setter Property="Foreground" Value="{StaticResource OhrbobDarkBlue}"/>
+        </Style>
+
+        <!-- Metro action surfaces: flat rectangles, strong type, no chrome. -->
+        <Style Selector="Button.metroPrimary">
+            <Setter Property="Background" Value="{StaticResource MetroAccentBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource MetroOnAccentBrush}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="Padding" Value="20,14"/>
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+        </Style>
+        <Style Selector="Button.metroPrimary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{StaticResource MetroAccentSoftBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource OhrbobDarkBlue}"/>
+        </Style>
+
+        <Style Selector="Button.metroViolet">
+            <Setter Property="Background" Value="{StaticResource MetroVioletBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="Padding" Value="20,14"/>
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+        </Style>
+        <Style Selector="Button.metroViolet:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#6D68FF"/>
+        </Style>
+
+        <Style Selector="Button.metroGhost">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource MetroInkBrush}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="Padding" Value="10,8"/>
+        </Style>
+        <Style Selector="Button.metroGhost:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource MetroHairlineBrush}"/>
+        </Style>
+
+        <Style Selector="Button.metroDanger">
+            <Setter Property="Background" Value="{StaticResource ThemeDangerBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="Padding" Value="20,14"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+        </Style>
+
+        <Style Selector="Button.metroTile">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+        </Style>
+        <Style Selector="Button.metroTile:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="Button.metroTile:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+
+        <Style Selector="Button.metroTool">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource MetroInkBrush}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="Padding" Value="10"/>
+        </Style>
+        <Style Selector="Button.metroTool:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource MetroHairlineBrush}"/>
+        </Style>
+
+        <Style Selector="TextBox.metroField">
+            <Setter Property="Background" Value="{DynamicResource MetroFieldBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource MetroInkBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource MetroHairlineBrush}"/>
+            <Setter Property="BorderThickness" Value="0,0,0,2"/>
+            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="Padding" Value="10,10"/>
+            <Setter Property="FontSize" Value="14"/>
+        </Style>
+        <Style Selector="ComboBox.metroCombo">
+            <Setter Property="Background" Value="{DynamicResource MetroFieldBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource MetroInkBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource MetroHairlineBrush}"/>
+            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="Padding" Value="10,8"/>
+        </Style>
+
+        <!-- Metro scrolling always coasts after a flick; no view or template may
+             turn inertia off for a scrollable. -->
+        <Style Selector="ScrollViewer">
+            <Setter Property="ScrollViewer.IsScrollInertiaEnabled" Value="True"/>
+        </Style>
+        <Style Selector="ListBox">
+            <Setter Property="ScrollViewer.IsScrollInertiaEnabled" Value="True"/>
+        </Style>
+
+        <!-- Metro flyouts have no default card chrome; their content draws its own surface. -->
+        <Style Selector="FlyoutPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
         </Style>
     </Application.Styles>
 </Application>

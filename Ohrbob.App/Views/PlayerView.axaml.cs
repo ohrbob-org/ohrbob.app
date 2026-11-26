@@ -16,7 +16,6 @@ namespace Ohrbob.App.Views;
 
 public partial class PlayerView : UserControl
 {
-    private bool _pullFromTop;
     private bool _isRefreshing;
 
     public PlayerView()
@@ -44,15 +43,6 @@ public partial class PlayerView : UserControl
         // Use the bubble phase so the ScrollViewer has already applied the scroll.
         EpisodeScroll.AddHandler(PointerWheelChangedEvent, OnEpisodeScrollWheel,
             RoutingStrategies.Bubble, handledEventsToo: true);
-
-        // Touch/pen: pull down from the top edge.
-        EpisodeScroll.GestureRecognizers.Add(new PullGestureRecognizer(PullDirection.TopToBottom));
-        EpisodeScroll.PullGesture += (_, _) => _pullFromTop = EpisodeScroll.Offset.Y <= 0.5;
-        EpisodeScroll.PullGestureEnded += (_, _) =>
-        {
-            if (_pullFromTop) _ = RefreshAsync();
-            _pullFromTop = false;
-        };
 
         // Swipe right opens Up next, swipe left closes it.
         EpisodeScroll.GestureRecognizers.Add(new SwipeGestureRecognizer
@@ -107,8 +97,24 @@ public partial class PlayerView : UserControl
 
     private void OnEpisodeScrollWheel(object? sender, PointerWheelEventArgs e)
     {
-        if (e.Delta.Y > 0 && EpisodeScroll.Offset.Y <= 0.5)
-            _ = RefreshAsync();
+        // Reuse the refresh visualizer for the desktop wheel gesture so it feels
+        // like the touch pull instead of updating silently.
+        if (e.Delta.Y > 0 && EpisodeScroll.Offset.Y <= 0.5 && !_isRefreshing)
+            EpisodeRefresh.RequestRefresh();
+    }
+
+    private async void OnEpisodeRefreshRequested(object? sender, RefreshRequestedEventArgs e)
+    {
+        // Keep the spinner running until the reload actually finishes.
+        var deferral = e.GetDeferral();
+        try
+        {
+            await RefreshAsync();
+        }
+        finally
+        {
+            deferral.Complete();
+        }
     }
 
     private async Task RefreshAsync()

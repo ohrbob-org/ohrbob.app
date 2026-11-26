@@ -24,7 +24,9 @@ dest="${FLATPAK_DEST:-/app}"
 # NuGet packages are vendored by nuget-sources.json (see howto.flatpak.md).
 # The build sandbox has no network access, so restore only from that source.
 dotnet restore "$project" -r "$rid" --source nuget-sources
-dotnet publish "$project" -c Release -r "$rid" --self-contained true --no-restore -o "$dest/bin/ohrbob"
+dotnet publish "$project" -c Release -r "$rid" --self-contained true --no-restore \
+    -p:OhrbobVersion="${OHRBOB_VERSION:-}" \
+    -o "$dest/bin/ohrbob"
 
 # The command in the manifest must match the app id, so expose the published
 # binary under that name.

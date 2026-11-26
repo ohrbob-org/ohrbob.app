@@ -26,6 +26,10 @@ public partial class PlaylistItem : ObservableObject
     private bool _isCurrent;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CompletionLabel))]
+    private bool _isCompleted;
+
+    [ObservableProperty]
     private bool _showDownloadStateLabel = true;
 
     [ObservableProperty]
@@ -53,4 +57,6 @@ public partial class PlaylistItem : ObservableObject
     };
 
     public string? PublishedAtLabel => PublishedAt?.ToString("MMM d, yyyy", System.Globalization.CultureInfo.InvariantCulture);
+
+    public string CompletionLabel => IsCompleted ? "Completed" : "Up next";
 }

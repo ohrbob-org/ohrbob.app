@@ -42,6 +42,8 @@ public partial class MainViewModel : ViewModelBase
     private Task? _downloadSyncTask;
     private string? _lastDownloadSignature;
     private int _playlistGeneration;
+    private int _openStationGeneration;
+    private Task _stationSwitchTask = Task.CompletedTask;
     private string? _playlistStationId;
     private bool _playlistHostPaceEnabled;
     private bool _playlistIsAging;
@@ -100,17 +102,69 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     private ObservableCollection<StationWithFeedsDto> _stations = new();
 
+    public bool HasStations => Stations.Count > 0;
+
+    /// <summary>The running build's version, stamped in at compile time.</summary>
+    public string AppVersionLabel => AppInfo.DisplayVersion;
+
     [ObservableProperty]
     private StationWithFeedsDto? _selectedStation;
 
+    /// <summary>The Metro shell starts on the station grid and zooms into the player.</summary>
     [ObservableProperty]
+    private bool _isNowPlayingOpen;
+
+    /// <summary>True while a newly selected station's player data is still loading.</summary>
+    [ObservableProperty]
+    private bool _isStationLoading;
+
+    /// <summary>
+    /// How long a station switch may take before the player opens with a loader.
+    /// Keep this short: the player already has a loading veil, so waiting on the
+    /// grid only makes the tap feel unresponsive.
+    /// </summary>
+    internal TimeSpan StationOpenDelay { get; set; } = TimeSpan.FromMilliseconds(200);
+
+    /// <summary>The pending station switch/open sequence, exposed for tests.</summary>
+    internal Task StationOpenTask { get; private set; } = Task.CompletedTask;
+
+    /// <summary>On narrow screens, true slides the playlist panorama into view.</summary>
+    [ObservableProperty]
+    private bool _isPlaylistOpen;
+
+    /// <summary>The station whose settings modal is open. Long-press does not switch playback.</summary>
+    [ObservableProperty]
+    private StationWithFeedsDto? _settingsStation;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SelectedEpisodeActionLabel))]
+    private PlaylistItem? _selectedEpisodeForActions;
+
+    [ObservableProperty]
+    private bool _isEpisodeActionsOpen;
+
+    public string SelectedEpisodeActionLabel =>
+        SelectedEpisodeForActions?.IsCompleted == true ? "Mark as uncompleted" : "Mark as completed";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CurrentEpisodePublishedAtLabel))]
     private string _currentEpisodeId = "";
 
     [ObservableProperty]
     private string _currentEpisodeTitle = "No Track Selected";
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ProfileInitial))]
+    [NotifyPropertyChangedFor(nameof(ProfileColorHex))]
     private string _profileName = "";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ProfileColorHex))]
+    private string _profileColor = "";
+
+    public string ProfileInitial => ProfileColors.Initial(ProfileName);
+
+    public string ProfileColorHex => ProfileColors.Resolve(ProfileColor, ProfileName);
 
     [ObservableProperty]
     private string _currentEpisodeDescription = "Please choose a station to start listening.";
@@ -123,6 +177,10 @@ public partial class MainViewModel : ViewModelBase
 
     [ObservableProperty]
     private string? _nextEpisodeTitle;
+
+    /// <summary>The publish date of the episode playing now, formatted for display.</summary>
+    public string? CurrentEpisodePublishedAtLabel =>
+        PlaylistItems.FirstOrDefault(item => item.EpisodeId == CurrentEpisodeId)?.PublishedAtLabel;
 
     private static readonly IReadOnlyList<BufferOption> AllBufferOptions = new[]
     {
@@ -140,6 +198,7 @@ public partial class MainViewModel : ViewModelBase
     private BufferOption _selectedBufferOption = AllBufferOptions[0];
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CurrentEpisodePublishedAtLabel))]
     private ObservableCollection<PlaylistItem> _playlistItems = new();
 
     [ObservableProperty]
@@ -186,6 +245,16 @@ public partial class MainViewModel : ViewModelBase
     private int _volume = 100;
 
     partial void OnVolumeChanged(int value) => _player.Volume = Math.Clamp(value, 0, 100) / 100f;
+
+    partial void OnIsUpNextOpenChanged(bool value)
+    {
+        if (!value || !IsConnected || IsOffline) return;
+
+        // Let the panel start sliding in, then fetch the newest queue. Only the
+        // playlist is refreshed: the panel is about to show it and stations/status
+        // are already kept current by their own timers.
+        _dispatch(() => _ = RefreshPlaylistAsync());
+    }
 
     [ObservableProperty]
     private int _durationSeconds;
@@ -240,20 +309,156 @@ public partial class MainViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private void OpenStation(StationWithFeedsDto? station)
+    {
+        if (station?.Station?.Id is not { } stationId) return;
+
+        // Request the new station first; the zoom waits for its player and
+        // playlist data so the old station's content never flashes.
+        SelectedStation = station;
+        IsSettingsOpen = false;
+        SettingsStation = null;
+        IsEpisodeActionsOpen = false;
+        IsUpNextOpen = false;
+        IsPlaylistOpen = false;
+
+        StationOpenTask = OpenStationWhenReadyAsync(stationId);
+    }
+
+    private async Task OpenStationWhenReadyAsync(string stationId)
+    {
+        var generation = ++_openStationGeneration;
+        IsStationLoading = false;
+
+        var switchTask = _stationSwitchTask;
+        var slow = !switchTask.IsCompleted &&
+                   await Task.WhenAny(switchTask, Task.Delay(StationOpenDelay)) != switchTask;
+        if (slow && switchTask.IsCompleted)
+            slow = false;
+
+        if (generation != _openStationGeneration ||
+            SelectedStation?.Station?.Id != stationId)
+            return;
+
+        if (slow)
+            IsStationLoading = true;
+
+        IsNowPlayingOpen = true;
+
+        if (!slow) return;
+
+        try
+        {
+            await switchTask;
+        }
+        catch
+        {
+            // SwitchStationAsync handles its own failures.
+        }
+
+        if (generation != _openStationGeneration) return;
+        IsStationLoading = false;
+    }
+
+    [RelayCommand]
+    private void ShowStations()
+    {
+        // Backing out while a station is still loading must not zoom in later.
+        _openStationGeneration++;
+        IsStationLoading = false;
+        IsNowPlayingOpen = false;
+        IsPlaylistOpen = false;
+        IsSettingsOpen = false;
+        SettingsStation = null;
+        IsEpisodeActionsOpen = false;
+        SelectedEpisodeForActions = null;
+        IsUpNextOpen = false;
+    }
+
+    [RelayCommand]
+    private void ShowPlaylist() => IsPlaylistOpen = true;
+
+    [RelayCommand]
+    private void HidePlaylist() => IsPlaylistOpen = false;
+
+    [RelayCommand]
     private void OpenSettings()
     {
+        SettingsStation = SelectedStation;
+        if (SelectedStation?.Station?.Id is { } stationId)
+            RestoreBufferOption(stationId);
+        IsUpNextOpen = false;
+        IsEpisodeActionsOpen = false;
+        IsSettingsOpen = true;
+    }
+
+    /// <summary>Long-press a station tile to inspect settings without making it active.</summary>
+    [RelayCommand]
+    private void OpenStationSettingsFor(StationWithFeedsDto? station)
+    {
+        if (station?.Station?.Id is not { } stationId) return;
+
+        SettingsStation = station;
+        RestoreBufferOption(stationId);
+        IsEpisodeActionsOpen = false;
         IsUpNextOpen = false;
         IsSettingsOpen = true;
     }
 
     [RelayCommand]
-    private void CloseSettings() => IsSettingsOpen = false;
+    private void CloseSettings()
+    {
+        IsSettingsOpen = false;
+        SettingsStation = null;
+    }
+
+    [RelayCommand]
+    private void OpenEpisodeActions(PlaylistItem? item)
+    {
+        if (item is null) return;
+
+        SelectedEpisodeForActions = item;
+        IsSettingsOpen = false;
+        IsEpisodeActionsOpen = true;
+    }
+
+    [RelayCommand]
+    private void CloseEpisodeActions()
+    {
+        IsEpisodeActionsOpen = false;
+        SelectedEpisodeForActions = null;
+    }
+
+    [RelayCommand]
+    private async Task ToggleEpisodeCompletionAsync()
+    {
+        if (SelectedEpisodeForActions is not { } item) return;
+
+        item.IsCompleted = !item.IsCompleted;
+        OnPropertyChanged(nameof(SelectedEpisodeActionLabel));
+        SaveOfflineSnapshot();
+
+        if (!IsConnected || IsOffline) return;
+
+        try
+        {
+            await _client.SetEpisodeCompletedAsync(item.EpisodeId, item.IsCompleted);
+        }
+        catch
+        {
+            // Keep the local state: older servers do not expose completion writes.
+        }
+    }
 
     [RelayCommand]
     private void ToggleUpNext()
     {
         IsUpNextOpen = !IsUpNextOpen;
-        if (IsUpNextOpen) IsSettingsOpen = false;
+        if (IsUpNextOpen)
+        {
+            IsSettingsOpen = false;
+            IsEpisodeActionsOpen = false;
+        }
     }
 
     [RelayCommand]
@@ -296,6 +501,8 @@ public partial class MainViewModel : ViewModelBase
 
         
         _client = client ?? new OhrbobClient(_configService, handler);
+
+        Stations.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasStations));
 
         _player = player ?? new SoundFlowAudioPlayer();
         _player.PositionChanged += OnPlayerOnPositionChanged;
@@ -705,6 +912,10 @@ public partial class MainViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private Task OpenLearnMore() =>
+        _uriLauncher.LaunchAsync(new Uri("https://ohrbob.org"));
+
+    [RelayCommand]
     private async Task OpenHostedConnectPage()
     {
         var hostName = Environment.MachineName;
@@ -804,6 +1015,7 @@ public partial class MainViewModel : ViewModelBase
         SelectedStation = null;
         CurrentEpisodeId = "";
         ProfileName = "";
+        ProfileColor = "";
         CurrentEpisodeTitle = "No Track Selected";
         CurrentEpisodeDescription = "Please choose a station to start listening.";
         CurrentEpisodeCoverUrl = null;
@@ -811,6 +1023,12 @@ public partial class MainViewModel : ViewModelBase
         NextEpisodeTitle = null;
         PlaylistItems.Clear();
         IsPlaylistUnavailable = false;
+        IsNowPlayingOpen = false;
+        IsPlaylistOpen = false;
+        IsSettingsOpen = false;
+        IsEpisodeActionsOpen = false;
+        SettingsStation = null;
+        SelectedEpisodeForActions = null;
 
         try
         {
@@ -958,6 +1176,9 @@ public partial class MainViewModel : ViewModelBase
                 if (status.TryGetProperty("profileName", out var profileNameProp))
                     ProfileName = profileNameProp.GetString() ?? "";
 
+                if (status.TryGetProperty("profileColor", out var profileColorProp))
+                    ProfileColor = profileColorProp.GetString() ?? "";
+
                 if (status.TryGetProperty("stationId", out var stationIdProp))
                 {
                     var stationId = stationIdProp.GetString();
@@ -1027,8 +1248,14 @@ public partial class MainViewModel : ViewModelBase
     /// <summary>Persists the station's buffer and refreshes its playlist.</summary>
     public async Task ApplySelectedBufferAsync()
     {
-        if (SelectedStation?.Station?.Id is not { } stationId) return;
+        var stationId = SettingsStation?.Station?.Id ?? SelectedStation?.Station?.Id;
+        if (stationId is null) return;
         _configService.SetBufferMinutes(stationId, SelectedBufferOption.Minutes);
+
+        // Buffer settings for a station that is not playing must not disturb the
+        // active station's queue.
+        if (stationId != SelectedStation?.Station?.Id) return;
+
         try
         {
             await RefreshPlaylistAsync();
@@ -1061,9 +1288,16 @@ public partial class MainViewModel : ViewModelBase
 
             var blocked = DownloadsBlocked;
             var minutes = _configService.GetBufferMinutes(stationId);
+            // The full Metro playlist includes listening history. Do not fill the
+            // download buffer with episodes that are already completed; keep the
+            // currently-playing file protected while it is still on screen.
+            var downloadable = PlaylistItems
+                .Where(item => !item.IsCompleted || item.EpisodeId == CurrentEpisodeId)
+                .ToList();
+
             // Host-paced/aging files must never survive, so the current episode is
             // protected only while its station still allows downloads.
-            await _downloads.SyncAsync(stationId, PlaylistItems, minutes, !blocked && minutes > 0,
+            await _downloads.SyncAsync(stationId, downloadable, minutes, !blocked && minutes > 0,
                 PositionSeconds, CancellationToken.None, blocked ? null : CurrentEpisodeId);
             SaveOfflineSnapshot();
         }
@@ -1227,6 +1461,7 @@ public partial class MainViewModel : ViewModelBase
             }
 
             ProfileName = snapshot.ProfileName ?? "";
+            ProfileColor = snapshot.ProfileColor ?? "";
             SelectedStation = Stations.FirstOrDefault(s => s.Station?.Id == snapshot.ActiveStationId)
                 ?? Stations.FirstOrDefault();
 
@@ -1257,6 +1492,7 @@ public partial class MainViewModel : ViewModelBase
                 StreamUri = episode.StreamUri,
                 PublishedAt = episode.PublishedAt,
                 IsCurrent = episode.IsCurrent,
+                IsCompleted = episode.IsCompleted,
                 DownloadState = DownloadedPath(stationId, episode.EpisodeId) is null
                     ? DownloadState.NotDownloaded
                     : DownloadState.Downloaded,
@@ -1307,6 +1543,7 @@ public partial class MainViewModel : ViewModelBase
         snapshot.SavedAt = DateTimeOffset.UtcNow;
         snapshot.ActiveStationId = stationId;
         snapshot.ProfileName = ProfileName;
+        snapshot.ProfileColor = ProfileColor;
 
         // Preserve stations that still have downloaded content even when the server
         // temporarily returns an empty list, so offline selection stays usable.
@@ -1340,6 +1577,7 @@ public partial class MainViewModel : ViewModelBase
                 StreamUri = item.StreamUri,
                 PublishedAt = item.PublishedAt,
                 IsCurrent = item.IsCurrent,
+                IsCompleted = item.IsCompleted,
             }).ToList(),
         };
         _snapshot = snapshot;
@@ -1419,7 +1657,7 @@ public partial class MainViewModel : ViewModelBase
         IsPlaylistLoading = true;
         try
         {
-            var playlist = await _client.GetPlaylistAsync();
+            var playlist = await _client.GetPlaylistAsync(includeCompleted: true);
             if (generation != _playlistGeneration) return;
 
             if (playlist == null)
@@ -1434,11 +1672,14 @@ public partial class MainViewModel : ViewModelBase
                 _playlistStationId = playlist.StationId;
                 _playlistHostPaceEnabled = playlist.HostPaceEnabled;
                 _playlistIsAging = playlist.IsAging;
-                var existingStates = PlaylistItems
+                var existingItems = PlaylistItems
                     .GroupBy(p => p.EpisodeId)
-                    .ToDictionary(g => g.Key, g => g.First().DownloadState);
-                PlaylistItems = new ObservableCollection<PlaylistItem>(
-                    playlist.Episodes.Select(e => new PlaylistItem
+                    .ToDictionary(g => g.Key, g => g.First());
+
+                var refreshed = playlist.Episodes.Select(e =>
+                {
+                    existingItems.TryGetValue(e.EpisodeId ?? "", out var existing);
+                    return new PlaylistItem
                     {
                         EpisodeId = e.EpisodeId ?? "",
                         Title = HtmlText.ToPlainText(e.Title),
@@ -1448,10 +1689,28 @@ public partial class MainViewModel : ViewModelBase
                         StreamUri = e.StreamUri,
                         PublishedAt = e.PublishedAt,
                         IsCurrent = e.IsCurrent,
-                        DownloadState = existingStates.TryGetValue(e.EpisodeId ?? "", out var state)
-                            ? state
-                            : DownloadState.NotDownloaded,
-                    }));
+                        // New servers return the whole playlist and are authoritative
+                        // about completion. Older servers omit completed episodes, so
+                        // keep any local completion state we already have.
+                        IsCompleted = playlist.IncludesCompleted
+                            ? e.IsCompleted
+                            : existing?.IsCompleted ?? e.IsCompleted,
+                        DownloadState = existing?.DownloadState ?? DownloadState.NotDownloaded,
+                    };
+                }).ToList();
+
+                // Against an older stream endpoint, completed rows disappear from the
+                // response. Keep them visible so they can still be marked uncompleted.
+                if (!playlist.IncludesCompleted)
+                {
+                    foreach (var completed in existingItems.Values.Where(i => i.IsCompleted))
+                    {
+                        if (refreshed.All(i => i.EpisodeId != completed.EpisodeId))
+                            refreshed.Add(completed);
+                    }
+                }
+
+                PlaylistItems = new ObservableCollection<PlaylistItem>(refreshed);
             }
 
             UpdateDownloadState(playlist);
@@ -1510,13 +1769,22 @@ public partial class MainViewModel : ViewModelBase
         // Restoring a snapshot must not hit the server or the offline guard.
         if (_isRestoringSnapshot) return;
 
+        // A newer selection owns the next zoom, even if this one was not
+        // started through the station grid.
+        _openStationGeneration++;
+
         // Leaving a station drops its queue (files stay). Bumping the generation
         // also prevents an in-flight refresh for the old station from applying.
         _downloads.Cancel();
         _playlistGeneration++;
         _lastDownloadSignature = null;
+        _stationSwitchTask = Task.CompletedTask;
 
-        if (value?.Station?.Id is not { } stationId) return;
+        if (value?.Station?.Id is not { } stationId)
+        {
+            IsStationLoading = false;
+            return;
+        }
 
         if (IsOffline)
         {
@@ -1540,19 +1808,23 @@ public partial class MainViewModel : ViewModelBase
         }
         else
         {
-            _ = SwitchStationAsync(stationId);
+            _stationSwitchTask = SwitchStationAsync(stationId, _playlistGeneration);
         }
 
         RestoreBufferOption(stationId);
         if (IsPortrait) IsSidebarOpen = false;
     }
 
-    private async Task SwitchStationAsync(string stationId)
+    private async Task SwitchStationAsync(string stationId, int generation)
     {
         try
         {
             await _client.PlayStationAsync(stationId);
+            if (generation != _playlistGeneration) return;
+
             await RefreshStatusAsync();
+            if (generation != _playlistGeneration) return;
+
             await RefreshPlaylistAsync();
         }
         catch
@@ -1564,11 +1836,12 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand]
     private async Task OpenStationSettingsAsync()
     {
-        if (SelectedStation?.Station?.Id == null) return;
+        var station = SettingsStation ?? SelectedStation;
+        if (station?.Station?.Id == null) return;
         var webUri = await _client.GetWebUriAsync();
         if (!string.IsNullOrEmpty(webUri))
         {
-            var url = $"{webUri.TrimEnd('/')}/Stations/Edit/{SelectedStation.Station.Id}";
+            var url = $"{webUri.TrimEnd('/')}/Stations/Edit/{station.Station.Id}";
             await _uriLauncher.LaunchAsync(new Uri(url));
         }
     }

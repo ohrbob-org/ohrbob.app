@@ -6,6 +6,7 @@ using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using NUnit.Framework;
 using Ohrbob.App.Services;
+using Ohrbob.App.Tests.ViewModels;
 using Ohrbob.App.ViewModels;
 using Ohrbob.App.Views;
 
@@ -139,6 +140,82 @@ public class OnboardingConnectTests
     // A failed "Connect with ohrbob.org" run leaves IsAdvancedMode false while
     // ApplyConnection/InitializeAppAsync set ConnectionErrorMessage; the message
     // must be visible on the normal screen or the failure is silent.
+    [AvaloniaTest]
+    public void Header_UsesTheOhrbobLogo()
+    {
+        var (window, view, _) = ShowOnboarding();
+
+        var logo = view.FindControl<Image>("OnboardingLogo");
+        Assert.That(logo, Is.Not.Null, "the header should show the Ohrbob logo");
+        Assert.That(logo!.Source, Is.Not.Null, "the logo image needs a source");
+
+        window.Close();
+    }
+
+    [AvaloniaTest]
+    public void Footer_ShowsLearnMoreTextAndTheRunningBuildVersion()
+    {
+        var (window, view, _) = ShowOnboarding();
+
+        var footer = view.FindControl<TextBlock>("OnboardingFooterText")!;
+        var version = view.FindControl<TextBlock>("OnboardingVersionText")!;
+
+        Assert.That(footer.Text, Is.EqualTo("learn more on ohrbob.org"));
+        Assert.That(version.Text, Is.EqualTo(AppInfo.DisplayVersion));
+        Assert.That(version.Text, Is.EqualTo($"v{AppInfo.Version}"));
+        Assert.That(AppInfo.Version, Does.Match(@"^\d+\.\d+"),
+            "the build should stamp a real version at compile time");
+
+        window.Close();
+    }
+
+    [AvaloniaTest]
+    public void FooterLink_HasATouchTargetAndOpensOhrbobOrg()
+    {
+        var launcher = new RecordingUriLauncher();
+        var vm = new MainViewModel(
+            new ConfigService(_tempConfigPath),
+            null,
+            launcher,
+            offlineState: new OfflineStateService(_tempOfflinePath));
+
+        var view = new OnboardingView { DataContext = vm };
+        var window = new Window { Width = 380, Height = 820, Content = view };
+        window.Show();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+        var link = view.FindControl<Button>("OnboardingFooterLink")!;
+        Assert.That(link.IsEffectivelyVisible, Is.True);
+        Assert.That(link.Bounds.Height, Is.GreaterThanOrEqualTo(44),
+            "the footer link needs a thumb-sized tap target");
+
+        link.Command!.Execute(link.CommandParameter);
+
+        Assert.That(launcher.Last, Is.EqualTo(new Uri("https://ohrbob.org")));
+
+        window.Close();
+    }
+
+    [AvaloniaTest]
+    public void NarrowLayout_DoesNotDoubleTheSideMargins()
+    {
+        var (window, view, _) = ShowOnboarding();
+        window.Width = 380;
+        window.Height = 820;
+        window.UpdateLayout();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+        var panel = view.FindControl<Border>("ConnectPanel")!;
+        var button = view.FindControl<Button>("HostedConnectButton")!;
+
+        Assert.That(panel.Bounds.Width, Is.GreaterThanOrEqualTo(330),
+            "the connect panel should use the screen minus the outer gutter only");
+        Assert.That(button.Bounds.Width, Is.GreaterThanOrEqualTo(250),
+            "the hosted-connect button needs enough room for its full label");
+
+        window.Close();
+    }
+
     [AvaloniaTest]
     public void ConnectionError_IsVisibleInNormalMode()
     {

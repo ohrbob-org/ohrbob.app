@@ -75,6 +75,7 @@ public class OfflineStateService
             SavedAt = snapshot.SavedAt,
             ActiveStationId = snapshot.ActiveStationId,
             ProfileName = snapshot.ProfileName,
+            ProfileColor = snapshot.ProfileColor,
             Stations = snapshot.Stations,
             StationStates = states
         };

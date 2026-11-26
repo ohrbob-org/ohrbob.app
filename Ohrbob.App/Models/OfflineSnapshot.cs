@@ -9,6 +9,7 @@ public class OfflineSnapshot
     public DateTimeOffset SavedAt { get; set; } = DateTimeOffset.UtcNow;
     public string? ActiveStationId { get; set; }
     public string? ProfileName { get; set; }
+    public string? ProfileColor { get; set; }
     public List<StationWithFeedsDto> Stations { get; set; } = new();
     public Dictionary<string, StationOfflineState> StationStates { get; set; } = new();
 }

@@ -11,6 +11,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 RID="${1:-osx-arm64}" # pass osx-x64 for Intel Macs
+VERSION="$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || true)"
+VERSION="${VERSION:-0.0.0}"
 
 APP_NAME="Ohrbob"
 EXECUTABLE="Ohrbob.App.Desktop"
@@ -19,6 +21,7 @@ BUNDLE="dist/${APP_NAME}.app"
 echo "=> Publishing the desktop head for ${RID}..."
 dotnet publish Ohrbob.App.Desktop/Ohrbob.App.Desktop.csproj \
     -c Release -r "${RID}" --self-contained true \
+    -p:OhrbobVersion="${VERSION}" \
     -o "${BUNDLE}/Contents/MacOS"
 
 echo "=> Assembling the bundle..."

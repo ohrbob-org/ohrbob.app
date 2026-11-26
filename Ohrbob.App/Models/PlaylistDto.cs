@@ -8,6 +8,7 @@ public class PlaylistDto
     public string? StationId { get; set; }
     public bool HostPaceEnabled { get; set; }
     public bool IsAging { get; set; }
+    public bool IncludesCompleted { get; set; }
     public List<PlaylistEpisodeDto> Episodes { get; set; } = new();
 }
 
@@ -21,4 +22,5 @@ public class PlaylistEpisodeDto
     public string? StreamUri { get; set; }
     public DateTime? PublishedAt { get; set; }
     public bool IsCurrent { get; set; }
+    public bool IsCompleted { get; set; }
 }

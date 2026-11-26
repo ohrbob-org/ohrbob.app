@@ -1,0 +1,384 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Ohrbob.App.ViewModels"
+             xmlns:views="using:Ohrbob.App.Views"
+             xmlns:services="using:Ohrbob.App.Services"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="1180" d:DesignHeight="760"
+             x:Class="Ohrbob.App.Views.MetroShellView"
+             x:DataType="vm:MainViewModel"
+             Container.Name="shell"
+             Container.Sizing="Width"
+             Background="{DynamicResource MetroCanvasBrush}"
+             Foreground="{DynamicResource MetroInkBrush}">
+
+    <UserControl.Styles>
+        <!-- Station grid -> player zoom. Both layers stay alive so the zoom can
+             cross-fade in place. -->
+        <Style Selector="Border.screen">
+            <Setter Property="ClipToBounds" Value="True" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.34" Easing="CubicEaseOut" />
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.5" Easing="CubicEaseOut" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Border#StationsLayer">
+            <Setter Property="Opacity" Value="1" />
+            <Setter Property="RenderTransform" Value="none" />
+            <Setter Property="RenderTransformOrigin" Value="50%,50%" />
+            <Setter Property="IsHitTestVisible" Value="True" />
+        </Style>
+        <Style Selector="Border#StationsLayer.closed">
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="RenderTransform" Value="scale(1.14)" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+        </Style>
+        <Style Selector="Border#PlayerLayer">
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="RenderTransform" Value="scale(0.84)" />
+            <Setter Property="RenderTransformOrigin" Value="50%,55%" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+        </Style>
+        <Style Selector="Border#PlayerLayer.open">
+            <Setter Property="Opacity" Value="1" />
+            <Setter Property="RenderTransform" Value="none" />
+            <Setter Property="IsHitTestVisible" Value="True" />
+        </Style>
+
+        <Style Selector="Button.stationTile">
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="0" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="VerticalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Stretch" />
+        </Style>
+        <Style Selector="Button.stationTile:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="Button.stationTile:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+
+        <Style Selector="Border.modalCard">
+            <Setter Property="Background" Value="{DynamicResource MetroCanvasBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource MetroHairlineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BoxShadow" Value="0 18 60 0 #66000000" />
+        </Style>
+        <!-- Small action list opened by the profile avatar. -->
+        <Style Selector="Button.profileMenuAction">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="0" />
+            <Setter Property="Padding" Value="16,11" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="{DynamicResource MetroInkBrush}" />
+        </Style>
+        <Style Selector="Button.profileMenuAction:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource MetroTileBrush}" />
+        </Style>
+        <Style Selector="Button.profileMenuAction.danger">
+            <Setter Property="Foreground" Value="{StaticResource MetroAccentBrush}" />
+        </Style>
+
+        <!-- Gutters live in styles so the narrow query can tighten them; local
+             values would always win over the query. -->
+        <Style Selector="Grid#StationsHeader">
+            <Setter Property="Margin" Value="44,32,32,12" />
+        </Style>
+        <Style Selector="ItemsControl#StationGrid">
+            <Setter Property="Margin" Value="44,4,26,26" />
+        </Style>
+
+        <ContainerQuery Name="shell" Query="max-width: 760">
+            <Style Selector="TextBlock#StationsTitle">
+                <Setter Property="FontSize" Value="58" />
+                <Setter Property="LineHeight" Value="54" />
+            </Style>
+            <Style Selector="Grid#StationsHeader">
+                <Setter Property="Margin" Value="16,20,16,10" />
+            </Style>
+            <Style Selector="ItemsControl#StationGrid">
+                <Setter Property="Margin" Value="16,4,16,18" />
+            </Style>
+        </ContainerQuery>
+    </UserControl.Styles>
+
+    <Grid Background="{DynamicResource MetroCanvasBrush}">
+        <!-- Screen 2: the station grid / Metro start screen. -->
+        <Border x:Name="StationsLayer" Classes="screen" Classes.closed="{Binding IsNowPlayingOpen}">
+            <Grid>
+                <!-- The list owns the whole screen so it can scroll behind the
+                     title once the header has collapsed. -->
+                <RefreshContainer x:Name="StationsRefresh"
+                                  PullDirection="TopToBottom" IsMouseEnabled="True"
+                                  RefreshRequested="OnStationsRefreshRequested">
+                <ScrollViewer x:Name="StationsScroll" VerticalScrollBarVisibility="Auto">
+                    <Panel x:Name="StationsContent">
+                        <ItemsControl x:Name="StationGrid" ItemsSource="{Binding Stations}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel ItemWidth="{Binding $parent[views:MetroShellView].StationTileWidth}"
+                                               ItemHeight="184" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Classes="stationTile"
+                                            Tag="{Binding}"
+                                            Click="OnStationTileClick"
+                                            PointerPressed="OnStationTilePointerPressed"
+                                            PointerReleased="OnStationTilePointerReleased"
+                                            PointerCaptureLost="OnStationTilePointerCaptureLost"
+                                            ToolTip.Tip="Tap to listen · long-press for settings">
+                                        <Border Background="{DynamicResource StationTileBaseBrush}"
+                                                ClipToBounds="True"
+                                                BorderBrush="{DynamicResource MetroCanvasBrush}" BorderThickness="0,0,8,8">
+                                            <Panel ClipToBounds="True">
+                                                <ItemsControl ItemsSource="{Binding Feeds}" Opacity="0.72">
+                                                    <ItemsControl.ItemsPanel>
+                                                        <ItemsPanelTemplate>
+                                                            <UniformGrid Columns="2" />
+                                                        </ItemsPanelTemplate>
+                                                    </ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Image services:ImageLoader.Source="{Binding ImageUrl}"
+                                                                   services:ImageLoader.MaxWidth="320"
+                                                                   Stretch="UniformToFill"
+                                                                   IsVisible="{Binding ImageUrl, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+
+                                                <Border Background="{DynamicResource StationTileFadeBrush}" />
+
+                                                <Grid RowDefinitions="*,Auto" Margin="18,16,18,18">
+                                                    <StackPanel Grid.Row="1" Spacing="8">
+                                                        <Border Width="46" Height="5"
+                                                                Background="{StaticResource MetroAccentBrush}"
+                                                                HorizontalAlignment="Left" />
+                                                        <Border ClipToBounds="True" Height="34" VerticalAlignment="Bottom">
+                                                            <StackPanel Orientation="Horizontal" Spacing="48"
+                                                                        HorizontalAlignment="Left"
+                                                                        views:MarqueeText.IsEnabled="True">
+                                                                <TextBlock Text="{Binding Station.Name, FallbackValue='Untitled station'}"
+                                                                           FontFamily="{StaticResource SulphurPoint}"
+                                                                           FontSize="27" FontWeight="Bold" LineHeight="27"
+                                                                           Foreground="{DynamicResource StationTileTitleBrush}"
+                                                                           TextWrapping="NoWrap" MaxLines="1" TextTrimming="None"
+                                                                           VerticalAlignment="Bottom" />
+                                                                <TextBlock Text="{Binding Station.Name, FallbackValue='Untitled station'}"
+                                                                           IsVisible="False"
+                                                                           FontFamily="{StaticResource SulphurPoint}"
+                                                                           FontSize="27" FontWeight="Bold" LineHeight="27"
+                                                                           Foreground="{DynamicResource StationTileTitleBrush}"
+                                                                           TextWrapping="NoWrap" MaxLines="1" TextTrimming="None"
+                                                                           VerticalAlignment="Bottom" />
+                                                            </StackPanel>
+                                                        </Border>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Panel>
+                                        </Border>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8"
+                                    IsVisible="{Binding !HasStations}" Margin="0,80,0,0">
+                            <TextBlock Text="no stations yet" Classes="metroTitle" HorizontalAlignment="Center" />
+                            <TextBlock Text="Create a station in the Ohrbob web app, then refresh."
+                                       Foreground="{DynamicResource MetroMutedBrush}" HorizontalAlignment="Center" />
+                        </StackPanel>
+                    </Panel>
+                </ScrollViewer>
+                </RefreshContainer>
+
+                <!-- Content fades out as it passes behind the header. -->
+                <Border x:Name="StationsHeaderFade" IsHitTestVisible="False" VerticalAlignment="Top" Height="220"
+                        Background="{DynamicResource MetroHeaderFadeBrush}" />
+
+                <Grid x:Name="StationsHeader" VerticalAlignment="Top"
+                      RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto">
+                    <StackPanel Grid.Row="0" Grid.Column="0" Spacing="0" IsHitTestVisible="False">
+                        <views:OhrbobLogoText FontSize="18" VerticalAlignment="Center" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Top">
+                        <Button x:Name="ProfileMenuButton" Classes="metroGhost"
+                                Padding="0"
+                                ToolTip.Tip="Profile menu">
+                            <Button.Flyout>
+                                <Flyout Placement="BottomEdgeAlignedRight" VerticalOffset="4">
+                                    <Border MinWidth="190"
+                                            Background="{DynamicResource MetroCanvasBrush}"
+                                            BorderBrush="{DynamicResource MetroHairlineBrush}"
+                                            BorderThickness="1">
+                                        <StackPanel>
+                                            <Button x:Name="ManageProfileMenuItem" Classes="profileMenuAction"
+                                                    Content="manage"
+                                                    Click="OnProfileMenuActionClick"
+                                                    Command="{Binding OpenProfileSettingsCommand}" />
+                                            <Border Height="1" Background="{DynamicResource MetroHairlineBrush}" />
+                                            <Button x:Name="DisconnectMenuItem" Classes="profileMenuAction danger"
+                                                    Content="disconnect"
+                                                    Click="OnProfileMenuActionClick"
+                                                    Command="{Binding DisconnectCommand}" />
+                                        </StackPanel>
+                                    </Border>
+                                </Flyout>
+                            </Button.Flyout>
+                            <Border x:Name="ProfileAvatar" Width="34" Height="34"
+                                    Background="{Binding ProfileColorHex, Converter={x:Static views:HexColorBrushConverter.Instance}}">
+                                <TextBlock x:Name="ProfileInitialText" Text="{Binding ProfileInitial}"
+                                           FontFamily="{StaticResource SulphurPoint}"
+                                           FontSize="17" FontWeight="Bold" Foreground="White"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                        </Button>
+                    </StackPanel>
+
+                    <views:MetroTitleHost x:Name="StationsTitleHost" Grid.Row="1" Grid.ColumnSpan="2"
+                                          Margin="0,10,0,0" IsHitTestVisible="False">
+                        <TextBlock x:Name="StationsTitle" Text="stations" Classes="metroDisplay" />
+                    </views:MetroTitleHost>
+                </Grid>
+            </Grid>
+        </Border>
+
+        <!-- Screens 3 + 4: now playing and the station playlist. Wide layouts
+             show both columns; narrow layouts slide the panorama by a peek. -->
+        <Border x:Name="PlayerLayer" Classes="screen" Classes.open="{Binding IsNowPlayingOpen}">
+            <Panel x:Name="PanoramaViewport" ClipToBounds="True"
+                   Background="{DynamicResource MetroCanvasBrush}">
+                <Canvas x:Name="PanoramaCanvas" Background="Transparent"
+                        HorizontalAlignment="Left" VerticalAlignment="Top">
+                    <Border x:Name="NowPlayingPage" Canvas.Left="0" Width="900">
+                        <views:NowPlayingView />
+                    </Border>
+                    <Border x:Name="PlaylistPage" Canvas.Left="900" Width="440">
+                        <views:PlaylistView />
+                    </Border>
+                </Canvas>
+            </Panel>
+        </Border>
+
+        <!-- Station settings modal, opened by long-pressing a tile. -->
+        <Panel x:Name="SettingsOverlay" IsVisible="{Binding IsSettingsOpen}">
+            <Border Background="{DynamicResource MetroScrimBrush}" PointerPressed="OnSettingsScrimPointerPressed" />
+            <Border Classes="modalCard" MaxWidth="520" Margin="20"
+                    HorizontalAlignment="Stretch" VerticalAlignment="Center">
+                <Grid RowDefinitions="Auto,*">
+                    <Border Grid.Row="0" Height="6" Background="{StaticResource MetroAccentBrush}" />
+                    <Grid Grid.Row="1" RowDefinitions="Auto,*" Margin="28,22,28,24">
+                        <StackPanel Grid.Row="0" Spacing="2">
+                            <TextBlock Text="station settings" Classes="metroHeadline" FontSize="34" />
+                            <TextBlock Text="{Binding SettingsStation.Station.Name, FallbackValue='No station selected'}"
+                                       FontSize="12" FontWeight="Bold" LetterSpacing="2"
+                                       Foreground="{StaticResource MetroAccentBrush}"
+                                       TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="1" Spacing="16" Margin="0,22,0,0">
+                            <TextBlock Text="buffer ahead" Classes="metroLabel" />
+                            <ComboBox x:Name="BufferOptionsBox" Classes="metroCombo"
+                                      ItemsSource="{Binding BufferOptions}"
+                                      SelectedItem="{Binding SelectedBufferOption, Mode=TwoWay}"
+                                      IsEnabled="{Binding IsBufferSelectionEnabled}"
+                                      HorizontalAlignment="Stretch">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Label}" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <TextBlock Text="Whole upcoming episodes of this station are downloaded. More buffer uses more storage."
+                                       FontSize="12" TextWrapping="Wrap"
+                                       Foreground="{DynamicResource MetroMutedBrush}" />
+                            <Border Background="{StaticResource MetroYellowBrush}" Padding="10"
+                                    IsVisible="{Binding DownloadBlockedReason, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                <TextBlock Text="{Binding DownloadBlockedReason}" FontSize="12" TextWrapping="Wrap"
+                                           Foreground="{StaticResource OhrbobDarkBlue}" />
+                            </Border>
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Button Classes="metroGhost" Command="{Binding OpenStationSettingsCommand}"
+                                        Content="more settings" FontSize="11" HorizontalAlignment="Left" />
+                                <Button Grid.Column="1" Classes="metroGhost" Command="{Binding CloseSettingsCommand}"
+                                        Content="done" HorizontalAlignment="Right" />
+                            </Grid>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </Border>
+        </Panel>
+
+        <!-- Long-press episode actions. Completion is kept with the local queue. -->
+        <Panel x:Name="EpisodeActionsOverlay" IsVisible="{Binding IsEpisodeActionsOpen}">
+            <Border Background="{DynamicResource MetroScrimBrush}" PointerPressed="OnEpisodeActionsScrimPointerPressed" />
+            <Border Classes="modalCard" MaxWidth="500" Margin="20"
+                    HorizontalAlignment="Stretch" VerticalAlignment="Center">
+                <Grid RowDefinitions="Auto,*">
+                    <Border Grid.Row="0" Height="6" Background="{StaticResource MetroVioletBrush}" />
+                    <Grid Grid.Row="1" RowDefinitions="Auto,*" Margin="28,22,28,24">
+                        <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="episode" Classes="metroHeadline" FontSize="34" />
+                                <TextBlock Text="{Binding SelectedEpisodeForActions.Title}"
+                                           FontSize="12" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource MetroMutedBrush}"
+                                           TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                            <Button Grid.Column="1" Classes="metroTool" Command="{Binding CloseEpisodeActionsCommand}"
+                                    VerticalAlignment="Top" ToolTip.Tip="Close">
+                                <TextBlock Text="×" FontSize="26" FontWeight="Light" />
+                            </Button>
+                        </Grid>
+
+                        <StackPanel Grid.Row="1" Spacing="16" Margin="0,22,0,0">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <TextBlock Text="✓" FontSize="18" FontWeight="Bold"
+                                           Foreground="{StaticResource MetroVioletBrush}"
+                                           IsVisible="{Binding SelectedEpisodeForActions.IsCompleted}" />
+                                <TextBlock Text="{Binding SelectedEpisodeForActions.CompletionLabel}"
+                                           FontSize="12" FontWeight="Bold" LetterSpacing="1"
+                                           Foreground="{StaticResource MetroVioletBrush}"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                            <TextBlock Text="Completed episodes stay in the station playlist and sync with your profile."
+                                       FontSize="12" TextWrapping="Wrap"
+                                       Foreground="{DynamicResource MetroMutedBrush}" />
+                            <Button Classes="metroViolet"
+                                    Content="{Binding SelectedEpisodeActionLabel}"
+                                    Command="{Binding ToggleEpisodeCompletionCommand}"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center" />
+                            <Button Classes="metroGhost" Content="close"
+                                    Command="{Binding CloseEpisodeActionsCommand}"
+                                    HorizontalAlignment="Right" />
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </Border>
+        </Panel>
+
+        <!-- Refresh toast -->
+        <Border IsVisible="{Binding IsRefreshIndicatorVisible}"
+                HorizontalAlignment="Center" VerticalAlignment="Top"
+                Margin="0,12,0,0" Padding="14,7"
+                Background="{StaticResource MetroAccentBrush}" IsHitTestVisible="False">
+            <TextBlock Text="UPDATED" Foreground="White" FontSize="10" FontWeight="Bold" LetterSpacing="2" />
+        </Border>
+    </Grid>
+</UserControl>

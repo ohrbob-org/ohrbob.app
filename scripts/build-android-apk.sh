@@ -90,6 +90,7 @@ dotnet build "$PROJECT" \
     -p:EmbedAssembliesIntoApk=true \
     -p:ApplicationDisplayVersion="$VERSION" \
     -p:ApplicationVersion="$VERSION_CODE" \
+    -p:OhrbobVersion="$VERSION" \
     -p:AndroidSdkDirectory="$ANDROID_HOME" \
     -p:JavaSdkDirectory="$JAVA_HOME"
 

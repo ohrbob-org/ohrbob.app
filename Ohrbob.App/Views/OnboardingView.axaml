@@ -1,84 +1,273 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Ohrbob.App.ViewModels"
+             xmlns:views="using:Ohrbob.App.Views"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="600"
+             mc:Ignorable="d" d:DesignWidth="1100" d:DesignHeight="720"
              x:Class="Ohrbob.App.Views.OnboardingView"
-             x:DataType="vm:MainViewModel">
+             x:DataType="vm:MainViewModel"
+             Container.Name="onboarding"
+             Container.Sizing="Width">
 
-    <!-- Onboarding Screen (Displayed when not connected) -->
-    <Grid Background="{DynamicResource AppBackgroundBrush}">
-        <Border MaxWidth="450" Margin="16" HorizontalAlignment="Center" VerticalAlignment="Center" Background="{DynamicResource AppSurfaceBrush}" CornerRadius="12" BoxShadow="0 4 20 0 #40000000" Padding="30">
-            <StackPanel Spacing="15">
-                <!-- Stylized Logo/Title -->
-                <Image Source="avares://Ohrbob.App/Assets/ohrbob-logo.png" Height="60" Margin="0,0,0,10" HorizontalAlignment="Center" />
-                
-                <TextBlock Text="Connect to Ohrbob" Classes="h2" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" />
+    <UserControl.Styles>
+        <Style Selector="TextBlock.onboardingFieldLabel">
+            <Setter Property="FontSize" Value="10" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="LetterSpacing" Value="2" />
+            <Setter Property="Foreground" Value="#99FFFFFF" />
+        </Style>
+        <Style Selector="TextBox.onboardingField">
+            <Setter Property="Background" Value="#14FFFFFF" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="BorderBrush" Value="#40FFFFFF" />
+            <Setter Property="BorderThickness" Value="0,0,0,2" />
+            <Setter Property="CornerRadius" Value="0" />
+            <Setter Property="Padding" Value="10,10" />
+            <Setter Property="FontSize" Value="13" />
+        </Style>
 
-                <!-- Error Message — shown in both normal and advanced mode so a
-                     failed "Connect with ohrbob.org" is never silent. -->
-                <TextBlock x:Name="ConnectionErrorTextBlock" Text="{Binding ConnectionErrorMessage}" Foreground="{StaticResource ThemeDangerBrush}" FontSize="12" TextWrapping="Wrap" 
-                           HorizontalAlignment="Center" IsVisible="{Binding ConnectionErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+        <!-- Layout gutters live in styles so the narrow container query can
+             tighten them; local values would win over the query. -->
+        <Style Selector="Grid#OnboardingHeader">
+            <Setter Property="Margin" Value="46,34,42,0" />
+        </Style>
+        <Style Selector="Grid#OnboardingBody">
+            <Setter Property="Margin" Value="46,0,46,0" />
+        </Style>
+        <Style Selector="Border#ConnectPanel">
+            <Setter Property="Margin" Value="0,20,0,34" />
+            <Setter Property="MaxWidth" Value="470" />
+        </Style>
+        <Style Selector="Grid#OnboardingFooter">
+            <Setter Property="Margin" Value="46,0,46,24" />
+        </Style>
 
-                <!-- Simple Mode: one primary action, advanced setup is opt-in -->
-                <StackPanel Spacing="15" IsVisible="{Binding !IsAdvancedMode}">
-                    <TextBlock Text="Open ohrbob.org in your browser to connect this app to your Ohrbob server."
-                               FontSize="13" Foreground="{DynamicResource ThemeDarkBrush}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,0,0,15" />
+        <!-- The footer link is a button so it gets a real, thumb-sized hit
+             target on phones instead of only the glyph bounds. -->
+        <Style Selector="Button.onboardingFooterLink">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="0" />
+            <Setter Property="Padding" Value="0,12" />
+            <Setter Property="MinHeight" Value="44" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="Button.onboardingFooterLink:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="Button.onboardingFooterLink:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
 
-                    <Button x:Name="HostedConnectButton" Command="{Binding OpenHostedConnectPageCommand}" Content="Connect with ohrbob.org" Classes="btn-primary"
-                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
-                    </Button>
+        <ContainerQuery Name="onboarding" Query="max-width: 880">
+            <!-- The body already contributes the outer gutter; the panel must
+                 not add a second one or the hosted-connect label gets clipped. -->
+            <Style Selector="Border#ConnectPanel">
+                <Setter Property="Margin" Value="0,10,0,24" />
+                <Setter Property="MaxWidth" Value="560" />
+            </Style>
+            <Style Selector="TextBlock#OnboardingWordmark">
+                <Setter Property="FontSize" Value="58" />
+            </Style>
+            <Style Selector="Grid#OnboardingHeader">
+                <Setter Property="Margin" Value="20,20,20,0" />
+            </Style>
+            <Style Selector="Grid#OnboardingBody">
+                <Setter Property="Margin" Value="20,0,20,0" />
+            </Style>
+            <Style Selector="Grid#OnboardingFooter">
+                <Setter Property="Margin" Value="20,0,20,18" />
+            </Style>
+        </ContainerQuery>
+    </UserControl.Styles>
 
-                    <Button x:Name="ScanQrButton" Command="{Binding ScanQrCodeCommand}" Content="Scan QR code"
-                            IsVisible="{Binding CanScanQrCode}"
-                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
-                    </Button>
+    <!-- Immersive Metro start screen. The block pattern is drawn in XAML so it
+         stays crisp at every density and follows the brand palette. -->
+    <Grid Background="{StaticResource MetroNavyBrush}" ClipToBounds="True">
+        <Grid.Background>
+            <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+                <GradientStop Offset="0" Color="#00133F" />
+                <GradientStop Offset="0.6" Color="#001957" />
+                <GradientStop Offset="1" Color="#080B12" />
+            </LinearGradientBrush>
+        </Grid.Background>
 
-                    <!-- Advanced Affordance -->
-                    <Button x:Name="ShowAdvancedButton" Command="{Binding ToggleAdvancedModeCommand}" Content="Advanced"
-                            HorizontalAlignment="Center" Background="Transparent" BorderThickness="0" Padding="8,4" FontSize="12"
-                            Foreground="{StaticResource ThemeSecondaryBrush}" />
+        <Canvas IsHitTestVisible="False" Opacity="0.92">
+            <Border Canvas.Left="-40" Canvas.Top="120" Width="260" Height="260"
+                    Background="{StaticResource MetroVioletBrush}" Opacity="0.16" />
+            <Border Canvas.Right="40" Canvas.Top="-50" Width="320" Height="320"
+                    Background="{StaticResource MetroYellowBrush}" Opacity="0.07" />
+            <Border Canvas.Right="220" Canvas.Bottom="-70" Width="240" Height="240"
+                    Background="{StaticResource MetroVioletBrush}" Opacity="0.12" />
+        </Canvas>
+
+        <Grid RowDefinitions="Auto,*,Auto" Margin="0">
+            <Grid x:Name="OnboardingHeader" Grid.Row="0" ColumnDefinitions="Auto,*,Auto">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                    <Image x:Name="OnboardingLogo" Source="../Assets/ohrbob-logo.png"
+                           Width="44" Height="44" VerticalAlignment="Center" />
+                    <StackPanel Spacing="0" VerticalAlignment="Center">
+                        <TextBlock Text="ohrbob" FontFamily="{StaticResource SulphurPoint}" FontWeight="Bold"
+                                   FontSize="20" Foreground="White" />
+                        <TextBlock Text="private podcast player" FontSize="9" FontWeight="SemiBold"
+                                   LetterSpacing="2" Foreground="#80FFFFFF" />
+                    </StackPanel>
                 </StackPanel>
 
-                <!-- Advanced Mode: deep-link paste and manual server/token entry -->
-                <StackPanel Spacing="15" IsVisible="{Binding IsAdvancedMode}">
-                    <TextBlock Text="Scan the QR code in your Ohrbob Web interface or paste the connection deep link below."
-                               FontSize="13" Foreground="{DynamicResource ThemeDarkBrush}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,0,0,15" />
+                <TextBlock Grid.Column="2" Text="CONNECT" Classes="metroLabel"
+                           Foreground="#80FFFFFF" VerticalAlignment="Center" />
+            </Grid>
 
-                    <Button x:Name="ScanQrAdvancedButton" Command="{Binding ScanQrCodeCommand}" Content="Scan QR code"
-                            IsVisible="{Binding CanScanQrCode}"
-                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
-
-                    <!-- Deep Link Input -->
-                    <TextBlock Text="Connection Link (from QR code)" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource ThemeDarkBrush}" />
-                    <TextBox Text="{Binding DeepLinkInput}" PlaceholderText="ohrbob://connect?server=...&amp;token=..." 
-                             Background="{DynamicResource ThemeLightBrush}" BorderBrush="{StaticResource ThemeSecondaryBrush}" Foreground="{DynamicResource ThemeDarkBrush}" CornerRadius="6" Padding="10,8" />
-
-                    <TextBlock Text="OR Enter Manually" FontSize="11" FontWeight="Bold" Foreground="{StaticResource ThemeSecondaryBrush}" HorizontalAlignment="Center" Margin="0,5" />
-
-                    <!-- Server URL -->
-                    <TextBlock Text="Ohrbob Server URL" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource ThemeDarkBrush}" />
-                    <TextBox x:Name="ServerUrlTextBox" Text="{Binding ServerUrlInput}" PlaceholderText="http://localhost:5002" 
-                             Background="{DynamicResource ThemeLightBrush}" BorderBrush="{StaticResource ThemeSecondaryBrush}" Foreground="{DynamicResource ThemeDarkBrush}" CornerRadius="6" Padding="10,8" />
-
-                    <!-- Stream Token -->
-                    <TextBlock Text="API Stream Token" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource ThemeDarkBrush}" />
-                    <TextBox x:Name="TokenTextBox" Text="{Binding TokenInput}" PlaceholderText="Your profile stream token" 
-                             Background="{DynamicResource ThemeLightBrush}" BorderBrush="{StaticResource ThemeSecondaryBrush}" Foreground="{DynamicResource ThemeDarkBrush}" CornerRadius="6" Padding="10,8" />
-
-                    <!-- Connect Button -->
-                    <Button Command="{Binding ConnectCommand}" Content="Connect Application" Classes="btn-primary"
-                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="0,10,0,0">
-                    </Button>
-
-                    <!-- Return to simple mode -->
-                    <Button x:Name="HideAdvancedButton" Command="{Binding ToggleAdvancedModeCommand}" Content="Back to simple setup"
-                            HorizontalAlignment="Center" Background="Transparent" BorderThickness="0" Padding="8,4" FontSize="12"
-                            Foreground="{StaticResource ThemeSecondaryBrush}" />
+            <Grid x:Name="OnboardingBody" Grid.Row="1" ColumnDefinitions="*,470">
+                <StackPanel x:Name="OnboardingHero" Grid.Column="0" VerticalAlignment="Center"
+                            Spacing="18" Margin="0,0,40,0" MaxWidth="700">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Border Width="42" Height="8" Background="{StaticResource MetroAccentBrush}" />
+                        <Border Width="18" Height="8" Background="{StaticResource MetroVioletBrush}" />
+                        <Border Width="10" Height="8" Background="{StaticResource MetroYellowBrush}" />
+                    </StackPanel>
+                    <TextBlock Text="your stations." FontSize="13" FontWeight="Bold" LetterSpacing="3"
+                               Foreground="{StaticResource MetroAccentSoftBrush}" />
+                    <TextBlock x:Name="OnboardingWordmark" Text="ohrbob" Classes="metroDisplay"
+                               FontSize="118" LineHeight="102" LetterSpacing="-4"
+                               Foreground="White" />
+                    <TextBlock Text="podcasts, paced like radio." FontFamily="{StaticResource SulphurPoint}"
+                               FontWeight="Bold" FontSize="30" Foreground="#D9FFFFFF"
+                               TextWrapping="Wrap" />
+                    <TextBlock Text="Stations curate your feeds into a single queue. Connect this app to your own Ohrbob server and listen without the noise."
+                               FontSize="14" LineHeight="21" Foreground="#99FFFFFF"
+                               TextWrapping="Wrap" MaxWidth="520" />
                 </StackPanel>
-            </StackPanel>
-        </Border>
+
+                <Border x:Name="ConnectPanel" Grid.Column="1"
+                        Background="#CC080D18" BorderBrush="#26FFFFFF" BorderThickness="1"
+                        VerticalAlignment="Center">
+                    <Grid RowDefinitions="Auto,*">
+                        <Border Grid.Row="0" Height="7" Background="{StaticResource MetroAccentBrush}" />
+                        <StackPanel Grid.Row="1" Spacing="16" Margin="30,26,30,30">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="connect" Classes="metroHeadline" FontSize="46"
+                                           Foreground="White" />
+                                <TextBlock Text="one link and your stations are here."
+                                           FontSize="12" Foreground="#99FFFFFF" TextWrapping="Wrap" />
+                            </StackPanel>
+
+                            <!-- Error is shown in both modes. -->
+                            <TextBlock x:Name="ConnectionErrorTextBlock"
+                                       Text="{Binding ConnectionErrorMessage}"
+                                       Foreground="#FFB4AB" FontSize="12" TextWrapping="Wrap"
+                                       IsVisible="{Binding ConnectionErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+
+                            <!-- Simple mode: one obvious action. -->
+                            <StackPanel Spacing="12" IsVisible="{Binding !IsAdvancedMode}">
+                                <TextBlock Text="Connect with ohrbob.org" Classes="onboardingFieldLabel" />
+                                <Button x:Name="HostedConnectButton"
+                                        Command="{Binding OpenHostedConnectPageCommand}"
+                                        Content="Connect with ohrbob.org"
+                                        Classes="metroPrimary"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Center"
+                                        VerticalContentAlignment="Center" />
+                                <Button x:Name="ScanQrButton"
+                                        Command="{Binding ScanQrCodeCommand}"
+                                        Content="Scan QR code"
+                                        Classes="metroViolet"
+                                        IsVisible="{Binding CanScanQrCode}"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Center"
+                                        VerticalContentAlignment="Center" />
+                                <Button x:Name="ShowAdvancedButton"
+                                        Command="{Binding ToggleAdvancedModeCommand}"
+                                        Content="I have a server link"
+                                        Classes="metroGhost"
+                                        Foreground="#B3FFFFFF"
+                                        HorizontalAlignment="Left"
+                                        Padding="0,8"
+                                        FontSize="12" />
+                            </StackPanel>
+
+                            <!-- Advanced mode: deep link, server and token. -->
+                            <StackPanel Spacing="14" IsVisible="{Binding IsAdvancedMode}">
+                                <TextBlock Text="Paste the connection link from your Ohrbob web interface."
+                                           FontSize="12" Foreground="#99FFFFFF" TextWrapping="Wrap" />
+
+                                <Button x:Name="ScanQrAdvancedButton"
+                                        Command="{Binding ScanQrCodeCommand}"
+                                        Content="Scan QR code"
+                                        Classes="metroViolet"
+                                        IsVisible="{Binding CanScanQrCode}"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Center"
+                                        VerticalContentAlignment="Center" />
+
+                                <StackPanel Spacing="5">
+                                    <TextBlock Text="CONNECTION LINK" Classes="onboardingFieldLabel" />
+                                    <TextBox Text="{Binding DeepLinkInput}"
+                                             PlaceholderText="ohrbob://connect?server=...&amp;token=..."
+                                             Classes="onboardingField" />
+                                </StackPanel>
+
+                                <TextBlock Text="OR ENTER MANUALLY" FontSize="9" FontWeight="Bold"
+                                           LetterSpacing="2" Foreground="#80FFFFFF" Margin="0,2" />
+
+                                <StackPanel Spacing="5">
+                                    <TextBlock Text="SERVER URL" Classes="onboardingFieldLabel" />
+                                    <TextBox x:Name="ServerUrlTextBox"
+                                             Text="{Binding ServerUrlInput}"
+                                             PlaceholderText="https://player.ohrbob.org"
+                                             Classes="onboardingField" />
+                                </StackPanel>
+
+                                <StackPanel Spacing="5">
+                                    <TextBlock Text="STREAM TOKEN" Classes="onboardingFieldLabel" />
+                                    <TextBox x:Name="TokenTextBox"
+                                             Text="{Binding TokenInput}"
+                                             PlaceholderText="Your profile stream token"
+                                             Classes="onboardingField" />
+                                </StackPanel>
+
+                                <Button Command="{Binding ConnectCommand}" Content="Connect application"
+                                        Classes="metroPrimary"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Center"
+                                        VerticalContentAlignment="Center"
+                                        Margin="0,4,0,0" />
+
+                                <Button x:Name="HideAdvancedButton"
+                                        Command="{Binding ToggleAdvancedModeCommand}"
+                                        Content="Back to simple setup"
+                                        Classes="metroGhost"
+                                        Foreground="#B3FFFFFF"
+                                        HorizontalAlignment="Left"
+                                        Padding="0,6"
+                                        FontSize="12" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <Grid x:Name="OnboardingFooter" Grid.Row="2" ColumnDefinitions="*,Auto"
+                  ColumnSpacing="12">
+                <Button x:Name="OnboardingFooterLink" Grid.Column="0"
+                        Classes="onboardingFooterLink"
+                        Command="{Binding OpenLearnMoreCommand}"
+                        HorizontalAlignment="Left" VerticalAlignment="Center"
+                        ToolTip.Tip="Open ohrbob.org">
+                    <TextBlock x:Name="OnboardingFooterText"
+                               Text="learn more on ohrbob.org"
+                               FontSize="10" FontWeight="SemiBold" LetterSpacing="1"
+                               Foreground="#99FFFFFF" TextWrapping="NoWrap"
+                               TextDecorations="Underline"
+                               TextTrimming="CharacterEllipsis" />
+                </Button>
+                <TextBlock x:Name="OnboardingVersionText" Grid.Column="1"
+                           Text="{Binding AppVersionLabel}"
+                           FontSize="10" FontWeight="Bold" LetterSpacing="1"
+                           Foreground="#66FFFFFF" TextWrapping="NoWrap"
+                           VerticalAlignment="Center" />
+            </Grid>
+        </Grid>
     </Grid>
-
 </UserControl>

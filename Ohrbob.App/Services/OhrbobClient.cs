@@ -156,7 +156,7 @@ public class OhrbobClient
         response.EnsureSuccessStatusCode();
     }
 
-    public async Task<PlaylistDto?> GetPlaylistAsync(int limit = 50)
+    public async Task<PlaylistDto?> GetPlaylistAsync(int limit = 50, bool includeCompleted = false)
     {
         var serverUrl = _configService.ServerUrl?.TrimEnd('/');
         if (string.IsNullOrEmpty(serverUrl))
@@ -165,6 +165,7 @@ public class OhrbobClient
         }
 
         var url = $"{serverUrl}/stream/playlist?limit={limit}";
+        if (includeCompleted) url += "&includeCompleted=true";
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         ApplyHeaders(request);
 
@@ -185,6 +186,27 @@ public class OhrbobClient
         }
 
         return playlist;
+    }
+
+    /// <summary>
+    /// Marks an episode completed/uncompleted for the stream-token profile. Returns false
+    /// for servers that predate the completion endpoints so the app can keep its local state.
+    /// </summary>
+    public async Task<bool> SetEpisodeCompletedAsync(string episodeId, bool isCompleted)
+    {
+        var serverUrl = _configService.ServerUrl?.TrimEnd('/');
+        if (string.IsNullOrEmpty(serverUrl))
+        {
+            throw new InvalidOperationException("Server URL is not configured.");
+        }
+
+        var action = isCompleted ? "complete" : "uncomplete";
+        var url = $"{serverUrl}/stream/episodes/{Uri.EscapeDataString(episodeId)}/{action}";
+        using var request = new HttpRequestMessage(HttpMethod.Post, url);
+        ApplyHeaders(request);
+
+        using var response = await _httpClient.SendAsync(request);
+        return response.IsSuccessStatusCode;
     }
 
     public async Task NextAsync()

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -139,7 +140,7 @@ public class MainViewModelTests
     {
         var config = new ConfigService(_tempConfigPath);
         var handler = new StatusHttpHandler(
-            "{\"profileName\":\"Kai\",\"current\":{\"episodeId\":\"ep1\",\"title\":\"Episode One\",\"playheadPositionSeconds\":10}}");
+            "{\"profileName\":\"Kai\",\"profileColor\":\"#3b82f6\",\"current\":{\"episodeId\":\"ep1\",\"title\":\"Episode One\",\"playheadPositionSeconds\":10}}");
         var vm = new MainViewModel(config, new OhrbobClient(config, handler), null, new TestAudioPlayer(), a => a());
         // Configure after construction so no initial load races the poll.
         config.Save("https://example.com", "token");
@@ -150,6 +151,9 @@ public class MainViewModelTests
         await vm.PollStatusAsync();
 
         Assert.That(vm.ProfileName, Is.EqualTo("Kai"));
+        Assert.That(vm.ProfileColor, Is.EqualTo("#3b82f6"));
+        Assert.That(vm.ProfileInitial, Is.EqualTo("K"));
+        Assert.That(vm.ProfileColorHex, Is.EqualTo("#3b82f6"));
         Assert.That(vm.CurrentEpisodeTitle, Is.EqualTo("Episode One"));
         Assert.That(vm.PositionSeconds, Is.EqualTo(100), "server playhead must not drag local playback back");
     }
@@ -170,6 +174,97 @@ public class MainViewModelTests
 
         Assert.That(vm.CurrentEpisodeId, Is.EqualTo("ep2"));
         Assert.That(vm.PositionSeconds, Is.EqualTo(42));
+    }
+
+    [Test]
+    public void CurrentEpisodePublishedAtLabel_ShowsDateOfPlayingEpisode()
+    {
+        var config = new ConfigService(_tempConfigPath);
+        var vm = new MainViewModel(config, null);
+        vm.PlaylistItems.Add(new PlaylistItem { EpisodeId = "ep1", PublishedAt = new DateTime(2026, 11, 1) });
+        vm.PlaylistItems.Add(new PlaylistItem { EpisodeId = "ep2", PublishedAt = new DateTime(2026, 11, 2) });
+
+        vm.CurrentEpisodeId = "ep2";
+
+        Assert.That(vm.CurrentEpisodePublishedAtLabel, Is.EqualTo("Nov 2, 2026"));
+    }
+
+    [Test]
+    public void CurrentEpisodePublishedAtLabel_FollowsCurrentEpisodeChanges()
+    {
+        var config = new ConfigService(_tempConfigPath);
+        var vm = new MainViewModel(config, null);
+        vm.PlaylistItems.Add(new PlaylistItem { EpisodeId = "ep1", PublishedAt = new DateTime(2026, 11, 1) });
+        vm.PlaylistItems.Add(new PlaylistItem { EpisodeId = "ep2", PublishedAt = new DateTime(2026, 11, 2) });
+
+        vm.CurrentEpisodeId = "ep1";
+        Assert.That(vm.CurrentEpisodePublishedAtLabel, Is.EqualTo("Nov 1, 2026"));
+
+        vm.CurrentEpisodeId = "ep2";
+        Assert.That(vm.CurrentEpisodePublishedAtLabel, Is.EqualTo("Nov 2, 2026"));
+    }
+
+    [Test]
+    public void CurrentEpisodePublishedAtLabel_UnknownEpisode_IsNull()
+    {
+        var config = new ConfigService(_tempConfigPath);
+        var vm = new MainViewModel(config, null);
+        vm.PlaylistItems.Add(new PlaylistItem { EpisodeId = "ep1", PublishedAt = new DateTime(2026, 11, 1) });
+
+        vm.CurrentEpisodeId = "not-in-playlist";
+
+        Assert.That(vm.CurrentEpisodePublishedAtLabel, Is.Null, "an unknown date must hide the line instead of inventing one");
+    }
+
+    [Test]
+    public void CurrentEpisodePublishedAtLabel_NotifiesWhenPlaylistArrives()
+    {
+        var config = new ConfigService(_tempConfigPath);
+        var vm = new MainViewModel(config, null);
+        vm.CurrentEpisodeId = "ep1";
+        var changed = new List<string?>();
+        vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        vm.PlaylistItems = new ObservableCollection<PlaylistItem>
+        {
+            new() { EpisodeId = "ep1", PublishedAt = new DateTime(2026, 11, 3) }
+        };
+
+        Assert.That(changed, Does.Contain(nameof(MainViewModel.CurrentEpisodePublishedAtLabel)),
+            "the UI must refresh when the playlist supplies the current episode's date");
+        Assert.That(vm.CurrentEpisodePublishedAtLabel, Is.EqualTo("Nov 3, 2026"));
+    }
+
+    [Test]
+    public async Task OfflineSnapshot_RestoresCurrentEpisodePublishedDate()
+    {
+        var config = new ConfigService(_tempConfigPath);
+        config.Save("https://example.com", "token");
+        var snapshotPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString(), "offline.json");
+        var offline = new OfflineStateService(snapshotPath);
+        offline.Save(new OfflineSnapshot
+        {
+            ActiveStationId = "s1",
+            Stations = new List<StationWithFeedsDto> { new() { Station = new Station { Id = "s1", Name = "One" } } },
+            StationStates = new Dictionary<string, StationOfflineState>
+            {
+                ["s1"] = new()
+                {
+                    StationId = "s1",
+                    CurrentEpisodeId = "e1",
+                    Playlist = new List<PlaylistEpisodeDto>
+                    {
+                        new() { EpisodeId = "e1", Title = "Current", PublishedAt = new DateTime(2026, 3, 4), IsCurrent = true }
+                    }
+                }
+            }
+        });
+        var vm = new MainViewModel(config, new OhrbobClient(config, new FailingHttpHandler()), null, new TestAudioPlayer(), a => a(), null, offline);
+
+        await vm.RetryConnectionAsync();
+
+        Assert.That(vm.IsOffline, Is.True);
+        Assert.That(vm.CurrentEpisodePublishedAtLabel, Is.EqualTo("Mar 4, 2026"));
     }
 
     [Test]
@@ -595,6 +690,7 @@ public class MainViewModelTests
         {
             ActiveStationId = "s1",
             ProfileName = "Kai",
+            ProfileColor = "#3b82f6",
             Stations = new List<StationWithFeedsDto> { new() { Station = new Station { Id = "s1", Name = "One" } } },
             StationStates = new Dictionary<string, StationOfflineState>
             {
@@ -619,6 +715,7 @@ public class MainViewModelTests
         Assert.That(vm.IsOffline, Is.True);
         Assert.That(vm.Stations.Single().Station!.Id, Is.EqualTo("s1"));
         Assert.That(vm.ProfileName, Is.EqualTo("Kai"));
+        Assert.That(vm.ProfileColor, Is.EqualTo("#3b82f6"));
         Assert.That(vm.CurrentEpisodeId, Is.EqualTo("e1"));
         Assert.That(vm.PositionSeconds, Is.EqualTo(42));
         Assert.That(vm.PlaylistItems.Single().EpisodeId, Is.EqualTo("e1"));

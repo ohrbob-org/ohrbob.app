@@ -41,6 +41,7 @@ public class PlaybackEndFlowTests
         public int NextRequests;
         public int StationRequests;
         public int StatusRequests;
+        public int PlaylistRequests;
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
@@ -58,6 +59,11 @@ public class PlaybackEndFlowTests
             if (request.Method == HttpMethod.Get && path.EndsWith("/stream/status"))
             {
                 Interlocked.Increment(ref StatusRequests);
+            }
+
+            if (request.Method == HttpMethod.Get && path.EndsWith("/stream/playlist"))
+            {
+                Interlocked.Increment(ref PlaylistRequests);
             }
 
             var body = path.EndsWith("/stream/stations") ? "[]" : "{}";
@@ -240,6 +246,24 @@ public class PlaybackEndFlowTests
 
         Assert.That(handler.StationRequests, Is.EqualTo(1));
         Assert.That(handler.StatusRequests, Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task OpeningUpNext_RefreshesPlaylistWithoutReloadingStations()
+    {
+        var handler = new CountingHttpHandler();
+        var vm = CreateViewModel(handler, out var config, out _);
+        config.Save("https://example.com", "token");
+        vm.IsConnected = true;
+
+        vm.ToggleUpNextCommand.Execute(null);
+
+        for (var i = 0; i < 50 && handler.PlaylistRequests == 0; i++)
+            await Task.Delay(20);
+
+        Assert.That(handler.PlaylistRequests, Is.EqualTo(1));
+        Assert.That(handler.StationRequests, Is.EqualTo(0));
+        Assert.That(handler.StatusRequests, Is.EqualTo(0));
     }
 
     [Test]

@@ -16,6 +16,10 @@
 - **Validation:** Always verify changes by running the build and the test suite (`dotnet test`). Even simple UI/ViewModel changes can break bindings or existing tests.
 - **Testing:** Always add tests for everything being implemented. New features and fixes must be covered by the test suite.
 
+## Versioning
+- **Never bump or choose versions/tags, and never install a newly versioned build.** The human partner always handles versioning, release tags, and device installs manually. Do not pass explicit versions to `build-android-apk.sh`, increase `versionCode`/`versionName`, create git tags, or install a higher version just to get past an update check.
+- If Android verification is needed, ask which build/version to use.
+
 ## Publishing & Remotes
 - **Development mirror:** Gogs, `ssh://git@gogs.qwirl.de:8622/ohrbob/ohrbob.app.git` (git remote `origin`).
 - **Public repository:** `https://github.com/ohrbob-org/ohrbob.app.git`. `main` is published there automatically on every commit (Gogs push mirror).

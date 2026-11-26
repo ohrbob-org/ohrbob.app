@@ -30,6 +30,13 @@ public class SoundFlowAudioPlayer : IAudioPlayer
     private CancellationTokenSource? _cts;
     private Timer _timer;
 
+    // A Stop can arrive while SoundFlow is still constructing a provider from a
+    // source stream. The stream must stay alive until that initialization either
+    // adopts it or abandons it, otherwise metadata parsing hits a closed file.
+    private readonly object _lifecycleLock = new();
+    private int _loadVersion;
+    private int _initializingCount;
+
     private bool _isPlaying;
     public bool IsPlaying => _isPlaying;
     public int PositionSeconds => _player != null ? (int)_player.Time : 0;
@@ -84,8 +91,13 @@ public class SoundFlowAudioPlayer : IAudioPlayer
     public async Task Load(string url)
     {
         Stop(); // Cleans up previous streams
+        int version;
+        lock (_lifecycleLock)
+        {
+            version = ++_loadVersion;
+        }
         CurrentUrl = url;
-        
+
         try
         {
             if (_engine == null)
@@ -93,20 +105,42 @@ public class SoundFlowAudioPlayer : IAudioPlayer
                 _engine = new MiniAudioEngine();
             }
 
-            _cts = new CancellationTokenSource();
-            var ct = _cts.Token;
+            var cts = new CancellationTokenSource();
+            lock (_lifecycleLock)
+            {
+                if (version != _loadVersion)
+                {
+                    cts.Dispose();
+                    return;
+                }
+                _cts = cts;
+            }
+
+            var ct = cts.Token;
 
             // Cached episode: the file is already complete, no buffering stream needed.
             if (File.Exists(url))
             {
-                _localStream = new FileStream(url, FileMode.Open, FileAccess.Read, FileShare.Read);
-                await InitializePlaybackAsync(_localStream, ct);
+                var localStream = new FileStream(url, FileMode.Open, FileAccess.Read, FileShare.Read);
+                lock (_lifecycleLock)
+                {
+                    if (version != _loadVersion)
+                    {
+                        localStream.Dispose();
+                        return;
+                    }
+
+                    _localStream = localStream;
+                    _initializingCount++;
+                }
+
+                await InitializePlaybackAsync(localStream, ct, version, tempFilePath: null);
                 return;
             }
 
-            _tempFilePath = Path.GetTempFileName() + ".mp3";
-            File.WriteAllBytes(_tempFilePath, Array.Empty<byte>());
-            
+            var tempFilePath = Path.GetTempFileName() + ".mp3";
+            File.WriteAllBytes(tempFilePath, Array.Empty<byte>());
+
             bool isReady = false;
             int maxRetries = 3;
             long contentLength = 100 * 1024 * 1024;
@@ -119,15 +153,16 @@ public class SoundFlowAudioPlayer : IAudioPlayer
                     var client = new HttpClient();
                     var response = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
                     response.EnsureSuccessStatusCode();
-                    
+
                     contentLength = response.Content.Headers.ContentLength ?? 100 * 1024 * 1024;
                     var attemptDone = downloadDone = new TaskCompletionSource();
-                    
-                    // Start background download stream
-                    var backgroundDownload = Task.Run(async () => {
+
+                    // Start background download stream. Use the captured path: a newer
+                    // Load may replace the field while this download is still running.
+                    _ = Task.Run(async () => {
                         try {
                             using var stream = await response.Content.ReadAsStreamAsync(ct);
-                            using var fs = new FileStream(_tempFilePath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
+                            using var fs = new FileStream(tempFilePath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
                             byte[] buffer = new byte[81920];
                             int read;
                             while ((read = await stream.ReadAsync(buffer, 0, buffer.Length, ct)) > 0) {
@@ -141,7 +176,7 @@ public class SoundFlowAudioPlayer : IAudioPlayer
                     }, ct);
 
                     // Wait until we have enough data (at least 1KB) to ensure headers exist for SoundFlow
-                    var fileInfo = new FileInfo(_tempFilePath);
+                    var fileInfo = new FileInfo(tempFilePath);
                     int retry = 0;
                     while (fileInfo.Length < 1000 && !attemptDone.Task.IsCompleted && retry < 50 && !ct.IsCancellationRequested)
                     {
@@ -155,11 +190,20 @@ public class SoundFlowAudioPlayer : IAudioPlayer
                         isReady = true;
                         break;
                     }
-                    
+
                     // If we didn't get enough data and it's not complete, retry
-                    _cts.Cancel();
-                    _cts = new CancellationTokenSource();
-                    ct = _cts.Token;
+                    cts.Cancel();
+                    cts = new CancellationTokenSource();
+                    lock (_lifecycleLock)
+                    {
+                        if (version != _loadVersion)
+                        {
+                            cts.Dispose();
+                            return;
+                        }
+                        _cts = cts;
+                    }
+                    ct = cts.Token;
                 }
                 catch (Exception) when (attempt < maxRetries)
                 {
@@ -169,11 +213,11 @@ public class SoundFlowAudioPlayer : IAudioPlayer
 
             if (!isReady)
             {
+                TryDeleteFile(tempFilePath);
                 return; // Failed to stream after retries
             }
 
-            var bufferStream = new HttpBufferingStream(_tempFilePath, contentLength);
-            _bufferStream = bufferStream;
+            var bufferStream = new HttpBufferingStream(tempFilePath, contentLength);
 
             // The download may have finished before the buffer stream existed; in that
             // case nobody can call MarkComplete later, and reads would spin forever at EOF.
@@ -185,43 +229,147 @@ public class SoundFlowAudioPlayer : IAudioPlayer
             {
                 _ = downloadDone.Task.ContinueWith(_ => bufferStream.MarkComplete(), TaskScheduler.Default);
             }
-            
+
+            lock (_lifecycleLock)
+            {
+                if (version != _loadVersion)
+                {
+                    bufferStream.Dispose();
+                    TryDeleteFile(tempFilePath);
+                    return;
+                }
+
+                _bufferStream = bufferStream;
+                _tempFilePath = tempFilePath;
+                _initializingCount++;
+            }
+
             // Execute SoundFlow initialization on a background thread.
-            await InitializePlaybackAsync(bufferStream, ct);
+            await InitializePlaybackAsync(bufferStream, ct, version, tempFilePath);
+        }
+        catch (OperationCanceledException)
+        {
+            // Replaced by a newer load; no error.
         }
         catch(Exception e)
         {
-            Log.Fatal(e,$"Error loading SoundFlow audio: {e}");
+            Log.Error(e, "Error loading SoundFlow audio: {Message}", e.Message);
         }
     }
 
     /// <summary>Shared provider/device setup for streamed and local-file sources.</summary>
-    private async Task InitializePlaybackAsync(Stream source, CancellationToken ct)
+    private async Task InitializePlaybackAsync(
+        Stream source,
+        CancellationToken ct,
+        int version,
+        string? tempFilePath)
     {
-        await Task.Run(() => 
-        {
-            _provider = new StreamDataProvider(_engine!, source, new SoundFlow.Metadata.Models.ReadOptions());
-            
-            var format = new AudioFormat {
-                Format = _provider.SampleFormat == SampleFormat.Unknown ? SampleFormat.F32 : _provider.SampleFormat,
-                Channels = _provider.FormatInfo?.ChannelCount ?? 2,
-                SampleRate = _provider.FormatInfo?.SampleRate ?? 44100
-            };
+        StreamDataProvider? provider = null;
+        AudioPlaybackDevice? device = null;
+        SoundPlayer? player = null;
+        var adopted = false;
+        var countReleased = false;
 
-            _device = _engine!.InitializePlaybackDevice(null, format, new MiniAudioDeviceConfig());
-            var player = new SoundPlayer(_engine, format, _provider);
-            player.Volume = _volume;
-            player.PlaybackEnded += OnPlaybackEnded;
-            _player = player;
-            
-            _device.MasterMixer.AddComponent(_player);
-            _device.Start();
-            
-        }, ct);
-        
-        // Fire an initial duration and position update so UI is correct even if paused
-        DurationChanged?.Invoke(this, DurationSeconds);
-        PositionChanged?.Invoke(this, PositionSeconds);
+        try
+        {
+            (provider, device, player) = await Task.Run(() =>
+            {
+                var p = new StreamDataProvider(_engine!, source, new SoundFlow.Metadata.Models.ReadOptions());
+                var format = new AudioFormat {
+                    Format = p.SampleFormat == SampleFormat.Unknown ? SampleFormat.F32 : p.SampleFormat,
+                    Channels = p.FormatInfo?.ChannelCount ?? 2,
+                    SampleRate = p.FormatInfo?.SampleRate ?? 44100
+                };
+
+                var d = _engine!.InitializePlaybackDevice(null, format, new MiniAudioDeviceConfig());
+                var sp = new SoundPlayer(_engine, format, p);
+                return (p, d, sp);
+            }, ct);
+
+            lock (_lifecycleLock)
+            {
+                if (!ct.IsCancellationRequested && version == _loadVersion)
+                {
+                    _provider = provider;
+                    _device = device;
+                    _player = player;
+
+                    player!.Volume = _volume;
+                    player.PlaybackEnded += OnPlaybackEnded;
+                    device!.MasterMixer.AddComponent(player);
+                    device.Start();
+                    adopted = true;
+                }
+
+                _initializingCount--;
+                countReleased = true;
+
+                if (!adopted)
+                    ClearSourceFields(source, tempFilePath);
+            }
+
+            if (!adopted)
+            {
+                Cleanup(source, tempFilePath, provider, device, player);
+                return;
+            }
+
+            // Fire an initial duration and position update so UI is correct even if paused
+            DurationChanged?.Invoke(this, DurationSeconds);
+            PositionChanged?.Invoke(this, PositionSeconds);
+        }
+        catch
+        {
+            lock (_lifecycleLock)
+            {
+                if (!countReleased)
+                {
+                    _initializingCount--;
+                    countReleased = true;
+                }
+
+                if (ReferenceEquals(_provider, provider)) _provider = null;
+                if (ReferenceEquals(_device, device)) _device = null;
+                if (ReferenceEquals(_player, player)) _player = null;
+                ClearSourceFields(source, tempFilePath);
+            }
+
+            Cleanup(source, tempFilePath, provider, device, player);
+            throw;
+        }
+    }
+
+    private void ClearSourceFields(Stream source, string? tempFilePath)
+    {
+        if (ReferenceEquals(_bufferStream, source)) _bufferStream = null;
+        if (ReferenceEquals(_localStream, source)) _localStream = null;
+        if (tempFilePath != null && _tempFilePath == tempFilePath) _tempFilePath = null;
+    }
+
+    private static void Cleanup(
+        Stream source,
+        string? tempFilePath,
+        StreamDataProvider? provider,
+        AudioPlaybackDevice? device,
+        SoundPlayer? player)
+    {
+        player?.Dispose();
+        device?.Dispose();
+        provider?.Dispose();
+        source.Dispose();
+        if (tempFilePath != null) TryDeleteFile(tempFilePath);
+    }
+
+    private static void TryDeleteFile(string path)
+    {
+        try
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+        catch
+        {
+            // Best effort only.
+        }
     }
 
     public void Play()
@@ -246,26 +394,59 @@ public class SoundFlowAudioPlayer : IAudioPlayer
 
     public void Stop()
     {
-        _cts?.Cancel();
-        if (_player != null)
+        CancellationTokenSource? cts;
+        SoundPlayer? player = null;
+        AudioPlaybackDevice? device = null;
+        StreamDataProvider? provider = null;
+        HttpBufferingStream? bufferStream = null;
+        FileStream? localStream = null;
+        string? tempFilePath = null;
+        bool disposeLifecycle;
+
+        lock (_lifecycleLock)
         {
-            _player.PlaybackEnded -= OnPlaybackEnded;
-            _player.Dispose();
+            _loadVersion++;
+            cts = _cts;
+            _cts = null;
+
+            // An initialization in progress owns its source and will clean up when
+            // it observes the cancelled version. Disposing it here would close the
+            // file while SoundFlow is still parsing metadata.
+            disposeLifecycle = _initializingCount == 0;
+            if (disposeLifecycle)
+            {
+                player = _player;
+                device = _device;
+                provider = _provider;
+                bufferStream = _bufferStream;
+                localStream = _localStream;
+                tempFilePath = _tempFilePath;
+
+                _player = null;
+                _device = null;
+                _provider = null;
+                _bufferStream = null;
+                _localStream = null;
+                _tempFilePath = null;
+            }
         }
-        _player = null;
-        _device?.Dispose();
-        _device = null;
-        _provider?.Dispose();
-        _provider = null;
-        _bufferStream?.Dispose();
-        _bufferStream = null;
-        _localStream?.Dispose();
-        _localStream = null;
-        
-        if (_tempFilePath != null && File.Exists(_tempFilePath))
+
+        cts?.Cancel();
+
+        if (disposeLifecycle)
         {
-            try { File.Delete(_tempFilePath); } catch { }
+            if (player != null)
+            {
+                player.PlaybackEnded -= OnPlaybackEnded;
+                player.Dispose();
+            }
+            device?.Dispose();
+            provider?.Dispose();
+            bufferStream?.Dispose();
+            localStream?.Dispose();
+            if (tempFilePath != null) TryDeleteFile(tempFilePath);
         }
+
         CurrentUrl = null;
         _isPlaying = false;
         PlaybackStateChanged?.Invoke(this, false);

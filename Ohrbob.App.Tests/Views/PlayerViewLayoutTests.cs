@@ -1,4 +1,6 @@
 using System;
+using System.Net;
+using System.Net.Http;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
@@ -13,6 +15,8 @@ using CommunityToolkit.Mvvm.Input;
 using NUnit.Framework;
 using Ohrbob.App.Models;
 using Ohrbob.App.Services;
+using Ohrbob.App.Tests.Services;
+using Ohrbob.App.Tests.ViewModels;
 using Ohrbob.App.ViewModels;
 using Ohrbob.App.Views;
 
@@ -321,6 +325,50 @@ public class PlayerViewLayoutTests
     }
 
     [AvaloniaTest]
+    public void Player_ShowsCurrentEpisodePublishedDateBelowTitle()
+    {
+        var vm = CreateViewModel();
+        vm.CurrentEpisodeId = "e1";
+        vm.CurrentEpisodeTitle = "Episode One";
+        vm.CurrentEpisodeDescription = "A description.";
+        vm.PlaylistItems.Add(new PlaylistItem { EpisodeId = "e1", PublishedAt = new DateTime(2026, 11, 1) });
+        var view = new PlayerView { DataContext = vm };
+        var window = new Window { Width = 900, Height = 600, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var title = view.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "EpisodeTitle");
+        var published = view.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "EpisodePublishedAt");
+        Assert.That(published.Text, Is.EqualTo("Nov 1, 2026"));
+        Assert.That(published.IsVisible, Is.True);
+
+        var titleBottom = title.TranslatePoint(new Point(0, title.Bounds.Height), window);
+        var publishedTop = published.TranslatePoint(new Point(0, 0), window);
+        Assert.That(titleBottom, Is.Not.Null);
+        Assert.That(publishedTop, Is.Not.Null);
+        Assert.That(publishedTop!.Value.Y, Is.GreaterThanOrEqualTo(titleBottom!.Value.Y),
+            "the publish date must sit directly below the episode title");
+        window.Hide();
+    }
+
+    [AvaloniaTest]
+    public void Player_HidesPublishedDateWhenUnknown()
+    {
+        var vm = CreateViewModel();
+        vm.CurrentEpisodeId = "e1";
+        vm.CurrentEpisodeTitle = "Episode One";
+        vm.PlaylistItems.Add(new PlaylistItem { EpisodeId = "e1" });
+        var view = new PlayerView { DataContext = vm };
+        var window = new Window { Width = 900, Height = 600, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var published = view.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "EpisodePublishedAt");
+        Assert.That(published.IsVisible, Is.False, "no known date must hide the line");
+        window.Hide();
+    }
+
+    [AvaloniaTest]
     public void UpNextPanel_ShowsDownloadStatePublishedDateAndClosesByCommand()
     {
         var vm = CreateViewModel();
@@ -386,6 +434,61 @@ public class PlayerViewLayoutTests
         Dispatcher.UIThread.RunJobs();
 
         Assert.That(view.GetVisualDescendants().OfType<TextBlock>().Any(t => t.Text == "Downloads are off: this station only rotates the newest episode of each feed."), Is.True);
+        window.Hide();
+    }
+
+    [AvaloniaTest]
+    public void PullToRefresh_WrapsEpisodeScroll()
+    {
+        var view = new PlayerView { DataContext = CreateViewModel() };
+        var window = new Window { Width = 900, Height = 600, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var refresh = view.FindControl<RefreshContainer>("EpisodeRefresh");
+        var scroll = view.FindControl<ScrollViewer>("EpisodeScroll");
+        Assert.That(refresh, Is.Not.Null, "the player needs a pull-to-refresh container");
+        Assert.That(refresh!.Content, Is.SameAs(scroll));
+        Assert.That(refresh.PullDirection, Is.EqualTo(PullDirection.TopToBottom));
+        Assert.That(refresh.IsMouseEnabled, Is.True, "desktop mouse drags should refresh too");
+        window.Hide();
+    }
+
+    [AvaloniaTest]
+    public async Task PullToRefresh_RequestRefreshReloadsFromServer()
+    {
+        var handler = new MockHttpMessageHandler(request =>
+        {
+            var path = request.RequestUri?.AbsolutePath ?? "";
+            var body = path.EndsWith("/stream/stations")
+                ? "[]"
+                : path.EndsWith("/stream/playlist")
+                    ? "{\"stationId\":\"s1\",\"episodes\":[]}"
+                    : "{}";
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json")
+            };
+        });
+        var config = new ConfigService(Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".json"));
+        config.Save("https://example.com", "token");
+        var vm = new MainViewModel(config, new OhrbobClient(config, handler), null, new TestAudioPlayer(), action => action());
+        vm.IsConnected = true;
+        var view = new PlayerView { DataContext = vm };
+        var window = new Window { Width = 900, Height = 600, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var refresh = view.FindControl<RefreshContainer>("EpisodeRefresh")!;
+        Assert.That(refresh.Visualizer, Is.Not.Null);
+        refresh.RequestRefresh();
+
+        // The reload runs through the same async path as a real pull; the
+        // final request in the sequence is the playlist.
+        for (var i = 0; i < 50 && handler.LastRequest?.RequestUri?.AbsolutePath.EndsWith("/stream/playlist") != true; i++)
+            await Task.Delay(20);
+
+        Assert.That(handler.LastRequest?.RequestUri?.AbsolutePath, Does.EndWith("/stream/playlist"));
         window.Hide();
     }
 

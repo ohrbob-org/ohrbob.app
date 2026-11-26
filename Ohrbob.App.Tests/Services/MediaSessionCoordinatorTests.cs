@@ -82,6 +82,8 @@ public class MediaSessionCoordinatorTests
         public void RaisePrevious() => PreviousRequested?.Invoke(this, EventArgs.Empty);
         public void RaiseSeekTo(int seconds) => SeekToRequested?.Invoke(this, seconds);
         public void RaiseSeekBy(int seconds) => SeekByRequested?.Invoke(this, seconds);
+        public void RaisePlayFromMediaId(string mediaId) =>
+            PlayFromMediaIdRequested?.Invoke(this, mediaId);
     }
 
     private (MainViewModel Vm, FakeMediaSessionService Service, MediaSessionCoordinator Coordinator, FakeHttpMessageHandler Handler, ConfigService Config) Create()
@@ -202,6 +204,43 @@ public class MediaSessionCoordinatorTests
 
         Assert.That(handler.RequestPaths, Has.Some.Contains("/prev"),
             "the previous command should reach the server");
+    }
+
+    [AvaloniaTest]
+    public async Task PlayFromMediaId_SwitchesStationAndStartsPlayback()
+    {
+        var (vm, service, _, handler, config) = Create();
+        config.ServerUrl = "https://example.com";
+        config.StreamToken = "token";
+
+        var first = new StationWithFeedsDto { Station = new Station { Id = "s1", Name = "First" } };
+        var target = new StationWithFeedsDto { Station = new Station { Id = "s2", Name = "Morning Briefing" } };
+        vm.Stations.Add(first);
+        vm.Stations.Add(target);
+        vm.SelectedStation = first;
+        vm.IsPlaying = false;
+
+        service.RaisePlayFromMediaId("s2");
+        await vm.StationOpenTask;
+        await WaitUntilAsync(() => vm.IsPlaying);
+
+        Assert.That(vm.SelectedStation, Is.SameAs(target),
+            "the tapped station becomes the active station");
+        Assert.That(handler.RequestPaths, Has.Some.Contains("/stream/play-station/s2"),
+            "the station switch must reach the server");
+        Assert.That(vm.IsPlaying, Is.True,
+            "playback must start after the new station is ready");
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition)
+    {
+        for (var i = 0; i < 100; i++)
+        {
+            if (condition()) return;
+            await Task.Delay(10);
+        }
+
+        Assert.Fail("condition was not reached in time");
     }
 
     [AvaloniaTest]
