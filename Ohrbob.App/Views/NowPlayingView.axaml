@@ -126,9 +126,15 @@
                 </StackPanel>
             </Grid>
 
-            <!-- Metro typography block anchored to the lower half. -->
-            <Grid Grid.Row="1" Margin="40,20,40,12">
-                <StackPanel VerticalAlignment="Bottom" Spacing="12" MaxWidth="820" HorizontalAlignment="Left">
+            <!-- Title, date and description share one scroller. Short episodes
+                 stay anchored to the bottom; long metadata can scroll. -->
+            <ScrollViewer x:Name="NowPlayingDetailsScroll" Grid.Row="1"
+                          Margin="40,20,40,12"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+                <Grid MinHeight="{Binding $parent[ScrollViewer].Viewport.Height}">
+                    <StackPanel Spacing="12" MaxWidth="820" HorizontalAlignment="Left"
+                                VerticalAlignment="Bottom">
                     <TextBlock x:Name="NowPlayingTitle"
                                Text="{Binding CurrentEpisodeTitle}"
                                Classes="metroDisplay"
@@ -141,18 +147,16 @@
                                IsVisible="{Binding CurrentEpisodePublishedAtLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                                FontSize="12" FontWeight="Bold" LetterSpacing="2"
                                Foreground="{StaticResource MetroAccentSoftBrush}" />
-                    <ScrollViewer MaxHeight="170" VerticalScrollBarVisibility="Auto"
-                                  IsVisible="{Binding CurrentEpisodeDescription, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                        <views:LinkTextBlock x:Name="NowPlayingDescription"
-                                             SourceText="{Binding CurrentEpisodeDescription}"
-                                             LinkCommand="{Binding OpenLinkCommand}"
-                                             FontSize="14" LineHeight="21"
-                                             Foreground="#D9FFFFFF"
-                                             TextWrapping="Wrap" />
-                    </ScrollViewer>
-
-                </StackPanel>
-            </Grid>
+                    <views:LinkTextBlock x:Name="NowPlayingDescription"
+                                         SourceText="{Binding CurrentEpisodeDescription}"
+                                         LinkCommand="{Binding OpenLinkCommand}"
+                                         FontSize="14" LineHeight="21"
+                                         Foreground="#D9FFFFFF"
+                                         TextWrapping="Wrap"
+                                         IsVisible="{Binding CurrentEpisodeDescription, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                    </StackPanel>
+                </Grid>
+            </ScrollViewer>
 
             <!-- Transport deck: solid, oversized, thumb-friendly. -->
             <Border Grid.Row="2" Background="#D90A0E18" BorderBrush="#26FFFFFF" BorderThickness="0,1,0,0"

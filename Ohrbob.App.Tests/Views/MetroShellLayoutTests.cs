@@ -165,6 +165,60 @@ public class MetroShellLayoutTests
     }
 
     [AvaloniaTest]
+    public void LongNowPlayingMetadata_ScrollsTitleDateAndDescription()
+    {
+        var vm = CreateViewModel();
+        vm.CurrentEpisodeTitle = string.Join(" ", Enumerable.Repeat("A very long episode title", 6));
+        vm.CurrentEpisodeDescription = string.Join(" ", Enumerable.Repeat(
+            "This is a long description that needs to be reachable by scrolling.", 20));
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 420, Height = 600, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var nowPlaying = view.GetVisualDescendants().OfType<NowPlayingView>().Single();
+        var scroll = nowPlaying.FindControl<ScrollViewer>("NowPlayingDetailsScroll")!;
+        var title = nowPlaying.FindControl<TextBlock>("NowPlayingTitle")!;
+        var description = nowPlaying.FindControl<LinkTextBlock>("NowPlayingDescription")!;
+
+        Assert.That(scroll.VerticalScrollBarVisibility, Is.EqualTo(Avalonia.Controls.Primitives.ScrollBarVisibility.Auto));
+        Assert.That(title.GetVisualAncestors().Contains(scroll), Is.True,
+            "the title must scroll with the description");
+        Assert.That(description.GetVisualAncestors().Contains(scroll), Is.True,
+            "the description must be inside the same scroller");
+        Assert.That(scroll.Extent.Height, Is.GreaterThan(scroll.Viewport.Height),
+            "long metadata must actually overflow the available space");
+
+        scroll.Offset = new Vector(0, scroll.Extent.Height);
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(scroll.Offset.Y, Is.GreaterThan(0),
+            "the metadata area must scroll down to the description");
+        window.Close();
+    }
+
+    [AvaloniaTest]
+    public void ShortNowPlayingMetadata_StaysBottomAnchored()
+    {
+        var vm = CreateViewModel();
+        vm.CurrentEpisodeTitle = "Short title";
+        vm.CurrentEpisodeDescription = "Short description.";
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 900, Height = 700, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var nowPlaying = view.GetVisualDescendants().OfType<NowPlayingView>().Single();
+        var scroll = nowPlaying.FindControl<ScrollViewer>("NowPlayingDetailsScroll")!;
+        var title = nowPlaying.FindControl<TextBlock>("NowPlayingTitle")!;
+        var titlePoint = title.TranslatePoint(new Point(0, 0), scroll);
+
+        Assert.That(titlePoint, Is.Not.Null);
+        Assert.That(titlePoint!.Value.Y, Is.GreaterThan(scroll.Bounds.Height / 2),
+            "short metadata should sit at the bottom of the available space, not at the top");
+        window.Close();
+    }
+
+    [AvaloniaTest]
     public void NarrowStationsHeader_DoesNotSqueezeTheHeadline()
     {
         var vm = CreateViewModel();
