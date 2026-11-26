@@ -28,6 +28,8 @@ public static class MarqueeText
     public static readonly AttachedProperty<int> DelayMaxProperty =
         AvaloniaProperty.RegisterAttached<Control, int>("DelayMax", typeof(MarqueeText), 5000);
 
+    private const int PauseMilliseconds = 5000;
+
     private static readonly ConditionalWeakTable<Control, MarqueeState> States = new();
 
     static MarqueeText()
@@ -168,10 +170,19 @@ public static class MarqueeText
             return;
         }
 
-        // The second copy now occupies the first copy's starting position, so
-        // snapping back is invisible. Begin the next leftward pass immediately.
-        state.Transform.Transitions = null;
-        state.Transform.X = 0;
+        if (state.Phase == Phase.Moving)
+        {
+            // The second copy now occupies the first copy's starting position,
+            // so snapping back is invisible. Hold the readable start for 5s.
+            state.Transform.Transitions = null;
+            state.Transform.X = 0;
+            state.Phase = Phase.Holding;
+            state.Timer.Interval = TimeSpan.FromMilliseconds(PauseMilliseconds);
+            state.Timer.Start();
+            return;
+        }
+
+        state.Phase = Phase.Moving;
         StartCycle(host, state);
     }
 
@@ -228,6 +239,7 @@ public static class MarqueeText
     {
         Waiting,
         Moving,
+        Holding,
     }
 
     private sealed class MarqueeState
