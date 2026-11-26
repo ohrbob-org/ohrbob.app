@@ -41,17 +41,125 @@ public class MetroShellNavigationTests
         return new MainViewModel(config, null, offlineState: new OfflineStateService(_tempOfflinePath));
     }
 
+    private (MainViewModel ViewModel, GatedHttpHandler Handler, StationWithFeedsDto Station)
+        CreateGatedViewModel()
+    {
+        var config = new ConfigService(_tempConfigPath);
+        config.Save("https://example.com", "token");
+        var handler = new GatedHttpHandler();
+        var vm = new MainViewModel(
+            config,
+            new OhrbobClient(config, handler),
+            null,
+            new TestAudioPlayer(),
+            action => action());
+        vm.IsConnected = true;
+
+        var station = new StationWithFeedsDto
+        {
+            Station = new Station { Id = "s2", Name = "New Station" },
+        };
+        vm.Stations.Add(station);
+        return (vm, handler, station);
+    }
+
     [Test]
-    public void OpenStation_NavigatesToThePlayer()
+    public async Task OpenStation_NavigatesToThePlayer()
     {
         var vm = CreateViewModel();
         var station = new StationWithFeedsDto { Station = new Station { Id = "s1", Name = "News" } };
         vm.Stations.Add(station);
 
         vm.OpenStationCommand.Execute(station);
+        await vm.StationOpenTask;
 
         Assert.That(vm.SelectedStation, Is.SameAs(station));
         Assert.That(vm.IsNowPlayingOpen, Is.True);
+    }
+
+    [Test]
+    public async Task OpenStation_RequestsContentBeforeZoomingIn()
+    {
+        var (vm, handler, station) = CreateGatedViewModel();
+        vm.StationOpenDelay = TimeSpan.FromSeconds(5);
+
+        vm.OpenStationCommand.Execute(station);
+
+        Assert.That(vm.IsNowPlayingOpen, Is.False,
+            "the station grid must stay up while the new content is requested");
+        Assert.That(vm.IsStationLoading, Is.False,
+            "no loader is shown before the player is opened");
+
+        handler.Release();
+        await vm.StationOpenTask;
+
+        Assert.That(vm.IsNowPlayingOpen, Is.True);
+        Assert.That(vm.IsStationLoading, Is.False);
+        Assert.That(vm.CurrentEpisodeTitle, Is.EqualTo("New episode"));
+        Assert.That(vm.PlaylistItems, Has.Count.EqualTo(1),
+            "the playlist must be populated before the zoom starts");
+    }
+
+    [Test]
+    public async Task OpenStation_ZoomsInWithALoaderAfterTheTimeout()
+    {
+        var (vm, handler, station) = CreateGatedViewModel();
+        vm.StationOpenDelay = TimeSpan.FromMilliseconds(50);
+
+        vm.OpenStationCommand.Execute(station);
+        await Task.Delay(200);
+
+        Assert.That(vm.IsNowPlayingOpen, Is.True,
+            "a slow station still opens the player after the timeout");
+        Assert.That(vm.IsStationLoading, Is.True,
+            "the player shows a loader until the content arrives");
+
+        handler.Release();
+        await vm.StationOpenTask;
+
+        Assert.That(vm.IsStationLoading, Is.False);
+        Assert.That(vm.CurrentEpisodeTitle, Is.EqualTo("New episode"));
+    }
+
+    [Test]
+    public async Task ShowStations_CancelsAPendingZoomIn()
+    {
+        var (vm, handler, station) = CreateGatedViewModel();
+        vm.StationOpenDelay = TimeSpan.FromMilliseconds(50);
+
+        vm.OpenStationCommand.Execute(station);
+        vm.ShowStationsCommand.Execute(null);
+        handler.Release();
+        await vm.StationOpenTask;
+
+        Assert.That(vm.IsNowPlayingOpen, Is.False);
+        Assert.That(vm.IsStationLoading, Is.False);
+    }
+
+    private sealed class GatedHttpHandler : HttpMessageHandler
+    {
+        private readonly TaskCompletionSource _gate =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public void Release() => _gate.TrySetResult();
+
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            await _gate.Task.WaitAsync(cancellationToken);
+
+            var path = request.RequestUri?.AbsolutePath ?? "";
+            var body = path.EndsWith("/stream/playlist")
+                ? "{\"stationId\":\"s2\",\"episodes\":[{\"episodeId\":\"e2\",\"title\":\"New episode\",\"isCurrent\":true}]}"
+                : path.EndsWith("/stream/status")
+                    ? "{\"stationId\":\"s2\",\"current\":{\"episodeId\":\"e2\",\"title\":\"New episode\",\"description\":\"Fresh content\"}}"
+                    : "{}";
+
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json"),
+            };
+        }
     }
 
     [Test]

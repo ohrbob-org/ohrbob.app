@@ -418,6 +418,35 @@ public class MetroShellLayoutTests
     }
 
     [AvaloniaTest]
+    public void StationLoading_CoversTheOldPlayerAndPlaylistContent()
+    {
+        var vm = CreateViewModel();
+        vm.IsNowPlayingOpen = true;
+        vm.IsStationLoading = true;
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 1200, Height = 800, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var player = view.GetVisualDescendants().OfType<NowPlayingView>().Single();
+        var playlist = view.GetVisualDescendants().OfType<PlaylistView>().Single();
+        var playerOverlay = player.FindControl<Border>("StationLoadingOverlay")!;
+        var playlistOverlay = playlist.FindControl<Border>("StationLoadingOverlay")!;
+
+        Assert.That(playerOverlay.IsEffectivelyVisible, Is.True);
+        Assert.That(playerOverlay.Bounds.Height, Is.GreaterThan(100),
+            "the loader covers the player content below its header");
+        Assert.That(playlistOverlay.IsEffectivelyVisible, Is.True,
+            "the old queue is hidden while the new one loads");
+
+        vm.IsStationLoading = false;
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(playerOverlay.IsEffectivelyVisible, Is.False);
+        Assert.That(playlistOverlay.IsEffectivelyVisible, Is.False);
+        window.Close();
+    }
+
+    [AvaloniaTest]
     public void PlaylistCurrentEpisode_UsesOnlyTheOrangeIndicator()
     {
         var vm = CreateViewModel();

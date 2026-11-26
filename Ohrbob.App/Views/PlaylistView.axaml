@@ -144,5 +144,19 @@
                 </DataTemplate>
             </ListBox.ItemTemplate>
         </ListBox>
+
+        <!-- The old station's queue stays hidden while its replacement loads. -->
+        <Border x:Name="StationLoadingOverlay" Grid.Row="2"
+                Background="{DynamicResource MetroCanvasBrush}"
+                IsVisible="{Binding IsStationLoading}">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="14">
+                <ProgressBar IsIndeterminate="True" Width="160" Height="4"
+                             Foreground="{StaticResource MetroAccentBrush}"
+                             Background="{DynamicResource MetroHairlineBrush}" />
+                <TextBlock Text="Loading episodes…" FontSize="11" FontWeight="Bold"
+                           LetterSpacing="2"
+                           Foreground="{DynamicResource MetroMutedBrush}" />
+            </StackPanel>
+        </Border>
     </Grid>
 </UserControl>

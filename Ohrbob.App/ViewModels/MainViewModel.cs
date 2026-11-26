@@ -42,6 +42,8 @@ public partial class MainViewModel : ViewModelBase
     private Task? _downloadSyncTask;
     private string? _lastDownloadSignature;
     private int _playlistGeneration;
+    private int _openStationGeneration;
+    private Task _stationSwitchTask = Task.CompletedTask;
     private string? _playlistStationId;
     private bool _playlistHostPaceEnabled;
     private bool _playlistIsAging;
@@ -108,6 +110,16 @@ public partial class MainViewModel : ViewModelBase
     /// <summary>The Metro shell starts on the station grid and zooms into the player.</summary>
     [ObservableProperty]
     private bool _isNowPlayingOpen;
+
+    /// <summary>True while a newly selected station's player data is still loading.</summary>
+    [ObservableProperty]
+    private bool _isStationLoading;
+
+    /// <summary>How long a station switch may take before the player opens with a loader.</summary>
+    internal TimeSpan StationOpenDelay { get; set; } = TimeSpan.FromSeconds(1);
+
+    /// <summary>The pending station switch/open sequence, exposed for tests.</summary>
+    internal Task StationOpenTask { get; private set; } = Task.CompletedTask;
 
     /// <summary>On narrow screens, true slides the playlist panorama into view.</summary>
     [ObservableProperty]
@@ -282,20 +294,61 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand]
     private void OpenStation(StationWithFeedsDto? station)
     {
-        if (station?.Station?.Id is null) return;
+        if (station?.Station?.Id is not { } stationId) return;
 
+        // Request the new station first; the zoom waits for its player and
+        // playlist data so the old station's content never flashes.
         SelectedStation = station;
         IsSettingsOpen = false;
         SettingsStation = null;
         IsEpisodeActionsOpen = false;
         IsUpNextOpen = false;
         IsPlaylistOpen = false;
+
+        StationOpenTask = OpenStationWhenReadyAsync(stationId);
+    }
+
+    private async Task OpenStationWhenReadyAsync(string stationId)
+    {
+        var generation = ++_openStationGeneration;
+        IsStationLoading = false;
+
+        var switchTask = _stationSwitchTask;
+        var slow = !switchTask.IsCompleted &&
+                   await Task.WhenAny(switchTask, Task.Delay(StationOpenDelay)) != switchTask;
+        if (slow && switchTask.IsCompleted)
+            slow = false;
+
+        if (generation != _openStationGeneration ||
+            SelectedStation?.Station?.Id != stationId)
+            return;
+
+        if (slow)
+            IsStationLoading = true;
+
         IsNowPlayingOpen = true;
+
+        if (!slow) return;
+
+        try
+        {
+            await switchTask;
+        }
+        catch
+        {
+            // SwitchStationAsync handles its own failures.
+        }
+
+        if (generation != _openStationGeneration) return;
+        IsStationLoading = false;
     }
 
     [RelayCommand]
     private void ShowStations()
     {
+        // Backing out while a station is still loading must not zoom in later.
+        _openStationGeneration++;
+        IsStationLoading = false;
         IsNowPlayingOpen = false;
         IsPlaylistOpen = false;
         IsSettingsOpen = false;
@@ -1689,13 +1742,22 @@ public partial class MainViewModel : ViewModelBase
         // Restoring a snapshot must not hit the server or the offline guard.
         if (_isRestoringSnapshot) return;
 
+        // A newer selection owns the next zoom, even if this one was not
+        // started through the station grid.
+        _openStationGeneration++;
+
         // Leaving a station drops its queue (files stay). Bumping the generation
         // also prevents an in-flight refresh for the old station from applying.
         _downloads.Cancel();
         _playlistGeneration++;
         _lastDownloadSignature = null;
+        _stationSwitchTask = Task.CompletedTask;
 
-        if (value?.Station?.Id is not { } stationId) return;
+        if (value?.Station?.Id is not { } stationId)
+        {
+            IsStationLoading = false;
+            return;
+        }
 
         if (IsOffline)
         {
@@ -1719,19 +1781,23 @@ public partial class MainViewModel : ViewModelBase
         }
         else
         {
-            _ = SwitchStationAsync(stationId);
+            _stationSwitchTask = SwitchStationAsync(stationId, _playlistGeneration);
         }
 
         RestoreBufferOption(stationId);
         if (IsPortrait) IsSidebarOpen = false;
     }
 
-    private async Task SwitchStationAsync(string stationId)
+    private async Task SwitchStationAsync(string stationId, int generation)
     {
         try
         {
             await _client.PlayStationAsync(stationId);
+            if (generation != _playlistGeneration) return;
+
             await RefreshStatusAsync();
+            if (generation != _playlistGeneration) return;
+
             await RefreshPlaylistAsync();
         }
         catch

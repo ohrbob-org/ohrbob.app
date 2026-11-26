@@ -293,6 +293,22 @@
                     </Grid>
                 </Grid>
             </Border>
+
+            <!-- Station switch loading veil. The header keeps the back button
+                 usable; everything that would show the old station's data is
+                 covered until the new player and playlist are populated. -->
+            <Border x:Name="StationLoadingOverlay" Grid.Row="1" Grid.RowSpan="2"
+                    Background="{DynamicResource NowPlayingBaseBrush}"
+                    IsVisible="{Binding IsStationLoading}">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="14">
+                    <ProgressBar IsIndeterminate="True" Width="180" Height="4"
+                                 Foreground="{StaticResource MetroAccentBrush}"
+                                 Background="{DynamicResource NowPlayingTrackBrush}" />
+                    <TextBlock Text="Loading station…" FontSize="11" FontWeight="Bold"
+                               LetterSpacing="2"
+                               Foreground="{DynamicResource NowPlayingMutedBrush}" />
+                </StackPanel>
+            </Border>
         </Grid>
 
     </Grid>
