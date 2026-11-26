@@ -162,6 +162,8 @@ public class MetroShellLayoutTests
 
         Assert.That(longTitle.TextWrapping, Is.EqualTo(TextWrapping.NoWrap));
         Assert.That(longTitle.MaxLines, Is.EqualTo(1));
+        Assert.That(longTitle.HorizontalAlignment, Is.EqualTo(Avalonia.Layout.HorizontalAlignment.Left),
+            "the marquee must start at the first character");
         Assert.That(MarqueeText.GetIsEnabled(longTitle), Is.True);
         Assert.That(MarqueeText.MeasureOverflow(longTitle), Is.GreaterThan(0),
             "a long station name should be prepared for marquee scrolling");

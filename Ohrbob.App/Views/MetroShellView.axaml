@@ -195,7 +195,7 @@
                                                                        FontSize="27" FontWeight="Bold" LineHeight="27"
                                                                        Foreground="{DynamicResource StationTileTitleBrush}"
                                                                        TextWrapping="NoWrap" MaxLines="1" TextTrimming="None"
-                                                                       HorizontalAlignment="Stretch"
+                                                                       HorizontalAlignment="Left"
                                                                        VerticalAlignment="Bottom" />
                                                         </Border>
                                                     </StackPanel>

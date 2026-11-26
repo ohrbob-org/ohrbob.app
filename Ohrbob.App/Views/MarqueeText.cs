@@ -146,8 +146,11 @@ public static class MarqueeText
                 break;
 
             case Phase.MovingToEnd:
-                state.Phase = Phase.MovingBack;
-                ScrollBack(text, state);
+                // Hold the revealed ending briefly, then jump back silently. Only
+                // the leftward motion is animated; the title never sweeps right.
+                state.Phase = Phase.HoldingAtEnd;
+                state.Timer.Interval = TimeSpan.FromMilliseconds(1000);
+                state.Timer.Start();
                 break;
 
             default:
@@ -164,16 +167,7 @@ public static class MarqueeText
         var duration = DurationFor(state.Overflow);
         state.Transform.Transitions = ScrollTransition(duration);
         state.Transform.X = -state.Overflow;
-        state.Timer.Interval = duration + TimeSpan.FromMilliseconds(450);
-        state.Timer.Start();
-    }
-
-    private static void ScrollBack(TextBlock text, MarqueeState state)
-    {
-        var duration = DurationFor(state.Overflow);
-        state.Transform.Transitions = ScrollTransition(duration);
-        state.Transform.X = 0;
-        state.Timer.Interval = duration + TimeSpan.FromMilliseconds(450);
+        state.Timer.Interval = duration + TimeSpan.FromMilliseconds(80);
         state.Timer.Start();
     }
 
@@ -231,7 +225,7 @@ public static class MarqueeText
     {
         Waiting,
         MovingToEnd,
-        MovingBack,
+        HoldingAtEnd,
     }
 
     private sealed class MarqueeState
