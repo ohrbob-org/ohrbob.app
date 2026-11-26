@@ -90,9 +90,18 @@
         </Panel>
 
         <Grid RowDefinitions="Auto,*,Auto">
-            <!-- Eyebrow: station, state, playlist affordance. -->
-            <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="40,30,32,0">
-                <StackPanel Grid.Column="0" Spacing="3">
+            <!-- Eyebrow: back, station, state, settings. -->
+            <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="24,26,32,0">
+                <Button x:Name="BackToStations" Grid.Column="0" Classes="metroGhost"
+                        Command="{Binding ShowStationsCommand}"
+                        Width="40" Height="40" Padding="0" Margin="0,0,8,0"
+                        Foreground="{DynamicResource NowPlayingIconBrush}"
+                        VerticalAlignment="Top" ToolTip.Tip="Stations">
+                    <PathIcon Data="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z"
+                              Width="20" Height="20" Foreground="{DynamicResource NowPlayingIconBrush}" />
+                </Button>
+
+                <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
                     <TextBlock x:Name="NowPlayingStation"
                                Text="{Binding SelectedStation.Station.Name, FallbackValue='ohrbob'}"
                                FontSize="12" FontWeight="Bold" LetterSpacing="3"
@@ -102,7 +111,7 @@
                                LetterSpacing="2" Foreground="{DynamicResource NowPlayingMutedBrush}" />
                 </StackPanel>
 
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Top">
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Top">
                     <Border Background="{StaticResource MetroAccentBrush}" Padding="7,3"
                             IsVisible="{Binding IsBuffering}">
                         <TextBlock Text="BUFFERING" FontSize="9" FontWeight="Bold" LetterSpacing="1" Foreground="White" />

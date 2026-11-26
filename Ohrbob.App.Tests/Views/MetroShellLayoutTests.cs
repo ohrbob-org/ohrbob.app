@@ -224,7 +224,7 @@ public class MetroShellLayoutTests
     }
 
     [AvaloniaTest]
-    public void PlayerHeader_OnlyContainsTheStationsBackLink()
+    public void PlayerHasNoShellHeader_AndTheBackButtonLivesInTheCoverHeader()
     {
         var vm = CreateViewModel();
         vm.IsNowPlayingOpen = true;
@@ -235,13 +235,15 @@ public class MetroShellLayoutTests
         window.Show();
         Dispatcher.UIThread.RunJobs();
 
-        var header = view.FindControl<Border>("PlayerHeader")!;
-        var texts = header.GetVisualDescendants().OfType<TextBlock>()
-            .Select(t => t.Text).ToList();
+        Assert.That(view.FindControl<Border>("PlayerHeader"), Is.Null,
+            "the player no longer has a separate app header");
 
-        Assert.That(texts, Does.Contain("stations"));
-        Assert.That(texts, Does.Not.Contain("Kai Wegner"));
-        Assert.That(texts, Does.Not.Contain("Die Maus zum Hören"));
+        var nowPlaying = view.GetVisualDescendants().OfType<NowPlayingView>().Single();
+        var back = nowPlaying.FindControl<Button>("BackToStations");
+        Assert.That(back, Is.Not.Null);
+        Assert.That(back!.Command, Is.SameAs(vm.ShowStationsCommand));
+        Assert.That(nowPlaying.GetVisualDescendants().OfType<TextBlock>().Any(t => t.Text == "Kai Wegner"),
+            Is.False);
         window.Close();
     }
 

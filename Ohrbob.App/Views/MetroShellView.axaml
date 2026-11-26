@@ -91,9 +91,6 @@
             <Style Selector="ItemsControl#StationGrid">
                 <Setter Property="Margin" Value="18,4,0,18" />
             </Style>
-            <Style Selector="Button#BackToStations">
-                <Setter Property="Padding" Value="4,6" />
-            </Style>
         </ContainerQuery>
     </UserControl.Styles>
 
@@ -230,34 +227,18 @@
         <!-- Screens 3 + 4: now playing and the station playlist. Wide layouts
              show both columns; narrow layouts slide the panorama by a peek. -->
         <Border x:Name="PlayerLayer" Classes="screen" Classes.open="{Binding IsNowPlayingOpen}">
-            <Grid RowDefinitions="Auto,*" Background="{DynamicResource MetroCanvasBrush}">
-                <Border x:Name="PlayerHeader" Grid.Row="0" Background="{DynamicResource PlayerChromeBrush}"
-                        BorderBrush="{DynamicResource PlayerChromeBorderBrush}" BorderThickness="0,0,0,1"
-                        Padding="18,8">
-                    <Button x:Name="BackToStations" Classes="metroGhost"
-                            Command="{Binding ShowStationsCommand}"
-                            HorizontalAlignment="Left"
-                            Foreground="{DynamicResource PlayerChromeForegroundBrush}">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBlock Text="←" FontSize="17" VerticalAlignment="Center" />
-                            <TextBlock Text="stations" FontSize="12" FontWeight="Bold"
-                                       LetterSpacing="1" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </Button>
-                </Border>
-
-                <Panel x:Name="PanoramaViewport" Grid.Row="1" ClipToBounds="True">
-                    <Canvas x:Name="PanoramaCanvas" Background="Transparent"
-                            HorizontalAlignment="Left" VerticalAlignment="Top">
-                        <Border x:Name="NowPlayingPage" Canvas.Left="0" Width="900">
-                            <views:NowPlayingView />
-                        </Border>
-                        <Border x:Name="PlaylistPage" Canvas.Left="900" Width="440">
-                            <views:PlaylistView />
-                        </Border>
-                    </Canvas>
-                </Panel>
-            </Grid>
+            <Panel x:Name="PanoramaViewport" ClipToBounds="True"
+                   Background="{DynamicResource MetroCanvasBrush}">
+                <Canvas x:Name="PanoramaCanvas" Background="Transparent"
+                        HorizontalAlignment="Left" VerticalAlignment="Top">
+                    <Border x:Name="NowPlayingPage" Canvas.Left="0" Width="900">
+                        <views:NowPlayingView />
+                    </Border>
+                    <Border x:Name="PlaylistPage" Canvas.Left="900" Width="440">
+                        <views:PlaylistView />
+                    </Border>
+                </Canvas>
+            </Panel>
         </Border>
 
         <!-- Station settings modal, opened by long-pressing a tile. -->
