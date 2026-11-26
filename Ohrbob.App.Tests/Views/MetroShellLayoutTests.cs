@@ -101,9 +101,36 @@ public class MetroShellLayoutTests
 
         Assert.That(view.IsNarrow, Is.True);
         Assert.That(now.Bounds.Width, Is.EqualTo(viewport.Bounds.Width - 64).Within(2));
+        Assert.That(playlist.Bounds.Width, Is.EqualTo(viewport.Bounds.Width - 64).Within(2));
         Assert.That(Canvas.GetLeft(playlist), Is.EqualTo(now.Bounds.Width).Within(2));
         Assert.That(Canvas.GetLeft(playlist), Is.LessThan(viewport.Bounds.Width),
             "the next Metro page must peek in from the right");
+        window.Close();
+    }
+
+    [AvaloniaTest]
+    public void PlaylistOpen_LeavesNowPlayingPeekingOnTheLeft()
+    {
+        var vm = CreateViewModel();
+        vm.IsPlaylistOpen = true;
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 420, Height = 820, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var viewport = view.FindControl<Panel>("PanoramaViewport")!;
+        var now = view.FindControl<Border>("NowPlayingPage")!;
+        var playlist = view.FindControl<Border>("PlaylistPage")!;
+
+        var nowRight = now.TranslatePoint(new Point(now.Bounds.Width, 0), viewport)!.Value.X;
+        var playlistLeft = playlist.TranslatePoint(new Point(0, 0), viewport)!.Value.X;
+
+        Assert.That(nowRight, Is.EqualTo(64).Within(2),
+            "the player page should remain visible as a peeking strip on the left");
+        Assert.That(playlistLeft, Is.EqualTo(64).Within(2));
+        Assert.That(playlist.TranslatePoint(new Point(playlist.Bounds.Width, 0), viewport)!.Value.X,
+            Is.EqualTo(viewport.Bounds.Width).Within(2),
+            "the playlist should fill the remainder without clipping its right edge");
         window.Close();
     }
 
@@ -121,8 +148,8 @@ public class MetroShellLayoutTests
         var canvas = view.FindControl<Canvas>("PanoramaCanvas")!;
         var transform = (Avalonia.Media.TranslateTransform)canvas.RenderTransform!;
 
-        Assert.That(transform.X, Is.EqualTo(-(viewport.Bounds.Width - 64)).Within(2),
-            "opening the playlist should snap the panorama to the second page");
+        Assert.That(transform.X, Is.EqualTo(-(viewport.Bounds.Width - 128)).Within(2),
+            "opening the playlist should leave the player peeking on the left");
         window.Close();
     }
 

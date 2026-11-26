@@ -140,7 +140,7 @@ public partial class MetroShellView : UserControl
                 IsNarrow = narrow;
 
             var nowPlayingWidth = narrow ? Math.Max(1, width - NarrowPeek) : Math.Max(1, width * 0.58);
-            var playlistWidth = narrow ? Math.Max(1, width) : Math.Max(1, width - nowPlayingWidth);
+            var playlistWidth = narrow ? Math.Max(1, width - NarrowPeek) : Math.Max(1, width - nowPlayingWidth);
 
             NowPlayingPage.Width = nowPlayingWidth;
             NowPlayingPage.Height = height;
@@ -163,7 +163,7 @@ public partial class MetroShellView : UserControl
     {
         var width = PanoramaViewport.Bounds.Width;
         var offset = IsNarrow && _viewModel?.IsPlaylistOpen == true
-            ? -Math.Max(1, width - NarrowPeek)
+            ? -Math.Max(1, width - NarrowPeek * 2)
             : 0;
 
         if (animate)
@@ -248,7 +248,7 @@ public partial class MetroShellView : UserControl
     private double MaxPanOffset()
     {
         var width = PanoramaViewport.Bounds.Width;
-        return Math.Max(1, width - NarrowPeek);
+        return Math.Max(1, width - NarrowPeek * 2);
     }
 
     internal void SwipeForTests(double dx)
