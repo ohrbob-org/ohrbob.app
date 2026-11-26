@@ -301,10 +301,17 @@ public class MetroShellLayoutTests
 
         var flyout = volumeButton.Flyout as Flyout;
         Assert.That(flyout, Is.Not.Null);
-        var flyoutBorder = flyout!.Content as Border;
+        Assert.That(flyout!.Placement, Is.EqualTo(PlacementMode.TopEdgeAlignedRight));
+        var flyoutBorder = flyout.Content as Border;
         Assert.That(flyoutBorder, Is.Not.Null);
-        var flyoutStack = flyoutBorder!.Child as StackPanel;
-        var portraitSlider = flyoutStack!.Children.OfType<Slider>().Single();
+        Assert.That(flyoutBorder!.BorderThickness, Is.EqualTo(default(Thickness)),
+            "the flyout should have no outline");
+        Assert.That(((ISolidColorBrush)flyoutBorder.Background!).Color,
+            Is.EqualTo(Color.Parse("#FC5D00")), "the flyout should use the brand highlight");
+        var flyoutStack = flyoutBorder.Child as StackPanel;
+        Assert.That(flyoutStack!.Children.OfType<TextBlock>(), Is.Empty,
+            "the VOLUME label was removed");
+        var portraitSlider = flyoutStack.Children.OfType<Slider>().Single();
         Assert.That(portraitSlider.Orientation, Is.EqualTo(Avalonia.Layout.Orientation.Vertical));
 
         flyout.ShowAt(volumeButton);

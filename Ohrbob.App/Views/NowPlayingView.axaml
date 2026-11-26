@@ -53,6 +53,29 @@
             <Setter Property="Height" Value="72" />
         </Style>
 
+        <!-- White-on-accent volume slider used by the portrait flyout. -->
+        <Style Selector="Slider.portraitVolume">
+            <Setter Property="Width" Value="28" />
+            <Setter Property="Height" Value="108" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+        <Style Selector="Slider.portraitVolume /template/ RepeatButton#PART_IncreaseButton">
+            <Setter Property="Background" Value="#66FFFFFF" />
+            <Setter Property="CornerRadius" Value="0" />
+        </Style>
+        <Style Selector="Slider.portraitVolume /template/ RepeatButton#PART_DecreaseButton">
+            <Setter Property="Background" Value="White" />
+            <Setter Property="CornerRadius" Value="0" />
+        </Style>
+        <Style Selector="Slider.portraitVolume /template/ Thumb#thumb">
+            <Setter Property="Width" Value="14" />
+            <Setter Property="Height" Value="14" />
+            <Setter Property="CornerRadius" Value="0" />
+            <Setter Property="Background" Value="White" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+
         <ContainerQuery Name="nowPlaying" Query="max-width: 640">
             <Style Selector="TextBlock#NowPlayingTitle">
                 <Setter Property="FontSize" Value="40" />
@@ -185,15 +208,16 @@
                                 Foreground="{DynamicResource NowPlayingIconBrush}"
                                 ToolTip.Tip="Volume">
                             <Button.Flyout>
-                                <Flyout Placement="Top">
-                                    <Border Background="{DynamicResource NowPlayingChromeBrush}"
-                                            BorderBrush="{DynamicResource NowPlayingChromeBorderBrush}"
-                                            BorderThickness="1" Padding="10,12">
+                                <Flyout Placement="TopEdgeAlignedRight">
+                                    <Border Background="{StaticResource MetroAccentBrush}"
+                                            BorderThickness="0" Padding="10,12">
                                         <StackPanel Spacing="8" HorizontalAlignment="Center">
-                                            <TextBlock Text="VOLUME" Classes="metroLabel"
-                                                       HorizontalAlignment="Center" />
+                                            <PathIcon Data="M14,3.23V5.29C16.89,6.15 19,8.83 19,12C19,15.17 16.89,17.85 14,18.71V20.77C18,19.86 21,16.28 21,12C21,7.72 18,4.14 14,3.23M16.5,12C16.5,10.23 15.5,8.71 14,7.97V16C15.5,15.29 16.5,13.77 16.5,12M3,9V15H7L12,20V4L7,9H3Z"
+                                                      Width="16" Height="16" Foreground="White"
+                                                      HorizontalAlignment="Center" />
                                             <Slider x:Name="PortraitVolumeSlider"
-                                                    Orientation="Vertical" Height="120" Width="24"
+                                                    Classes="portraitVolume"
+                                                    Orientation="Vertical"
                                                     Minimum="0" Maximum="100"
                                                     Value="{Binding Volume}"
                                                     HorizontalAlignment="Center" />

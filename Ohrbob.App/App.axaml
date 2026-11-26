@@ -368,5 +368,13 @@
             <Setter Property="CornerRadius" Value="0"/>
             <Setter Property="Padding" Value="10,8"/>
         </Style>
+
+        <!-- Metro flyouts have no default card chrome; their content draws its own surface. -->
+        <Style Selector="FlyoutPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+        </Style>
     </Application.Styles>
 </Application>
