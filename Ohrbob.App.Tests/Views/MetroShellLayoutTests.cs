@@ -286,6 +286,67 @@ public class MetroShellLayoutTests
     }
 
     [AvaloniaTest]
+    public void PortraitVolumeFlyout_DoesNotClipTheThumb()
+    {
+        var vm = CreateViewModel();
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 420, Height = 820, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var player = view.GetVisualDescendants().OfType<NowPlayingView>().Single();
+        var button = player.FindControl<Button>("PortraitVolumeButton")!;
+        var flyout = (Flyout)button.Flyout!;
+        flyout.ShowAt(button);
+        Dispatcher.UIThread.RunJobs();
+
+        var content = (Control)flyout.Content!;
+        var slider = content.GetVisualDescendants().OfType<Slider>().Single();
+        var thumb = slider.GetVisualDescendants().OfType<Avalonia.Controls.Primitives.Thumb>().Single();
+
+        Assert.That(thumb.Name, Is.EqualTo("SliderThumb"),
+            "the vertical template names its thumb SliderThumb");
+        Assert.That(thumb.Bounds.Width, Is.EqualTo(14).Within(0.5));
+        Assert.That(thumb.Bounds.Height, Is.EqualTo(14).Within(0.5));
+        Assert.That(((ISolidColorBrush)thumb.Background!).Color, Is.EqualTo(Colors.White),
+            "the flyout thumb should not fall back to the blue Fluent accent");
+
+        foreach (var volume in new[] { 100.0, 50.0, 0.0 })
+        {
+            vm.Volume = (int)volume;
+            Dispatcher.UIThread.RunJobs();
+
+            var thumbTopLeft = thumb.TranslatePoint(default, slider)!.Value;
+            Assert.That(thumbTopLeft.X, Is.GreaterThanOrEqualTo(0),
+                $"thumb at volume {volume} must not clip on the left");
+            Assert.That(thumbTopLeft.X + thumb.Bounds.Width,
+                Is.LessThanOrEqualTo(slider.Bounds.Width + 0.5),
+                $"thumb at volume {volume} must not clip on the right");
+            Assert.That(thumbTopLeft.Y, Is.GreaterThanOrEqualTo(0),
+                $"thumb at volume {volume} must not clip at the top");
+            Assert.That(thumbTopLeft.Y + thumb.Bounds.Height,
+                Is.LessThanOrEqualTo(slider.Bounds.Height + 0.5),
+                $"thumb at volume {volume} must not clip at the bottom");
+            Assert.That(thumbTopLeft.X,
+                Is.EqualTo((slider.Bounds.Width - thumb.Bounds.Width) / 2).Within(0.5),
+                "the vertical track must be centred in the slider");
+        }
+
+        var popupTopLeft = content.TranslatePoint(default, window)!.Value;
+        Assert.That(popupTopLeft.X, Is.GreaterThanOrEqualTo(0));
+        Assert.That(popupTopLeft.Y, Is.GreaterThanOrEqualTo(0));
+        Assert.That(popupTopLeft.X + content.Bounds.Width,
+            Is.LessThanOrEqualTo(window.Bounds.Width + 0.5),
+            "the flyout must stay inside the window");
+        Assert.That(popupTopLeft.Y + content.Bounds.Height,
+            Is.LessThanOrEqualTo(window.Bounds.Height + 0.5),
+            "the flyout must stay inside the window");
+
+        flyout.Hide();
+        window.Close();
+    }
+
+    [AvaloniaTest]
     public void Portrait_HasAVolumeFlyout_AndLandscapeKeepsTheInlineSlider()
     {
         var portraitVm = CreateViewModel();

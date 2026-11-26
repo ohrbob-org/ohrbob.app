@@ -55,7 +55,9 @@
 
         <!-- White-on-accent volume slider used by the portrait flyout. -->
         <Style Selector="Slider.portraitVolume">
-            <Setter Property="Width" Value="28" />
+            <!-- The Fluent vertical template reserves 15px of touch padding on
+                 each side of the thumb, so anything narrower clips the thumb. -->
+            <Setter Property="Width" Value="44" />
             <Setter Property="Height" Value="108" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="Foreground" Value="White" />
@@ -68,7 +70,7 @@
             <Setter Property="Background" Value="White" />
             <Setter Property="CornerRadius" Value="0" />
         </Style>
-        <Style Selector="Slider.portraitVolume /template/ Thumb#thumb">
+        <Style Selector="Slider.portraitVolume /template/ Thumb#SliderThumb">
             <Setter Property="Width" Value="14" />
             <Setter Property="Height" Value="14" />
             <Setter Property="CornerRadius" Value="0" />
