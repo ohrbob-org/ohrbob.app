@@ -252,8 +252,8 @@
         <!-- Station settings modal, opened by long-pressing a tile. -->
         <Panel x:Name="SettingsOverlay" IsVisible="{Binding IsSettingsOpen}">
             <Border Background="{DynamicResource MetroScrimBrush}" PointerPressed="OnSettingsScrimPointerPressed" />
-            <Border Classes="modalCard" Width="520" MaxWidth="560" Margin="20"
-                    HorizontalAlignment="Center" VerticalAlignment="Center">
+            <Border Classes="modalCard" MaxWidth="520" Margin="20"
+                    HorizontalAlignment="Stretch" VerticalAlignment="Center">
                 <Grid RowDefinitions="Auto,*">
                     <Border Grid.Row="0" Height="6" Background="{StaticResource MetroAccentBrush}" />
                     <Grid Grid.Row="1" RowDefinitions="Auto,*" Margin="28,22,28,24">
@@ -307,8 +307,8 @@
         <!-- Long-press episode actions. Completion is kept with the local queue. -->
         <Panel x:Name="EpisodeActionsOverlay" IsVisible="{Binding IsEpisodeActionsOpen}">
             <Border Background="{DynamicResource MetroScrimBrush}" PointerPressed="OnEpisodeActionsScrimPointerPressed" />
-            <Border Classes="modalCard" Width="500" MaxWidth="540" Margin="20"
-                    HorizontalAlignment="Center" VerticalAlignment="Center">
+            <Border Classes="modalCard" MaxWidth="500" Margin="20"
+                    HorizontalAlignment="Stretch" VerticalAlignment="Center">
                 <Grid RowDefinitions="Auto,*">
                     <Border Grid.Row="0" Height="6" Background="{StaticResource MetroVioletBrush}" />
                     <Grid Grid.Row="1" RowDefinitions="Auto,*" Margin="28,22,28,24">
@@ -336,7 +336,7 @@
                                            Foreground="{StaticResource MetroVioletBrush}"
                                            VerticalAlignment="Center" />
                             </StackPanel>
-                            <TextBlock Text="Completed episodes stay in this station's playlist on this device."
+                            <TextBlock Text="Completed episodes stay in the station playlist and sync with your profile."
                                        FontSize="12" TextWrapping="Wrap"
                                        Foreground="{DynamicResource MetroMutedBrush}" />
                             <Button Classes="metroViolet"

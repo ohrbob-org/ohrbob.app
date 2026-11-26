@@ -8,6 +8,7 @@ public class PlaylistDto
     public string? StationId { get; set; }
     public bool HostPaceEnabled { get; set; }
     public bool IsAging { get; set; }
+    public bool IncludesCompleted { get; set; }
     public List<PlaylistEpisodeDto> Episodes { get; set; } = new();
 }
 

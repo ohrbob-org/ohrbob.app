@@ -1,5 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Net;
+using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
 using NUnit.Framework;
 using Ohrbob.App.Models;
 using Ohrbob.App.Services;
@@ -125,5 +130,41 @@ public class MetroShellNavigationTests
 
         Assert.That(vm.IsEpisodeActionsOpen, Is.False);
         Assert.That(item.IsCompleted, Is.True);
+    }
+
+    [Test]
+    public async Task ToggleEpisodeCompletion_SyncsBothDirectionsWithTheServer()
+    {
+        var requests = new List<HttpRequestMessage>();
+        var config = new ConfigService(_tempConfigPath);
+        var client = new OhrbobClient(config, new RecordingHandler(requests));
+        var vm = new MainViewModel(config, client, null, new TestAudioPlayer(), a => a(),
+            offlineState: new OfflineStateService(_tempOfflinePath));
+        config.Save("https://example.com", "token");
+        vm.IsConnected = true;
+        var item = new PlaylistItem { EpisodeId = "e1", Title = "Episode One" };
+        vm.PlaylistItems.Add(item);
+        vm.OpenEpisodeActionsCommand.Execute(item);
+
+        await vm.ToggleEpisodeCompletionCommand.ExecuteAsync(null);
+        await vm.ToggleEpisodeCompletionCommand.ExecuteAsync(null);
+
+        Assert.That(item.IsCompleted, Is.False);
+        Assert.That(requests.Count, Is.EqualTo(2));
+        Assert.That(requests[0].RequestUri!.AbsolutePath, Is.EqualTo("/stream/episodes/e1/complete"));
+        Assert.That(requests[1].RequestUri!.AbsolutePath, Is.EqualTo("/stream/episodes/e1/uncomplete"));
+    }
+
+    private sealed class RecordingHandler : HttpMessageHandler
+    {
+        private readonly List<HttpRequestMessage> _requests;
+
+        public RecordingHandler(List<HttpRequestMessage> requests) => _requests = requests;
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            _requests.Add(request);
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK));
+        }
     }
 }

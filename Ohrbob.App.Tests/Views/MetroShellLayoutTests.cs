@@ -138,6 +138,34 @@ public class MetroShellLayoutTests
     }
 
     [AvaloniaTest]
+    public void SettingsAndEpisodeModals_FitNarrowPortraitScreens()
+    {
+        var vm = CreateViewModel();
+        vm.OpenStationSettingsForCommand.Execute(vm.Stations[0]);
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 420, Height = 820, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var settings = view.FindControl<Panel>("SettingsOverlay")!.GetVisualDescendants()
+            .OfType<Border>().First(b => b.Classes.Contains("modalCard"));
+        Assert.That(settings.Bounds.Width, Is.LessThanOrEqualTo(420 - 39),
+            "the settings modal must fit inside the phone viewport with its 20px margins");
+
+        vm.CloseSettingsCommand.Execute(null);
+        vm.PlaylistItems.Add(new PlaylistItem { EpisodeId = "e1", Title = "An episode with a long title" });
+        vm.OpenEpisodeActionsCommand.Execute(vm.PlaylistItems[0]);
+        window.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+
+        var episode = view.FindControl<Panel>("EpisodeActionsOverlay")!.GetVisualDescendants()
+            .OfType<Border>().First(b => b.Classes.Contains("modalCard"));
+        Assert.That(episode.Bounds.Width, Is.LessThanOrEqualTo(420 - 39),
+            "the episode modal must fit inside the phone viewport with its 20px margins");
+        window.Close();
+    }
+
+    [AvaloniaTest]
     public void StationSettingsModal_IsPartOfTheShell()
     {
         var vm = CreateViewModel();

@@ -201,6 +201,71 @@ public class OhrbobClientTests
     }
 
     [Test]
+    public async Task GetPlaylistAsync_IncludeCompleted_ParsesCompletionFlags()
+    {
+        var json = """
+        {
+          "stationId": "s1",
+          "includesCompleted": true,
+          "episodes": [
+            { "episodeId": "e1", "title": "Done", "isCompleted": true },
+            { "episodeId": "e2", "title": "Next", "isCompleted": false }
+          ]
+        }
+        """;
+        var handler = new MockHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json")
+        });
+        var client = new OhrbobClient(_mockConfig, handler);
+
+        var playlist = await client.GetPlaylistAsync(includeCompleted: true);
+
+        Assert.That(handler.LastRequest!.RequestUri!.ToString(),
+            Is.EqualTo($"{ServerUrl}/stream/playlist?limit=50&includeCompleted=true"));
+        Assert.That(playlist!.IncludesCompleted, Is.True);
+        Assert.That(playlist.Episodes.Single(e => e.EpisodeId == "e1").IsCompleted, Is.True);
+        Assert.That(playlist.Episodes.Single(e => e.EpisodeId == "e2").IsCompleted, Is.False);
+    }
+
+    [Test]
+    public async Task SetEpisodeCompletedAsync_PostsCompletionEndpoint()
+    {
+        var handler = new MockHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
+        var client = new OhrbobClient(_mockConfig, handler);
+
+        var ok = await client.SetEpisodeCompletedAsync("e1", isCompleted: true);
+
+        Assert.That(ok, Is.True);
+        Assert.That(handler.LastRequest!.Method, Is.EqualTo(HttpMethod.Post));
+        Assert.That(handler.LastRequest.RequestUri!.ToString(),
+            Is.EqualTo($"{ServerUrl}/stream/episodes/e1/complete"));
+        Assert.That(handler.LastRequest.Headers.Contains("X-Stream-Token"), Is.True);
+    }
+
+    [Test]
+    public async Task SetEpisodeCompletedAsync_PostsUncompleteEndpoint()
+    {
+        var handler = new MockHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
+        var client = new OhrbobClient(_mockConfig, handler);
+
+        var ok = await client.SetEpisodeCompletedAsync("e1", isCompleted: false);
+
+        Assert.That(ok, Is.True);
+        Assert.That(handler.LastRequest!.RequestUri!.ToString(),
+            Is.EqualTo($"{ServerUrl}/stream/episodes/e1/uncomplete"));
+    }
+
+    [Test]
+    public async Task SetEpisodeCompletedAsync_OldServer_ReturnsFalse()
+    {
+        var handler = new MockHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.NotFound));
+        var client = new OhrbobClient(_mockConfig, handler);
+
+        Assert.That(await client.SetEpisodeCompletedAsync("e1", isCompleted: true), Is.False);
+    }
+
+    [Test]
     public async Task GetPlaylistAsync_StripsHtmlFromEpisodeText()
     {
         var json = """

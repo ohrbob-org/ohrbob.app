@@ -54,7 +54,7 @@
                 Padding="28,30,24,18">
             <Grid ColumnDefinitions="*,Auto">
                 <StackPanel Grid.Column="0" Spacing="6">
-                    <TextBlock Text="up next" Classes="metroHeadline" FontSize="46" />
+                    <TextBlock Text="playlist" Classes="metroHeadline" FontSize="46" />
                     <TextBlock Text="{Binding SelectedStation.Station.Name, FallbackValue='station playlist'}"
                                FontSize="12" FontWeight="Bold" LetterSpacing="2"
                                Foreground="{StaticResource MetroAccentBrush}"
@@ -83,7 +83,7 @@
             <TextBlock Text="Up next is not available on this server." FontSize="12" TextWrapping="Wrap"
                        Foreground="{DynamicResource MetroMutedBrush}"
                        IsVisible="{Binding IsPlaylistUnavailable}" />
-            <TextBlock Text="No upcoming episodes" FontSize="12"
+            <TextBlock Text="No episodes in this station" FontSize="12"
                        Foreground="{DynamicResource MetroMutedBrush}"
                        IsVisible="{Binding IsPlaylistEmpty}" />
         </StackPanel>

@@ -360,13 +360,24 @@ public partial class MainViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void ToggleEpisodeCompletion()
+    private async Task ToggleEpisodeCompletionAsync()
     {
         if (SelectedEpisodeForActions is not { } item) return;
 
         item.IsCompleted = !item.IsCompleted;
         OnPropertyChanged(nameof(SelectedEpisodeActionLabel));
         SaveOfflineSnapshot();
+
+        if (!IsConnected || IsOffline) return;
+
+        try
+        {
+            await _client.SetEpisodeCompletedAsync(item.EpisodeId, item.IsCompleted);
+        }
+        catch
+        {
+            // Keep the local state: older servers do not expose completion writes.
+        }
     }
 
     [RelayCommand]
@@ -1199,9 +1210,16 @@ public partial class MainViewModel : ViewModelBase
 
             var blocked = DownloadsBlocked;
             var minutes = _configService.GetBufferMinutes(stationId);
+            // The full Metro playlist includes listening history. Do not fill the
+            // download buffer with episodes that are already completed; keep the
+            // currently-playing file protected while it is still on screen.
+            var downloadable = PlaylistItems
+                .Where(item => !item.IsCompleted || item.EpisodeId == CurrentEpisodeId)
+                .ToList();
+
             // Host-paced/aging files must never survive, so the current episode is
             // protected only while its station still allows downloads.
-            await _downloads.SyncAsync(stationId, PlaylistItems, minutes, !blocked && minutes > 0,
+            await _downloads.SyncAsync(stationId, downloadable, minutes, !blocked && minutes > 0,
                 PositionSeconds, CancellationToken.None, blocked ? null : CurrentEpisodeId);
             SaveOfflineSnapshot();
         }
@@ -1559,7 +1577,7 @@ public partial class MainViewModel : ViewModelBase
         IsPlaylistLoading = true;
         try
         {
-            var playlist = await _client.GetPlaylistAsync();
+            var playlist = await _client.GetPlaylistAsync(includeCompleted: true);
             if (generation != _playlistGeneration) return;
 
             if (playlist == null)
@@ -1591,18 +1609,25 @@ public partial class MainViewModel : ViewModelBase
                         StreamUri = e.StreamUri,
                         PublishedAt = e.PublishedAt,
                         IsCurrent = e.IsCurrent,
-                        IsCompleted = existing?.IsCompleted ?? e.IsCompleted,
+                        // New servers return the whole playlist and are authoritative
+                        // about completion. Older servers omit completed episodes, so
+                        // keep any local completion state we already have.
+                        IsCompleted = playlist.IncludesCompleted
+                            ? e.IsCompleted
+                            : existing?.IsCompleted ?? e.IsCompleted,
                         DownloadState = existing?.DownloadState ?? DownloadState.NotDownloaded,
                     };
                 }).ToList();
 
-                // The stream playlist only contains upcoming episodes. Keep locally
-                // completed rows visible so the playlist does not lose a row the
-                // moment it is marked complete on this device.
-                foreach (var completed in existingItems.Values.Where(i => i.IsCompleted))
+                // Against an older stream endpoint, completed rows disappear from the
+                // response. Keep them visible so they can still be marked uncompleted.
+                if (!playlist.IncludesCompleted)
                 {
-                    if (refreshed.All(i => i.EpisodeId != completed.EpisodeId))
-                        refreshed.Add(completed);
+                    foreach (var completed in existingItems.Values.Where(i => i.IsCompleted))
+                    {
+                        if (refreshed.All(i => i.EpisodeId != completed.EpisodeId))
+                            refreshed.Add(completed);
+                    }
                 }
 
                 PlaylistItems = new ObservableCollection<PlaylistItem>(refreshed);
