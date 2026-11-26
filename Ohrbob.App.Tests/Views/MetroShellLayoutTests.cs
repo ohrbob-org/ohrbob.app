@@ -207,6 +207,39 @@ public class MetroShellLayoutTests
     }
 
     [AvaloniaTest]
+    public void Landscape_OnlyShowsThePlaylistSettingsCog()
+    {
+        var vm = CreateViewModel();
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 1200, Height = 800, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var nowPlaying = view.GetVisualDescendants().OfType<NowPlayingView>().Single();
+        var playlist = view.GetVisualDescendants().OfType<PlaylistView>().Single();
+
+        Assert.That(nowPlaying.FindControl<Button>("StationSettingsButton")!.IsEffectivelyVisible, Is.False,
+            "the player-side cog is redundant when both panes are visible");
+        Assert.That(playlist.FindControl<Button>("PlaylistSettingsButton")!.IsEffectivelyVisible, Is.True,
+            "the playlist cog remains the single settings entry in landscape");
+        window.Close();
+    }
+
+    [AvaloniaTest]
+    public void NarrowLayout_KeepsThePlayerSettingsCog()
+    {
+        var vm = CreateViewModel();
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 420, Height = 820, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var nowPlaying = view.GetVisualDescendants().OfType<NowPlayingView>().Single();
+        Assert.That(nowPlaying.FindControl<Button>("StationSettingsButton")!.IsEffectivelyVisible, Is.True);
+        window.Close();
+    }
+
+    [AvaloniaTest]
     public void PlaylistHeadline_HasRoomForDescenders()
     {
         var vm = CreateViewModel();
