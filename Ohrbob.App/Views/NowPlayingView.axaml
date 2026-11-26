@@ -169,7 +169,7 @@
                     BorderBrush="{DynamicResource NowPlayingChromeBorderBrush}" BorderThickness="0,1,0,0"
                     Padding="28,14,28,18">
                 <Grid RowDefinitions="Auto,Auto" RowSpacing="8">
-                    <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                    <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="12">
                         <TextBlock Text="{Binding PositionText}" Width="42" VerticalAlignment="Center"
                                    TextAlignment="Right" FontSize="11"
                                    Foreground="{DynamicResource NowPlayingMutedBrush}" />
@@ -179,6 +179,32 @@
                         <TextBlock Grid.Column="2" Text="{Binding DurationText}" Width="42"
                                    VerticalAlignment="Center" FontSize="11"
                                    Foreground="{DynamicResource NowPlayingMutedBrush}" />
+                        <Button x:Name="PortraitVolumeButton" Grid.Column="3" Classes="metroTool"
+                                IsVisible="{Binding $parent[views:MetroShellView].IsNarrow}"
+                                Width="34" Height="34" Padding="0"
+                                Foreground="{DynamicResource NowPlayingIconBrush}"
+                                ToolTip.Tip="Volume">
+                            <Button.Flyout>
+                                <Flyout Placement="Top">
+                                    <Border Background="{DynamicResource NowPlayingChromeBrush}"
+                                            BorderBrush="{DynamicResource NowPlayingChromeBorderBrush}"
+                                            BorderThickness="1" Padding="10,12">
+                                        <StackPanel Spacing="8" HorizontalAlignment="Center">
+                                            <TextBlock Text="VOLUME" Classes="metroLabel"
+                                                       HorizontalAlignment="Center" />
+                                            <Slider x:Name="PortraitVolumeSlider"
+                                                    Orientation="Vertical" Height="120" Width="24"
+                                                    Minimum="0" Maximum="100"
+                                                    Value="{Binding Volume}"
+                                                    HorizontalAlignment="Center" />
+                                        </StackPanel>
+                                    </Border>
+                                </Flyout>
+                            </Button.Flyout>
+                            <PathIcon Data="M14,3.23V5.29C16.89,6.15 19,8.83 19,12C19,15.17 16.89,17.85 14,18.71V20.77C18,19.86 21,16.28 21,12C21,7.72 18,4.14 14,3.23M16.5,12C16.5,10.23 15.5,8.71 14,7.97V16C15.5,15.29 16.5,13.77 16.5,12M3,9V15H7L12,20V4L7,9H3Z"
+                                      Width="18" Height="18"
+                                      Foreground="{DynamicResource NowPlayingIconBrush}" />
+                        </Button>
                     </Grid>
 
                     <Grid Grid.Row="1" ColumnDefinitions="*,Auto,*">

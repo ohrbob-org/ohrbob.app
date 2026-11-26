@@ -286,6 +286,49 @@ public class MetroShellLayoutTests
     }
 
     [AvaloniaTest]
+    public void Portrait_HasAVolumeFlyout_AndLandscapeKeepsTheInlineSlider()
+    {
+        var portraitVm = CreateViewModel();
+        var portrait = new MetroShellView { DataContext = portraitVm };
+        var portraitWindow = new Window { Width = 420, Height = 820, Content = portrait };
+        portraitWindow.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var portraitPlayer = portrait.GetVisualDescendants().OfType<NowPlayingView>().Single();
+        var volumeButton = portraitPlayer.FindControl<Button>("PortraitVolumeButton")!;
+        Assert.That(volumeButton.IsEffectivelyVisible, Is.True);
+        Assert.That(portraitPlayer.FindControl<StackPanel>("VolumeGroup")!.IsEffectivelyVisible, Is.False);
+
+        var flyout = volumeButton.Flyout as Flyout;
+        Assert.That(flyout, Is.Not.Null);
+        var flyoutBorder = flyout!.Content as Border;
+        Assert.That(flyoutBorder, Is.Not.Null);
+        var flyoutStack = flyoutBorder!.Child as StackPanel;
+        var portraitSlider = flyoutStack!.Children.OfType<Slider>().Single();
+        Assert.That(portraitSlider.Orientation, Is.EqualTo(Avalonia.Layout.Orientation.Vertical));
+
+        flyout.ShowAt(volumeButton);
+        Dispatcher.UIThread.RunJobs();
+        portraitVm.Volume = 37;
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(portraitSlider.Value, Is.EqualTo(37),
+            "the portrait slider must bind to the player volume");
+        flyout.Hide();
+        portraitWindow.Close();
+
+        var landscapeVm = CreateViewModel();
+        var landscape = new MetroShellView { DataContext = landscapeVm };
+        var landscapeWindow = new Window { Width = 1200, Height = 800, Content = landscape };
+        landscapeWindow.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var landscapePlayer = landscape.GetVisualDescendants().OfType<NowPlayingView>().Single();
+        Assert.That(landscapePlayer.FindControl<Button>("PortraitVolumeButton")!.IsEffectivelyVisible, Is.False);
+        Assert.That(landscapePlayer.FindControl<StackPanel>("VolumeGroup")!.IsEffectivelyVisible, Is.True);
+        landscapeWindow.Close();
+    }
+
+    [AvaloniaTest]
     public void PlaylistHeadline_HasRoomForDescenders()
     {
         var vm = CreateViewModel();
