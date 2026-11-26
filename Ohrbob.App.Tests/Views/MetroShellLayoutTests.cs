@@ -159,16 +159,23 @@ public class MetroShellLayoutTests
 
         var longTitle = view.GetVisualDescendants().OfType<TextBlock>().First(t => t.Text == longName);
         var shortTitle = view.GetVisualDescendants().OfType<TextBlock>().First(t => t.Text == "Short");
+        var longPanel = (StackPanel)longTitle.Parent!;
+        var shortPanel = (StackPanel)shortTitle.Parent!;
 
         Assert.That(longTitle.TextWrapping, Is.EqualTo(TextWrapping.NoWrap));
         Assert.That(longTitle.MaxLines, Is.EqualTo(1));
-        Assert.That(longTitle.HorizontalAlignment, Is.EqualTo(Avalonia.Layout.HorizontalAlignment.Left),
+        Assert.That(longPanel.HorizontalAlignment, Is.EqualTo(Avalonia.Layout.HorizontalAlignment.Left),
             "the marquee must start at the first character");
-        Assert.That(MarqueeText.GetIsEnabled(longTitle), Is.True);
-        Assert.That(MarqueeText.MeasureOverflow(longTitle), Is.GreaterThan(0),
+        Assert.That(MarqueeText.GetIsEnabled(longPanel), Is.True);
+        Assert.That(MarqueeText.MeasureOverflow(longPanel), Is.GreaterThan(0),
             "a long station name should be prepared for marquee scrolling");
-        Assert.That(MarqueeText.MeasureOverflow(shortTitle), Is.EqualTo(0),
+        Assert.That(longPanel.Children.OfType<TextBlock>().Count(), Is.EqualTo(2),
+            "the marquee needs a second copy to loop seamlessly");
+        Assert.That(longPanel.Children.OfType<TextBlock>().Last().IsVisible, Is.True);
+        Assert.That(MarqueeText.MeasureOverflow(shortPanel), Is.EqualTo(0),
             "short station names should stay still");
+        Assert.That(shortPanel.Children.OfType<TextBlock>().Last().IsVisible, Is.False,
+            "the duplicate title should be hidden when nothing overflows");
         window.Close();
     }
 

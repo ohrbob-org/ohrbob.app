@@ -1,94 +1,122 @@
 using System;
 using System.Globalization;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Animation.Easings;
 using Avalonia.Controls;
+using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Threading;
 
 namespace Ohrbob.App.Views;
 
 /// <summary>
-/// Scrolls a one-line <see cref="TextBlock"/> back and forth when its text is wider
-/// than the available space. The first movement waits 3–5 seconds.
+/// A one-line marquee made from two copies of the text. It waits 3–5 seconds,
+/// then scrolls left forever. The reset happens when the second copy sits exactly
+/// where the first started, so the loop is visually seamless.
 /// </summary>
 public static class MarqueeText
 {
     public static readonly AttachedProperty<bool> IsEnabledProperty =
-        AvaloniaProperty.RegisterAttached<TextBlock, bool>("IsEnabled", typeof(MarqueeText));
+        AvaloniaProperty.RegisterAttached<Control, bool>("IsEnabled", typeof(MarqueeText));
 
     public static readonly AttachedProperty<int> DelayMinProperty =
-        AvaloniaProperty.RegisterAttached<TextBlock, int>("DelayMin", typeof(MarqueeText), 3000);
+        AvaloniaProperty.RegisterAttached<Control, int>("DelayMin", typeof(MarqueeText), 3000);
 
     public static readonly AttachedProperty<int> DelayMaxProperty =
-        AvaloniaProperty.RegisterAttached<TextBlock, int>("DelayMax", typeof(MarqueeText), 5000);
+        AvaloniaProperty.RegisterAttached<Control, int>("DelayMax", typeof(MarqueeText), 5000);
 
-    private static readonly ConditionalWeakTable<TextBlock, MarqueeState> States = new();
+    private static readonly ConditionalWeakTable<Control, MarqueeState> States = new();
 
     static MarqueeText()
     {
-        IsEnabledProperty.Changed.AddClassHandler<TextBlock>(OnIsEnabledChanged);
+        IsEnabledProperty.Changed.AddClassHandler<Control>(OnIsEnabledChanged);
     }
 
-    public static void SetIsEnabled(TextBlock text, bool value) => text.SetValue(IsEnabledProperty, value);
-    public static bool GetIsEnabled(TextBlock text) => text.GetValue(IsEnabledProperty);
+    public static void SetIsEnabled(Control host, bool value) => host.SetValue(IsEnabledProperty, value);
+    public static bool GetIsEnabled(Control host) => host.GetValue(IsEnabledProperty);
 
-    public static void SetDelayMin(TextBlock text, int value) => text.SetValue(DelayMinProperty, value);
-    public static int GetDelayMin(TextBlock text) => text.GetValue(DelayMinProperty);
+    public static void SetDelayMin(Control host, int value) => host.SetValue(DelayMinProperty, value);
+    public static int GetDelayMin(Control host) => host.GetValue(DelayMinProperty);
 
-    public static void SetDelayMax(TextBlock text, int value) => text.SetValue(DelayMaxProperty, value);
-    public static int GetDelayMax(TextBlock text) => text.GetValue(DelayMaxProperty);
+    public static void SetDelayMax(Control host, int value) => host.SetValue(DelayMaxProperty, value);
+    public static int GetDelayMax(Control host) => host.GetValue(DelayMaxProperty);
 
-    internal static double MeasureOverflow(TextBlock text) => Overflow(text);
+    internal static double MeasureOverflow(Control host)
+    {
+        if (!States.TryGetValue(host, out var state)) return 0;
+        var viewport = ViewportWidth(host);
+        return viewport > 0 ? Math.Max(0, MeasureTextWidth(state.Source) - viewport) : 0;
+    }
 
-    private static void OnIsEnabledChanged(TextBlock text, AvaloniaPropertyChangedEventArgs args)
+    private static void OnIsEnabledChanged(Control host, AvaloniaPropertyChangedEventArgs args)
     {
         if (args.NewValue is true)
-            Attach(text);
+            Attach(host);
         else
-            Detach(text);
+            Detach(host);
     }
 
-    private static void Attach(TextBlock text)
+    private static void Attach(Control host)
     {
-        if (States.TryGetValue(text, out _)) return;
+        if (States.TryGetValue(host, out _)) return;
+        if (host is not Panel panel) return;
 
-        var state = new MarqueeState();
-        state.Timer.Tick += (_, _) => OnTick(text, state);
-        States.Add(text, state);
+        var texts = panel.Children.OfType<TextBlock>().ToList();
+        if (texts.Count < 2)
+        {
+            // The attached property is applied while XAML is still adding the
+            // two title copies. Retry once the control is loaded.
+            host.Loaded -= OnDeferredLoaded;
+            host.Loaded += OnDeferredLoaded;
+            return;
+        }
 
-        text.RenderTransform = state.Transform;
-        text.ClipToBounds = false;
-        text.Loaded += (_, _) => Reset(text, state);
-        text.SizeChanged += (_, _) => Reset(text, state);
-        text.PropertyChanged += (_, e) =>
+        var state = new MarqueeState(texts[0], texts[1]);
+        state.Timer.Tick += (_, _) => OnTick(host, state);
+        States.Add(host, state);
+
+        host.RenderTransform = state.Transform;
+        host.ClipToBounds = false;
+        host.Loaded += (_, _) => Reset(host, state);
+        host.SizeChanged += (_, _) => Reset(host, state);
+        state.Source.PropertyChanged += (_, e) =>
         {
             if (e.Property == TextBlock.TextProperty ||
                 e.Property == TextBlock.FontSizeProperty ||
                 e.Property == TextBlock.FontFamilyProperty ||
                 e.Property == TextBlock.FontWeightProperty)
             {
-                Reset(text, state);
+                Reset(host, state);
             }
         };
 
-        if (text.IsLoaded)
-            Reset(text, state);
+        if (host.IsLoaded)
+            Reset(host, state);
     }
 
-    private static void Detach(TextBlock text)
+    private static void OnDeferredLoaded(object? sender, RoutedEventArgs e)
     {
-        if (!States.TryGetValue(text, out var state)) return;
+        if (sender is not Control host) return;
+
+        host.Loaded -= OnDeferredLoaded;
+        if (GetIsEnabled(host))
+            Attach(host);
+    }
+
+    private static void Detach(Control host)
+    {
+        if (!States.TryGetValue(host, out var state)) return;
 
         state.Timer.Stop();
         state.Transform.Transitions = null;
         state.Transform.X = 0;
-        States.Remove(text);
+        States.Remove(host);
     }
 
-    private static void Reset(TextBlock text, MarqueeState state)
+    private static void Reset(Control host, MarqueeState state)
     {
         if (state.IsResetting) return;
 
@@ -99,19 +127,17 @@ public static class MarqueeText
             state.Transform.Transitions = null;
             state.Transform.X = 0;
 
-            var viewport = ViewportWidth(text);
-            var textWidth = MeasureTextWidth(text);
-            state.Overflow = viewport > 0 ? Math.Max(0, textWidth - viewport) : 0;
+            var viewport = ViewportWidth(host);
+            var textWidth = MeasureTextWidth(state.Source);
+            state.HasOverflow = viewport > 0 && textWidth > viewport;
+            state.Distance = textWidth + Gap(host);
 
-            // Let the TextBlock render the full line before translating it; otherwise
-            // its own layout would trim the part we want to reveal.
-            var targetWidth = state.Overflow > 0 ? Math.Ceiling(textWidth + 1) : double.NaN;
-            if (!NearlyEqual(text.Width, targetWidth))
-                text.Width = targetWidth;
+            if (state.Duplicate is { } duplicate)
+                duplicate.IsVisible = state.HasOverflow;
 
             state.Phase = Phase.Waiting;
-            if (state.Overflow > 0)
-                ScheduleDelay(text, state);
+            if (state.HasOverflow)
+                ScheduleDelay(host, state);
         }
         finally
         {
@@ -119,55 +145,42 @@ public static class MarqueeText
         }
     }
 
-    private static void ScheduleDelay(TextBlock text, MarqueeState state)
+    private static void ScheduleDelay(Control host, MarqueeState state)
     {
-        var min = Math.Max(0, GetDelayMin(text));
-        var max = Math.Max(min, GetDelayMax(text));
-        var delay = min == max
-            ? min
-            : Random.Shared.Next(min, max + 1);
+        var min = Math.Max(0, GetDelayMin(host));
+        var max = Math.Max(min, GetDelayMax(host));
+        var delay = min == max ? min : Random.Shared.Next(min, max + 1);
 
         state.Timer.Interval = TimeSpan.FromMilliseconds(delay);
         state.Timer.Start();
     }
 
-    private static void OnTick(TextBlock text, MarqueeState state)
+    private static void OnTick(Control host, MarqueeState state)
     {
         state.Timer.Stop();
 
-        switch (state.Phase)
+        if (!state.HasOverflow) return;
+
+        if (state.Phase == Phase.Waiting)
         {
-            case Phase.Waiting:
-                state.Overflow = Overflow(text);
-                if (state.Overflow <= 0) return;
-
-                state.Phase = Phase.MovingToEnd;
-                ScrollToEnd(text, state);
-                break;
-
-            case Phase.MovingToEnd:
-                // Hold the revealed ending briefly, then jump back silently. Only
-                // the leftward motion is animated; the title never sweeps right.
-                state.Phase = Phase.HoldingAtEnd;
-                state.Timer.Interval = TimeSpan.FromMilliseconds(1000);
-                state.Timer.Start();
-                break;
-
-            default:
-                state.Transform.Transitions = null;
-                state.Transform.X = 0;
-                state.Phase = Phase.Waiting;
-                ScheduleDelay(text, state);
-                break;
+            state.Phase = Phase.Moving;
+            StartCycle(host, state);
+            return;
         }
+
+        // The second copy now occupies the first copy's starting position, so
+        // snapping back is invisible. Begin the next leftward pass immediately.
+        state.Transform.Transitions = null;
+        state.Transform.X = 0;
+        StartCycle(host, state);
     }
 
-    private static void ScrollToEnd(TextBlock text, MarqueeState state)
+    private static void StartCycle(Control host, MarqueeState state)
     {
-        var duration = DurationFor(state.Overflow);
+        var duration = DurationFor(state.Distance);
         state.Transform.Transitions = ScrollTransition(duration);
-        state.Transform.X = -state.Overflow;
-        state.Timer.Interval = duration + TimeSpan.FromMilliseconds(80);
+        state.Transform.X = -state.Distance;
+        state.Timer.Interval = duration + TimeSpan.FromMilliseconds(60);
         state.Timer.Start();
     }
 
@@ -177,22 +190,18 @@ public static class MarqueeText
         {
             Property = TranslateTransform.XProperty,
             Duration = duration,
-            Easing = new CubicEaseInOut(),
+            Easing = new LinearEasing(),
         },
     };
 
-    private static TimeSpan DurationFor(double overflow) =>
-        TimeSpan.FromMilliseconds(Math.Clamp(overflow * 8, 900, 3200));
+    private static TimeSpan DurationFor(double distance) =>
+        TimeSpan.FromMilliseconds(Math.Clamp(distance * 8, 1600, 6000));
 
-    private static double Overflow(TextBlock text)
-    {
-        var viewport = ViewportWidth(text);
-        if (viewport <= 0) return 0;
-        return Math.Max(0, MeasureTextWidth(text) - viewport);
-    }
+    private static double Gap(Control host) =>
+        host is StackPanel panel ? Math.Max(8, panel.Spacing) : 32;
 
-    private static double ViewportWidth(TextBlock text) =>
-        text.Parent is Control { Bounds.Width: > 0 } parent ? parent.Bounds.Width : text.Bounds.Width;
+    private static double ViewportWidth(Control host) =>
+        host.Parent is Control { Bounds.Width: > 0 } parent ? parent.Bounds.Width : host.Bounds.Width;
 
     private static double MeasureTextWidth(TextBlock text)
     {
@@ -215,24 +224,26 @@ public static class MarqueeText
         return formatted.WidthIncludingTrailingWhitespace;
     }
 
-    private static bool NearlyEqual(double a, double b)
-    {
-        if (double.IsNaN(a) && double.IsNaN(b)) return true;
-        return Math.Abs(a - b) < 0.5;
-    }
-
     private enum Phase
     {
         Waiting,
-        MovingToEnd,
-        HoldingAtEnd,
+        Moving,
     }
 
     private sealed class MarqueeState
     {
+        public MarqueeState(TextBlock source, TextBlock? duplicate)
+        {
+            Source = source;
+            Duplicate = duplicate;
+        }
+
+        public TextBlock Source { get; }
+        public TextBlock? Duplicate { get; }
         public TranslateTransform Transform { get; } = new();
         public DispatcherTimer Timer { get; } = new();
-        public double Overflow { get; set; }
+        public double Distance { get; set; }
+        public bool HasOverflow { get; set; }
         public Phase Phase { get; set; } = Phase.Waiting;
         public bool IsResetting { get; set; }
     }

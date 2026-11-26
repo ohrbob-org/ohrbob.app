@@ -189,14 +189,23 @@
                                                                 Background="{StaticResource MetroAccentBrush}"
                                                                 HorizontalAlignment="Left" />
                                                         <Border ClipToBounds="True" Height="34" VerticalAlignment="Bottom">
-                                                            <TextBlock Text="{Binding Station.Name, FallbackValue='Untitled station'}"
-                                                                       views:MarqueeText.IsEnabled="True"
-                                                                       FontFamily="{StaticResource SulphurPoint}"
-                                                                       FontSize="27" FontWeight="Bold" LineHeight="27"
-                                                                       Foreground="{DynamicResource StationTileTitleBrush}"
-                                                                       TextWrapping="NoWrap" MaxLines="1" TextTrimming="None"
-                                                                       HorizontalAlignment="Left"
-                                                                       VerticalAlignment="Bottom" />
+                                                            <StackPanel Orientation="Horizontal" Spacing="48"
+                                                                        HorizontalAlignment="Left"
+                                                                        views:MarqueeText.IsEnabled="True">
+                                                                <TextBlock Text="{Binding Station.Name, FallbackValue='Untitled station'}"
+                                                                           FontFamily="{StaticResource SulphurPoint}"
+                                                                           FontSize="27" FontWeight="Bold" LineHeight="27"
+                                                                           Foreground="{DynamicResource StationTileTitleBrush}"
+                                                                           TextWrapping="NoWrap" MaxLines="1" TextTrimming="None"
+                                                                           VerticalAlignment="Bottom" />
+                                                                <TextBlock Text="{Binding Station.Name, FallbackValue='Untitled station'}"
+                                                                           IsVisible="False"
+                                                                           FontFamily="{StaticResource SulphurPoint}"
+                                                                           FontSize="27" FontWeight="Bold" LineHeight="27"
+                                                                           Foreground="{DynamicResource StationTileTitleBrush}"
+                                                                           TextWrapping="NoWrap" MaxLines="1" TextTrimming="None"
+                                                                           VerticalAlignment="Bottom" />
+                                                            </StackPanel>
                                                         </Border>
                                                     </StackPanel>
                                                 </Grid>
