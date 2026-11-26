@@ -78,7 +78,17 @@
             <Setter Property="BorderThickness" Value="0" />
         </Style>
 
+        <!-- The inline volume slider needs the full transport row; when the
+             player pane is too narrow the flyout button takes over. Both are
+             driven by this one container query so exactly one is ever shown. -->
+        <Style Selector="Button#PortraitVolumeButton">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+
         <ContainerQuery Name="nowPlaying" Query="max-width: 640">
+            <Style Selector="Button#PortraitVolumeButton">
+                <Setter Property="IsVisible" Value="True" />
+            </Style>
             <Style Selector="TextBlock#NowPlayingTitle">
                 <Setter Property="FontSize" Value="40" />
                 <Setter Property="LineHeight" Value="40" />
@@ -205,7 +215,6 @@
                                    VerticalAlignment="Center" FontSize="11"
                                    Foreground="{DynamicResource NowPlayingMutedBrush}" />
                         <Button x:Name="PortraitVolumeButton" Grid.Column="3" Classes="metroTool"
-                                IsVisible="{Binding $parent[views:MetroShellView].IsNarrow}"
                                 Width="34" Height="34" Padding="0"
                                 Foreground="{DynamicResource NowPlayingIconBrush}"
                                 ToolTip.Tip="Volume">

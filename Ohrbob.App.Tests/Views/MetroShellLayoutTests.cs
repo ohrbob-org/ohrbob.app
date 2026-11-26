@@ -347,6 +347,70 @@ public class MetroShellLayoutTests
     }
 
     [AvaloniaTest]
+    public void EveryLayout_ShowsExactlyOneVolumeControl()
+    {
+        var sizes = new (double Width, double Height)[]
+        {
+            (420, 820),   // phone portrait
+            (760, 1000),  // portrait tablet: narrow shell, wide player pane
+            (900, 1600),  // portrait tablet: wide player pane
+            (800, 600),   // small wide window: wide shell, narrow player pane
+            (1000, 700),  // desktop: wide shell, narrow player pane
+            (1200, 800),  // desktop: wide shell, wide player pane
+        };
+
+        foreach (var (width, height) in sizes)
+        {
+            var vm = CreateViewModel();
+            var view = new MetroShellView { DataContext = vm };
+            var window = new Window { Width = width, Height = height, Content = view };
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            var player = view.GetVisualDescendants().OfType<NowPlayingView>().Single();
+            var buttonVisible = player.FindControl<Button>("PortraitVolumeButton")!.IsEffectivelyVisible;
+            var sliderVisible = player.FindControl<StackPanel>("VolumeGroup")!.IsEffectivelyVisible;
+
+            Assert.That(new[] { buttonVisible, sliderVisible }.Count(v => v), Is.EqualTo(1),
+                $"{width}x{height} (IsNarrow={view.IsNarrow}, player width={player.Bounds.Width:0}) " +
+                "must show exactly one volume control, not both or neither");
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public void ResizingTheWindow_KeepsExactlyOneVolumeControl()
+    {
+        var vm = CreateViewModel();
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 1200, Height = 800, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var sizes = new (double Width, double Height)[]
+        {
+            (1200, 800), (1000, 700), (800, 600), (760, 1000), (420, 820), (900, 1600),
+        };
+
+        foreach (var (width, height) in sizes)
+        {
+            window.Width = width;
+            window.Height = height;
+            Dispatcher.UIThread.RunJobs();
+
+            var player = view.GetVisualDescendants().OfType<NowPlayingView>().Single();
+            var buttonVisible = player.FindControl<Button>("PortraitVolumeButton")!.IsEffectivelyVisible;
+            var sliderVisible = player.FindControl<StackPanel>("VolumeGroup")!.IsEffectivelyVisible;
+
+            Assert.That(new[] { buttonVisible, sliderVisible }.Count(v => v), Is.EqualTo(1),
+                $"after resizing to {width}x{height} (IsNarrow={view.IsNarrow}, " +
+                $"player width={player.Bounds.Width:0}) exactly one volume control must remain");
+        }
+
+        window.Close();
+    }
+
+    [AvaloniaTest]
     public void Portrait_HasAVolumeFlyout_AndLandscapeKeepsTheInlineSlider()
     {
         var portraitVm = CreateViewModel();
