@@ -207,6 +207,29 @@ public class MetroShellLayoutTests
     }
 
     [AvaloniaTest]
+    public void BufferingUsesASmallChipAndDoesNotCoverNavigation()
+    {
+        var vm = CreateViewModel();
+        vm.IsBuffering = true;
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 420, Height = 820, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var nowPlaying = view.GetVisualDescendants().OfType<NowPlayingView>().Single();
+        var bufferingLabels = nowPlaying.GetVisualDescendants().OfType<TextBlock>()
+            .Where(t => t.Text == "BUFFERING" && t.IsEffectivelyVisible)
+            .ToList();
+
+        Assert.That(bufferingLabels, Has.Count.EqualTo(1),
+            "only the compact chip should remain; the full-page blocking veil was removed");
+        var chip = nowPlaying.FindControl<Border>("BufferingChip")!;
+        Assert.That(chip.IsHitTestVisible, Is.False);
+        Assert.That(nowPlaying.FindControl<Button>("BackToStations")!.IsEffectivelyVisible, Is.True);
+        window.Close();
+    }
+
+    [AvaloniaTest]
     public void Landscape_OnlyShowsThePlaylistSettingsCog()
     {
         var vm = CreateViewModel();

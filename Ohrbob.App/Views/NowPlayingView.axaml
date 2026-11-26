@@ -114,8 +114,9 @@
                 </StackPanel>
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Top">
-                    <Border Background="{StaticResource MetroAccentBrush}" Padding="7,3"
-                            IsVisible="{Binding IsBuffering}">
+                    <Border x:Name="BufferingChip"
+                            Background="{StaticResource MetroAccentBrush}" Padding="7,3"
+                            IsVisible="{Binding IsBuffering}" IsHitTestVisible="False">
                         <TextBlock Text="BUFFERING" FontSize="9" FontWeight="Bold" LetterSpacing="1" Foreground="White" />
                     </Border>
                     <Button x:Name="StationSettingsButton"
@@ -233,15 +234,5 @@
             </Border>
         </Grid>
 
-        <Border Background="{DynamicResource NowPlayingScrimBrush}" IsVisible="{Binding IsBuffering}"
-                IsHitTestVisible="False">
-            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="14">
-                <ProgressBar IsIndeterminate="True" Width="180" Height="3"
-                             Foreground="{StaticResource MetroAccentBrush}"
-                             Background="{DynamicResource NowPlayingTrackBrush}" />
-                <TextBlock Text="BUFFERING" FontSize="11" FontWeight="Bold" LetterSpacing="2"
-                           Foreground="{DynamicResource NowPlayingTextBrush}" />
-            </StackPanel>
-        </Border>
     </Grid>
 </UserControl>
