@@ -298,6 +298,84 @@ public class MetroShellNavigationTests
         };
     }
 
+    [Test]
+    public async Task StationSelection_IsNotDiscardedByAConcurrentPlaylistRefresh()
+    {
+        var config = new ConfigService(_tempConfigPath);
+        var handler = new StatusGatedHttpHandler();
+        var vm = new MainViewModel(
+            config,
+            new OhrbobClient(config, handler),
+            null,
+            new TestAudioPlayer(),
+            action => action(),
+            offlineState: new OfflineStateService(_tempOfflinePath));
+        config.Save("https://example.com", "token");
+        vm.IsConnected = true;
+
+        var station = new StationWithFeedsDto
+        {
+            Station = new Station { Id = "s2", Name = "Second" },
+        };
+        vm.Stations.Add(station);
+
+        vm.OpenStationCommand.Execute(station);
+        await handler.StatusStarted.WaitAsync(TimeSpan.FromSeconds(2));
+
+        // A concurrent playlist refresh (for example the initial sync) used to
+        // bump the same generation that guarded the station switch status.
+        await InvokeRefreshPlaylistAsync(vm);
+
+        handler.ReleaseStatus();
+        await vm.StationPlaybackReadyTask.WaitAsync(TimeSpan.FromSeconds(2));
+
+        Assert.That(vm.CurrentEpisodeTitle, Is.EqualTo("New episode"),
+            "a concurrent playlist refresh must not discard the switch status");
+        await vm.StationOpenTask;
+    }
+
+    private static async Task InvokeRefreshPlaylistAsync(MainViewModel vm)
+    {
+        var method = typeof(MainViewModel).GetMethod(
+            "RefreshPlaylistAsync",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        await (Task)method.Invoke(vm, null)!;
+    }
+
+    private sealed class StatusGatedHttpHandler : HttpMessageHandler
+    {
+        private readonly TaskCompletionSource _statusStarted =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _statusGate =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Task StatusStarted => _statusStarted.Task;
+        public void ReleaseStatus() => _statusGate.TrySetResult();
+
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var path = request.RequestUri?.AbsolutePath ?? "";
+
+            if (path.EndsWith("/stream/status"))
+            {
+                _statusStarted.TrySetResult();
+                await _statusGate.Task.WaitAsync(cancellationToken);
+                return Json("{\"stationId\":\"s2\",\"current\":{\"episodeId\":\"e2\",\"title\":\"New episode\"}}");
+            }
+
+            if (path.EndsWith("/stream/playlist"))
+                return Json("{\"stationId\":\"s2\",\"episodes\":[]}");
+
+            return Json("{}");
+        }
+
+        private static HttpResponseMessage Json(string body) => new(HttpStatusCode.OK)
+        {
+            Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json"),
+        };
+    }
+
     private sealed class GatedHttpHandler : HttpMessageHandler
     {
         private readonly TaskCompletionSource _gate =

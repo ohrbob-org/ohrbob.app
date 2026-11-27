@@ -42,6 +42,7 @@ public partial class MainViewModel : ViewModelBase
     private Task? _downloadSyncTask;
     private string? _lastDownloadSignature;
     private int _playlistGeneration;
+    private int _stationGeneration;
     private int _openStationGeneration;
     private Task _stationSwitchTask = Task.CompletedTask;
     private string? _playlistStationId;
@@ -1176,11 +1177,11 @@ public partial class MainViewModel : ViewModelBase
     private async Task RefreshStatusAsync(bool periodic = false)
     {
         var previousEpisodeId = CurrentEpisodeId;
-        var statusGeneration = _playlistGeneration;
+        var statusGeneration = _stationGeneration;
         try
         {
             var status = await _client.GetStatusAsync();
-            if (statusGeneration != _playlistGeneration) return;
+            if (statusGeneration != _stationGeneration) return;
 
             if (status.ValueKind == JsonValueKind.Object)
             {
@@ -1788,6 +1789,7 @@ public partial class MainViewModel : ViewModelBase
         // also prevents an in-flight refresh for the old station from applying.
         _downloads.Cancel();
         _playlistGeneration++;
+        _stationGeneration++;
         _lastDownloadSignature = null;
         _stationSwitchTask = Task.CompletedTask;
 
@@ -1825,7 +1827,7 @@ public partial class MainViewModel : ViewModelBase
         }
         else
         {
-            _stationSwitchTask = SwitchStationAsync(stationId, _playlistGeneration, playbackReady);
+            _stationSwitchTask = SwitchStationAsync(stationId, _stationGeneration, playbackReady);
         }
 
         RestoreBufferOption(stationId);
@@ -1837,7 +1839,7 @@ public partial class MainViewModel : ViewModelBase
         try
         {
             await _client.PlayStationAsync(stationId);
-            if (generation != _playlistGeneration) return;
+            if (generation != _stationGeneration) return;
 
             // The playlist is not needed to start audio. Request it alongside
             // status and let status unblock playback as soon as it lands.
