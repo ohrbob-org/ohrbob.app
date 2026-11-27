@@ -483,29 +483,6 @@ public partial class MetroShellView : UserControl
         }
     }
 
-    private void OnStationTilePointerPressed(object? sender, PointerPressedEventArgs e)
-    {
-        if (sender is not Control { Tag: StationWithFeedsDto station }) return;
-        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
-
-        _suppressStationClick = false;
-        _pressedStation = station;
-        _stationLongPressTimer.Stop();
-        _stationLongPressTimer.Start();
-    }
-
-    private void OnStationTilePointerReleased(object? sender, PointerReleasedEventArgs e)
-    {
-        _stationLongPressTimer.Stop();
-        _pressedStation = null;
-    }
-
-    private void OnStationTilePointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
-    {
-        _stationLongPressTimer.Stop();
-        _pressedStation = null;
-    }
-
     private void OnStationLongPressElapsed(object? sender, EventArgs e)
     {
         _stationLongPressTimer.Stop();
@@ -578,6 +555,8 @@ public partial class MetroShellView : UserControl
         _tapStation = null;
         _tapMoved = false;
         _pendingStationTap = false;
+        _suppressStationClick = false;
+        CancelStationLongPress();
 
         var point = e.GetCurrentPoint(StationsScroll);
         if (e.Pointer.Type != PointerType.Touch && !point.Properties.IsLeftButtonPressed) return;
@@ -585,15 +564,27 @@ public partial class MetroShellView : UserControl
             source.FindAncestorOfType<Avalonia.Controls.Primitives.ScrollBar>() is not null)
             return;
 
+        // The tile is a Button, and Button marks PointerPressed as handled in
+        // its class handler. Watch the container's tunnel route instead (it
+        // runs first and listens to handled events) so a held press can start
+        // the settings long-press timer for touch and mouse alike.
+        var stationTile = FindStationTile(e.Source as Visual);
+        if (stationTile?.Tag is StationWithFeedsDto pressedStation)
+        {
+            _pressedStation = pressedStation;
+            _tapStart = e.GetPosition(this);
+            _stationLongPressTimer.Stop();
+            _stationLongPressTimer.Start();
+        }
+
         // Remember taps on a station tile even if the scroll/refresh gesture
         // recognizer captures the pointer a few pixels later and cancels the
         // button's Click.
         if (e.Pointer.Type is PointerType.Touch or PointerType.Pen &&
-            FindStationTile(e.Source as Visual) is { Tag: StationWithFeedsDto station })
+            stationTile?.Tag is StationWithFeedsDto station)
         {
             _tapInProgress = true;
             _tapStation = station;
-            _tapStart = e.GetPosition(this);
         }
 
         _trackingStationsDrag = true;
@@ -604,6 +595,14 @@ public partial class MetroShellView : UserControl
 
     private void OnStationsPointerMoved(object? sender, PointerEventArgs e)
     {
+        if (_pressedStation is not null)
+        {
+            var pressPosition = e.GetPosition(this);
+            if (Math.Abs(pressPosition.X - _tapStart.X) > StationTapSlop ||
+                Math.Abs(pressPosition.Y - _tapStart.Y) > StationTapSlop)
+                CancelStationLongPress();
+        }
+
         if (_tapInProgress && !_tapMoved)
         {
             var position = e.GetPosition(this);
@@ -620,6 +619,7 @@ public partial class MetroShellView : UserControl
         if (e.Pointer.Type != PointerType.Touch &&
             !e.GetCurrentPoint(StationsScroll).Properties.IsLeftButtonPressed)
         {
+            CancelStationLongPress();
             ReleaseStationsRubberBand();
             return;
         }
@@ -633,6 +633,8 @@ public partial class MetroShellView : UserControl
 
     private void OnStationsPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
+        CancelStationLongPress();
+
         var station = _tapStation;
         var moved = _tapMoved;
         var wasTap = _tapInProgress;
@@ -660,14 +662,19 @@ public partial class MetroShellView : UserControl
 
     private void OnStationsPullGesture(object? sender, PullGestureEventArgs e)
     {
-        if (!_tapInProgress) return;
+        if (Math.Abs(e.Delta.X) <= StationTapSlop && Math.Abs(e.Delta.Y) <= StationTapSlop)
+            return;
 
-        if (Math.Abs(e.Delta.X) > StationTapSlop || Math.Abs(e.Delta.Y) > StationTapSlop)
+        if (_tapInProgress)
             _tapMoved = true;
+
+        CancelStationLongPress();
     }
 
     private void OnStationsPullGestureEnded(object? sender, PullGestureEndedEventArgs e)
     {
+        CancelStationLongPress();
+
         var station = _tapStation;
         var moved = _tapMoved;
         var wasTap = _tapInProgress;
@@ -677,6 +684,12 @@ public partial class MetroShellView : UserControl
 
         if (wasTap && !moved && station is not null && DataContext is MainViewModel vm)
             vm.OpenStationCommand.Execute(station);
+    }
+
+    private void CancelStationLongPress()
+    {
+        _stationLongPressTimer.Stop();
+        _pressedStation = null;
     }
 
     private static Button? FindStationTile(Visual? source)

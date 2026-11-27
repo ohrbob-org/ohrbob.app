@@ -137,9 +137,6 @@
                                     <Button Classes="stationTile"
                                             Tag="{Binding}"
                                             Click="OnStationTileClick"
-                                            PointerPressed="OnStationTilePointerPressed"
-                                            PointerReleased="OnStationTilePointerReleased"
-                                            PointerCaptureLost="OnStationTilePointerCaptureLost"
                                             ToolTip.Tip="Tap to listen · long-press for settings">
                                         <Border Background="{DynamicResource StationTileBaseBrush}"
                                                 ClipToBounds="True"

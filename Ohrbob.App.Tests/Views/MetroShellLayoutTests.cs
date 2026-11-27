@@ -1402,6 +1402,75 @@ public class MetroShellLayoutTests
     }
 
     [AvaloniaTest]
+    public async Task StationLongPress_OpensSettingsWithoutStartingPlayback()
+    {
+        var vm = CreateViewModel();
+        vm.IsNowPlayingOpen = false;
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 420, Height = 820, Content = view };
+        window.Show();
+        window.Activate();
+        window.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+
+        var tile = view.GetVisualDescendants().OfType<Button>()
+            .First(b => b.Classes.Contains("stationTile"));
+        var start = tile.TranslatePoint(
+            new Point(tile.Bounds.Width / 2, tile.Bounds.Height / 2), window)!.Value;
+
+        var pointer = window.TouchBegin(start, RawInputModifiers.None);
+
+        // Hold past the 520 ms threshold. Awaiting returns to the dispatcher so
+        // the long-press timer can tick.
+        await Task.Delay(700);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(vm.IsSettingsOpen, Is.True,
+            "holding a station tile must open that station's settings");
+        Assert.That(vm.SelectedStation, Is.SameAs(vm.Stations[0]),
+            "opening settings must not switch playback");
+        Assert.That(vm.SettingsStation, Is.SameAs(vm.Stations[0]));
+
+        window.TouchEnd(pointer, start, RawInputModifiers.None);
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(vm.SelectedStation, Is.SameAs(vm.Stations[0]),
+            "releasing after a long press must not start playback");
+        window.Close();
+    }
+
+    [AvaloniaTest]
+    public async Task StationLongPress_WithMouse_OpensSettings()
+    {
+        var vm = CreateViewModel();
+        vm.IsNowPlayingOpen = false;
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 420, Height = 820, Content = view };
+        window.Show();
+        window.Activate();
+        window.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+
+        var tile = view.GetVisualDescendants().OfType<Button>()
+            .First(b => b.Classes.Contains("stationTile"));
+        var start = tile.TranslatePoint(
+            new Point(tile.Bounds.Width / 2, tile.Bounds.Height / 2), window)!.Value;
+
+        window.MouseDown(start, MouseButton.Left);
+        await Task.Delay(700);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(vm.IsSettingsOpen, Is.True,
+            "holding a station tile with the mouse must open its settings");
+        Assert.That(vm.SettingsStation, Is.SameAs(vm.Stations[0]));
+
+        window.MouseUp(start, MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(vm.SelectedStation, Is.SameAs(vm.Stations[0]),
+            "releasing after a long press must not switch playback");
+        window.Close();
+    }
+
+    [AvaloniaTest]
     public void StationsHeader_ShowsTheProfileInitialInItsColor()
     {
         var vm = CreateViewModel();
