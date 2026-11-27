@@ -673,6 +673,52 @@ public class MetroShellLayoutTests
     }
 
     [AvaloniaTest]
+    public void StationTile_ScrollingWithoutPointerMoves_DoesNotOpenStation()
+    {
+        var vm = CreateViewModel();
+        vm.IsNowPlayingOpen = false;
+        vm.SelectedStation = null;
+        for (var i = 0; i < 12; i++)
+        {
+            vm.Stations.Add(new StationWithFeedsDto
+            {
+                Station = new Station { Id = $"extra{i}", Name = $"Station {i + 2}" },
+            });
+        }
+
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 1200, Height = 800, Content = view };
+        window.Show();
+        window.Activate();
+        window.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+
+        var scroll = view.FindControl<ScrollViewer>("StationsScroll")!;
+        Assert.That(scroll.Extent.Height, Is.GreaterThan(scroll.Viewport.Height),
+            "the test needs a scrollable station list");
+        var tile = view.GetVisualDescendants().OfType<Button>()
+            .First(button => button.Classes.Contains("stationTile"));
+        var start = tile.TranslatePoint(
+            new Point(tile.Bounds.Width / 2, tile.Bounds.Height / 2), window)!.Value;
+
+        var pointer = window.TouchBegin(start, RawInputModifiers.None);
+
+        // The scroll recognizer can capture the pointer and stop delivering
+        // moves to the container. The list still scrolled, so releasing at the
+        // same point must not count as a tap.
+        scroll.Offset = new Vector(0, 40);
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(scroll.Offset.Y, Is.GreaterThan(0), "sanity: the list scrolled");
+
+        window.TouchEnd(pointer, start, RawInputModifiers.None);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(vm.SelectedStation, Is.Null,
+            "scrolling the list must cancel the pending station tap");
+        window.Close();
+    }
+
+    [AvaloniaTest]
     public void ProfileMenu_ListsManageAboveDisconnect()
     {
         var vm = CreateViewModel();

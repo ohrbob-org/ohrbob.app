@@ -69,6 +69,7 @@ public partial class MetroShellView : UserControl
     private StationWithFeedsDto? _pressedStation;
     private StationWithFeedsDto? _tapStation;
     private Point _tapStart;
+    private Vector _tapScrollOffset;
     private bool _tapInProgress;
     private bool _tapMoved;
     private bool _pendingStationTap;
@@ -154,6 +155,7 @@ public partial class MetroShellView : UserControl
         StationsScroll.AddHandler(
             PointerWheelChangedEvent, OnStationsWheel,
             RoutingStrategies.Bubble, handledEventsToo: true);
+        StationsScroll.ScrollChanged += OnStationsScrollChanged;
         // The pull-to-refresh recognizer captures the pointer on the first
         // downward movement (no touch slop), so Avalonia stops raising public
         // pointer moves/releases. These gesture events keep the tap candidate
@@ -573,6 +575,7 @@ public partial class MetroShellView : UserControl
         {
             _pressedStation = pressedStation;
             _tapStart = e.GetPosition(this);
+            _tapScrollOffset = StationsScroll.Offset;
             _stationLongPressTimer.Stop();
             _stationLongPressTimer.Start();
         }
@@ -638,11 +641,17 @@ public partial class MetroShellView : UserControl
         var station = _tapStation;
         var moved = _tapMoved;
         var wasTap = _tapInProgress;
+        var scrolled = wasTap && HasStationsScrolled();
         _tapInProgress = false;
         _tapStation = null;
         _tapMoved = false;
 
-        if (wasTap && !moved && station is not null)
+        // A cancelled touch still reaches the tile Button's Click on release.
+        // Suppress it so a scroll never opens the station under the finger.
+        if (wasTap && (moved || scrolled))
+            _suppressStationClick = true;
+
+        if (wasTap && !moved && !scrolled && station is not null)
         {
             // Post after the routed event so a normal button Click can mark
             // itself; captured taps still open from here.
@@ -678,12 +687,35 @@ public partial class MetroShellView : UserControl
         var station = _tapStation;
         var moved = _tapMoved;
         var wasTap = _tapInProgress;
+        var scrolled = wasTap && HasStationsScrolled();
         _tapInProgress = false;
         _tapStation = null;
         _tapMoved = false;
 
-        if (wasTap && !moved && station is not null && DataContext is MainViewModel vm)
+        if (wasTap && (moved || scrolled))
+            _suppressStationClick = true;
+
+        if (wasTap && !moved && !scrolled && station is not null && DataContext is MainViewModel vm)
             vm.OpenStationCommand.Execute(station);
+    }
+
+    private void OnStationsScrollChanged(object? sender, ScrollChangedEventArgs e)
+    {
+        if (!_tapInProgress || !HasStationsScrolled()) return;
+
+        // Scrolling can capture the pointer and stop pointer-move delivery.
+        // Treat any real offset change as movement so release cannot open the
+        // station tile that happened to be under the finger.
+        _tapMoved = true;
+        _suppressStationClick = true;
+        CancelStationLongPress();
+    }
+
+    private bool HasStationsScrolled()
+    {
+        var offset = StationsScroll.Offset;
+        return Math.Abs(offset.X - _tapScrollOffset.X) > 0.5 ||
+               Math.Abs(offset.Y - _tapScrollOffset.Y) > 0.5;
     }
 
     private void CancelStationLongPress()
