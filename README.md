@@ -4,7 +4,7 @@ The cross-platform desktop (Linux, Windows, Mac) & mobile (iOS, Android) player 
 
 Ohrbob is your free and open-source radio station manager. With ohrbob you build your own radio stations and listen to them anywhere. 
 
-![The Ohrbob player showing a station playing](desktop-screenshots/desktop-wide.png)
+![The Ohrbob player showing a station playing](android-screenshots/player.png)
 
 ## Features
 - **Easy Setup**: You setup the Player with your ohrbob.org with a single click
@@ -13,6 +13,19 @@ Ohrbob is your free and open-source radio station manager. With ohrbob you build
 - **Persistent Sync**: The player is syncing your playback state so you can continue to listen anywhere exactly where you were
 - **Media API**: On mobile and desktop the player registers correctly as a media player so you see and can control it via lock screens (eg. android) and notifications (eg. gnome)
 - **Android Auto**: Browse your stations and control playback from a connected car head unit
+
+## Screenshots
+
+<p align="center">
+  <img src="android-screenshots/stations.png" alt="The station grid" width="49%" />
+  <img src="android-screenshots/connect.png" alt="The connect screen" width="49%" />
+</p>
+<p align="center">
+  <img src="android-screenshots/stations_light_portrait.png" alt="Stations in light mode" width="30%" />
+  <img src="android-screenshots/player_light_portrait.png" alt="Now playing in light mode" width="30%" />
+  <img src="android-screenshots/playlist_light_portrait.png" alt="The playlist in light mode" width="30%" />
+</p>
+
 ---
 
 This is still really early and a lot of features are missing - but the basic functionality is there and I want to test how to deploy this to flatpak. 
