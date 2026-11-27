@@ -53,6 +53,42 @@ public class MediaSessionCoordinatorTests
         }
     }
 
+    private sealed class StagedHttpHandler : HttpMessageHandler
+    {
+        private readonly TaskCompletionSource _statusGate =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _playlistGate =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public List<string> RequestPaths { get; } = new();
+
+        public void ReleaseStatus() => _statusGate.TrySetResult();
+        public void ReleasePlaylist() => _playlistGate.TrySetResult();
+
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var path = request.RequestUri?.AbsolutePath ?? "";
+            RequestPaths.Add(path);
+
+            if (path.EndsWith("/stream/status"))
+                await _statusGate.Task.WaitAsync(cancellationToken);
+            else if (path.EndsWith("/stream/playlist"))
+                await _playlistGate.Task.WaitAsync(cancellationToken);
+
+            var body = path.EndsWith("/stream/playlist")
+                ? "{\"stationId\":\"s2\",\"episodes\":[{\"episodeId\":\"e2\",\"title\":\"New episode\",\"isCurrent\":true}]}"
+                : path.EndsWith("/stream/status")
+                    ? "{\"stationId\":\"s2\",\"current\":{\"episodeId\":\"e2\",\"title\":\"New episode\"}}"
+                    : "{}";
+
+            return new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+            {
+                Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json"),
+            };
+        }
+    }
+
     private sealed class FakeMediaSessionService : IMediaSessionService
     {
         public MediaSessionInfo? Last { get; private set; }
@@ -89,6 +125,17 @@ public class MediaSessionCoordinatorTests
     private (MainViewModel Vm, FakeMediaSessionService Service, MediaSessionCoordinator Coordinator, FakeHttpMessageHandler Handler, ConfigService Config) Create()
     {
         var handler = new FakeHttpMessageHandler();
+        var config = new ConfigService(_tempConfigPath);
+        var client = new OhrbobClient(config, handler);
+        var vm = new MainViewModel(config, client, offlineState: new OfflineStateService(_tempOfflinePath));
+        var service = new FakeMediaSessionService();
+        var coordinator = new MediaSessionCoordinator(vm, service, action => action());
+        return (vm, service, coordinator, handler, config);
+    }
+
+    private (MainViewModel Vm, FakeMediaSessionService Service, MediaSessionCoordinator Coordinator, StagedHttpHandler Handler, ConfigService Config) CreateWithHandler()
+    {
+        var handler = new StagedHttpHandler();
         var config = new ConfigService(_tempConfigPath);
         var client = new OhrbobClient(config, handler);
         var vm = new MainViewModel(config, client, offlineState: new OfflineStateService(_tempOfflinePath));
@@ -134,6 +181,69 @@ public class MediaSessionCoordinatorTests
         vm.IsPlaying = true;
 
         Assert.That(service.Last!.IsPlaying, Is.True);
+    }
+
+    [AvaloniaTest]
+    public void WhenBufferingChanges_ItIsRepublished()
+    {
+        var (vm, service, _, _, _) = Create();
+
+        vm.IsBuffering = true;
+
+        Assert.That(service.Last!.IsBuffering, Is.True,
+            "the media session must expose buffering to the OS controls");
+
+        vm.IsBuffering = false;
+
+        Assert.That(service.Last!.IsBuffering, Is.False);
+    }
+
+    [AvaloniaTest]
+    public void WhenStationLoadingChanges_ItIsReportedAsBuffering()
+    {
+        var (vm, service, _, _, _) = Create();
+
+        vm.IsStationLoading = true;
+
+        Assert.That(service.Last!.IsBuffering, Is.True,
+            "a station switch is buffering from the head unit's point of view");
+
+        vm.IsStationLoading = false;
+
+        Assert.That(service.Last!.IsBuffering, Is.False);
+    }
+
+    [AvaloniaTest]
+    public async Task PlayFromMediaId_ReportsBufferingAndStartsPlaybackBeforeThePlaylist()
+    {
+        var (vm, service, _, handler, config) = CreateWithHandler();
+        config.ServerUrl = "https://example.com";
+        config.StreamToken = "token";
+        vm.IsConnected = true;
+
+        var target = new StationWithFeedsDto
+        {
+            Station = new Station { Id = "s2", Name = "Morning Briefing" },
+        };
+        vm.Stations.Add(target);
+        vm.IsPlaying = false;
+
+        service.RaisePlayFromMediaId("s2");
+
+        Assert.That(service.Last!.IsBuffering, Is.True,
+            "the head unit should show buffering while the station switch is in flight");
+
+        handler.ReleaseStatus();
+        await WaitUntilAsync(() => vm.IsPlaying);
+
+        Assert.That(vm.SelectedStation, Is.SameAs(target));
+        Assert.That(handler.RequestPaths, Has.Some.Contains("/stream/playlist"),
+            "the playlist request runs alongside status");
+        Assert.That(vm.StationOpenTask.IsCompleted, Is.False,
+            "playback must not wait for the playlist refresh");
+
+        handler.ReleasePlaylist();
+        await vm.StationOpenTask;
     }
 
     [AvaloniaTest]
@@ -230,6 +340,47 @@ public class MediaSessionCoordinatorTests
             "the station switch must reach the server");
         Assert.That(vm.IsPlaying, Is.True,
             "playback must start after the new station is ready");
+    }
+
+    [AvaloniaTest]
+    public async Task PlayFromMediaId_MatchesIdsIgnoringCaseAndWhitespace()
+    {
+        var (vm, service, _, _, config) = Create();
+        config.ServerUrl = "https://example.com";
+        config.StreamToken = "token";
+        vm.IsConnected = true;
+
+        var target = new StationWithFeedsDto
+        {
+            Station = new Station { Id = "s2", Name = "Morning Briefing" },
+        };
+        vm.Stations.Add(target);
+
+        service.RaisePlayFromMediaId(" S2 ");
+        await WaitUntilAsync(() => vm.IsPlaying);
+
+        Assert.That(vm.SelectedStation, Is.SameAs(target));
+    }
+
+    [AvaloniaTest]
+    public async Task PlayFromMediaId_MatchesNamesWithDifferentUnicodeNormalization()
+    {
+        var (vm, service, _, _, config) = Create();
+        config.ServerUrl = "https://example.com";
+        config.StreamToken = "token";
+        vm.IsConnected = true;
+
+        var target = new StationWithFeedsDto
+        {
+            Station = new Station { Id = "s2", Name = "Die Maus zum H\u00f6ren" },
+        };
+        vm.Stations.Add(target);
+
+        // o + combining diaeresis, as some media browsers normalize names.
+        service.RaisePlayFromMediaId("Die Maus zum Ho\u0308ren");
+        await WaitUntilAsync(() => vm.IsPlaying);
+
+        Assert.That(vm.SelectedStation, Is.SameAs(target));
     }
 
     private static async Task WaitUntilAsync(Func<bool> condition)

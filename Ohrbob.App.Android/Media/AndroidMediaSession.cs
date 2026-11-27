@@ -231,6 +231,12 @@ public sealed class AndroidMediaSession : IMediaSessionService
 
     private void UpdatePlaybackState()
     {
+        var state = _info.IsBuffering
+            ? PlaybackStateCompat.StateBuffering
+            : _info.IsPlaying
+                ? PlaybackStateCompat.StatePlaying
+                : PlaybackStateCompat.StatePaused;
+
         var stateBuilder = new PlaybackStateCompat.Builder()
             .SetActions(
                 PlaybackStateCompat.ActionPlay |
@@ -241,9 +247,10 @@ public sealed class AndroidMediaSession : IMediaSessionService
                 PlaybackStateCompat.ActionPlayFromMediaId |
                 PlaybackStateCompat.ActionSeekTo)
             .SetState(
-                _info.IsPlaying ? PlaybackStateCompat.StatePlaying : PlaybackStateCompat.StatePaused,
+                state,
                 _info.PositionSeconds * 1000L,
-                1.0f);
+                1.0f)
+            .SetBufferedPosition(_info.PositionSeconds * 1000L);
 
         // Android Auto fills the two inner flanking slots with the first custom actions and the
         // two outer slots with the ones added after them. To end up with
@@ -423,7 +430,11 @@ public sealed class AndroidMediaSession : IMediaSessionService
 
         public override void OnFastForward() => _owner.SeekByRequested?.Invoke(_owner, 30);
 
-        public override void OnPlayFromMediaId(string? mediaId, Bundle? extras) => _owner.PlayFromMediaIdRequested?.Invoke(_owner, mediaId);
+        public override void OnPlayFromMediaId(string? mediaId, Bundle? extras)
+        {
+            global::Android.Util.Log.Info("Ohrbob", $"PlayFromMediaId: {mediaId}");
+            _owner.PlayFromMediaIdRequested?.Invoke(_owner, mediaId);
+        }
 
         public override void OnCustomAction(string? action, Bundle? extras)
         {

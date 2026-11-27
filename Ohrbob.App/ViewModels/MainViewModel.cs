@@ -128,6 +128,12 @@ public partial class MainViewModel : ViewModelBase
     /// <summary>The pending station switch/open sequence, exposed for tests.</summary>
     internal Task StationOpenTask { get; private set; } = Task.CompletedTask;
 
+    /// <summary>
+    /// Completes once the new station's playback-critical status has been applied,
+    /// before the slower playlist refresh. Exposed for tests.
+    /// </summary>
+    internal Task StationPlaybackReadyTask { get; private set; } = Task.CompletedTask;
+
     /// <summary>On narrow screens, true slides the playlist panorama into view.</summary>
     [ObservableProperty]
     private bool _isPlaylistOpen;
@@ -1152,7 +1158,9 @@ public partial class MainViewModel : ViewModelBase
     /// </summary>
     internal async Task PollStatusAsync()
     {
-        if (_isPollingStatus || !IsConnected || IsOffline) return;
+        // Do not poll while a station switch is in flight: a response for the
+        // previous station would arrive after the switch and undo it.
+        if (_isPollingStatus || !IsConnected || IsOffline || !_stationSwitchTask.IsCompleted) return;
 
         _isPollingStatus = true;
         try
@@ -1168,9 +1176,12 @@ public partial class MainViewModel : ViewModelBase
     private async Task RefreshStatusAsync(bool periodic = false)
     {
         var previousEpisodeId = CurrentEpisodeId;
+        var statusGeneration = _playlistGeneration;
         try
         {
             var status = await _client.GetStatusAsync();
+            if (statusGeneration != _playlistGeneration) return;
+
             if (status.ValueKind == JsonValueKind.Object)
             {
                 if (status.TryGetProperty("profileName", out var profileNameProp))
@@ -1782,9 +1793,13 @@ public partial class MainViewModel : ViewModelBase
 
         if (value?.Station?.Id is not { } stationId)
         {
+            StationPlaybackReadyTask = Task.CompletedTask;
             IsStationLoading = false;
             return;
         }
+
+        var playbackReady = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        StationPlaybackReadyTask = playbackReady.Task;
 
         if (IsOffline)
         {
@@ -1801,35 +1816,44 @@ public partial class MainViewModel : ViewModelBase
                 }
 
                 ConnectionErrorMessage = "This station is not available offline.";
+                playbackReady.TrySetResult();
                 return;
             }
 
             ConnectionErrorMessage = null;
+            playbackReady.TrySetResult();
         }
         else
         {
-            _stationSwitchTask = SwitchStationAsync(stationId, _playlistGeneration);
+            _stationSwitchTask = SwitchStationAsync(stationId, _playlistGeneration, playbackReady);
         }
 
         RestoreBufferOption(stationId);
         if (IsPortrait) IsSidebarOpen = false;
     }
 
-    private async Task SwitchStationAsync(string stationId, int generation)
+    private async Task SwitchStationAsync(string stationId, int generation, TaskCompletionSource playbackReady)
     {
         try
         {
             await _client.PlayStationAsync(stationId);
             if (generation != _playlistGeneration) return;
 
+            // The playlist is not needed to start audio. Request it alongside
+            // status and let status unblock playback as soon as it lands.
+            var playlistTask = RefreshPlaylistAsync();
             await RefreshStatusAsync();
-            if (generation != _playlistGeneration) return;
-
-            await RefreshPlaylistAsync();
+            playbackReady.TrySetResult();
+            await playlistTask;
         }
         catch
         {
             // Handle error switching station
+        }
+        finally
+        {
+            // Never leave the media controls waiting on a failed switch.
+            playbackReady.TrySetResult();
         }
     }
 

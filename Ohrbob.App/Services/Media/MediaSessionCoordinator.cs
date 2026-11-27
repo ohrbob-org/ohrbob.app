@@ -1,9 +1,12 @@
 using System;
 using System.ComponentModel;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using Avalonia.Threading;
+using Ohrbob.App.Models;
 using Ohrbob.App.ViewModels;
+using Serilog;
 
 namespace Ohrbob.App.Services.Media;
 
@@ -17,6 +20,7 @@ public sealed class MediaSessionCoordinator : IDisposable
     private readonly MainViewModel _viewModel;
     private readonly IMediaSessionService _service;
     private readonly Action<Action> _dispatch;
+    private bool _startingFromMediaId;
     private bool _disposed;
 
     public MediaSessionCoordinator(
@@ -47,7 +51,8 @@ public sealed class MediaSessionCoordinator : IDisposable
         CoverUrl: _viewModel.CurrentEpisodeCoverUrl,
         IsPlaying: _viewModel.IsPlaying,
         PositionSeconds: _viewModel.PositionSeconds,
-        DurationSeconds: _viewModel.DurationSeconds);
+        DurationSeconds: _viewModel.DurationSeconds,
+        IsBuffering: _startingFromMediaId || _viewModel.IsBuffering || _viewModel.IsStationLoading);
 
     private void Publish() => _service.Update(BuildInfo());
 
@@ -61,6 +66,8 @@ public sealed class MediaSessionCoordinator : IDisposable
             case nameof(MainViewModel.IsPlaying):
             case nameof(MainViewModel.PositionSeconds):
             case nameof(MainViewModel.DurationSeconds):
+            case nameof(MainViewModel.IsBuffering):
+            case nameof(MainViewModel.IsStationLoading):
                 Publish();
                 break;
         }
@@ -94,27 +101,61 @@ public sealed class MediaSessionCoordinator : IDisposable
     {
         if (string.IsNullOrEmpty(mediaId)) return;
 
-        var station = _viewModel.Stations.FirstOrDefault(s =>
-            s.Station?.Id?.ToString() == mediaId || s.Station?.Name == mediaId);
-        if (station is null) return;
+        var mediaIdText = mediaId.Trim();
+        var station = _viewModel.Stations.FirstOrDefault(s => MatchesStation(s, mediaIdText));
+        if (station is null)
+        {
+            Log.Warning("PlayFromMediaId: no station matches {MediaId}", mediaId);
+            return;
+        }
 
-        // Route through the same station-open path as a UI tap so the station
-        // switch, playlist and now-playing state stay consistent.
-        _viewModel.OpenStationCommand.Execute(station);
+        // Show buffering immediately, before the first round trip, so the
+        // head unit does not look frozen while the station switches.
+        _startingFromMediaId = true;
+        Publish();
 
-        // Wait for the switch before starting playback; otherwise IsPlaying
-        // starts the previous station's stream while the new one is loading.
         try
         {
-            await _viewModel.StationOpenTask;
-        }
-        catch
-        {
-            // The switch failed; let the current content resume instead of
-            // leaving the car controls inert.
-        }
+            // Route through the same station-open path as a UI tap so the station
+            // switch, playlist and now-playing state stay consistent.
+            _viewModel.OpenStationCommand.Execute(station);
 
-        _viewModel.IsPlaying = true;
+            // Wait only for the new station's status (which carries the stream
+            // URI), not for the slower playlist refresh. Otherwise Android Auto
+            // stays silent until the whole queue has been fetched.
+            try
+            {
+                await _viewModel.StationPlaybackReadyTask;
+            }
+            catch
+            {
+                // The switch failed; let the current content resume instead of
+                // leaving the car controls inert.
+            }
+
+            _viewModel.IsPlaying = true;
+        }
+        finally
+        {
+            _startingFromMediaId = false;
+            Publish();
+        }
+    }
+
+    private static bool MatchesStation(StationWithFeedsDto station, string mediaId)
+    {
+        if (string.Equals(station.Station?.Id, mediaId, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (station.Station?.Name is not { } name)
+            return false;
+
+        // Media browsers sometimes pass the display name instead of the id,
+        // and Unicode normalization can differ (for example "ö" vs "o" + "¨").
+        return string.Equals(
+            name.Normalize(NormalizationForm.FormC),
+            mediaId.Normalize(NormalizationForm.FormC),
+            StringComparison.OrdinalIgnoreCase);
     }
 
     private int Clamp(int seconds)

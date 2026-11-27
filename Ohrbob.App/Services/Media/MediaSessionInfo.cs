@@ -10,4 +10,5 @@ public sealed record MediaSessionInfo(
     string? CoverUrl,
     bool IsPlaying,
     int PositionSeconds,
-    int DurationSeconds);
+    int DurationSeconds,
+    bool IsBuffering = false);
