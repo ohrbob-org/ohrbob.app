@@ -69,6 +69,15 @@ public class OhrbobClient
                     s.Feeds = s.Feeds.Take(4).ToList();
                 }
             }
+
+            // MongoDB returns unsorted documents in natural order, which shifts
+            // whenever a station is updated (for example after it was played).
+            // Give every client the same stable order instead.
+            stations = stations
+                .OrderBy(s => s.Station?.CreatedAt ?? DateTime.MaxValue)
+                .ThenBy(s => s.Station?.Name, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(s => s.Station?.Id, StringComparer.Ordinal)
+                .ToList();
         }
         return stations ?? new List<StationWithFeedsDto>();
     }

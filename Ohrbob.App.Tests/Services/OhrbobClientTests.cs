@@ -55,6 +55,33 @@ public class OhrbobClientTests
     }
 
     [Test]
+    public async Task GetStationsAsync_ReturnsAStableCreationOrder()
+    {
+        var mockResponseJson = """
+            [
+              {"station":{"id":"s3","name":"Zulu","createdAt":"2026-03-01T00:00:00Z"}},
+              {"station":{"id":"s1","name":"Alpha","createdAt":"2026-01-01T00:00:00Z"}},
+              {"station":{"id":"s2","name":"Mike","createdAt":"2026-02-01T00:00:00Z"}}
+            ]
+            """;
+        var handler = new MockHttpMessageHandler(req =>
+        {
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(mockResponseJson, System.Text.Encoding.UTF8, "application/json")
+            };
+        });
+
+        var client = new OhrbobClient(_mockConfig, handler);
+        var stations = await client.GetStationsAsync();
+
+        Assert.That(
+            stations.Select(s => s.Station!.Id),
+            Is.EqualTo(new[] { "s1", "s2", "s3" }),
+            "the server's natural order must not decide the station list");
+    }
+
+    [Test]
     public async Task GetStatusAsync_SendsCorrectRequestAndReturnsStatus()
     {
         var mockResponseJson = "{\"isPlaying\":true,\"currentStation\":\"s1\"}";
