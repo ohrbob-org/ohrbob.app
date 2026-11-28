@@ -26,7 +26,8 @@ public partial class MetroShellView : UserControl
     private const double StationGutterWideRight = 26;
     private const double StationTileMinWidth = 272;
     private const double StationTileGap = 8;
-    private const double StationTapSlop = 20;
+    // Matches the platform touch slop closely; 20 DIPs made slow drags count as taps.
+    private const double StationTapSlop = 10;
 
     public static readonly StyledProperty<bool> IsNarrowProperty =
         AvaloniaProperty.Register<MetroShellView, bool>(nameof(IsNarrow));
@@ -606,13 +607,8 @@ public partial class MetroShellView : UserControl
                 CancelStationLongPress();
         }
 
-        if (_tapInProgress && !_tapMoved)
-        {
-            var position = e.GetPosition(this);
-            if (Math.Abs(position.X - _tapStart.X) > StationTapSlop ||
-                Math.Abs(position.Y - _tapStart.Y) > StationTapSlop)
-                _tapMoved = true;
-        }
+        if (_tapInProgress && !_tapMoved && ExceedsTapSlop(e.GetPosition(this)))
+            _tapMoved = true;
 
         if (!_trackingStationsDrag) return;
 
@@ -639,8 +635,10 @@ public partial class MetroShellView : UserControl
         CancelStationLongPress();
 
         var station = _tapStation;
-        var moved = _tapMoved;
         var wasTap = _tapInProgress;
+        // Gesture recognizers can swallow the intermediate moves (especially on
+        // Android), so the release position is the last reliable drag signal.
+        var moved = _tapMoved || (wasTap && ExceedsTapSlop(e.GetPosition(this)));
         var scrolled = wasTap && HasStationsScrolled();
         _tapInProgress = false;
         _tapStation = null;
@@ -717,6 +715,10 @@ public partial class MetroShellView : UserControl
         return Math.Abs(offset.X - _tapScrollOffset.X) > 0.5 ||
                Math.Abs(offset.Y - _tapScrollOffset.Y) > 0.5;
     }
+
+    private bool ExceedsTapSlop(Point position) =>
+        Math.Abs(position.X - _tapStart.X) > StationTapSlop ||
+        Math.Abs(position.Y - _tapStart.Y) > StationTapSlop;
 
     private void CancelStationLongPress()
     {

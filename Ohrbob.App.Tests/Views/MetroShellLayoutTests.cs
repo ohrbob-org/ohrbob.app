@@ -719,6 +719,63 @@ public class MetroShellLayoutTests
     }
 
     [AvaloniaTest]
+    public void StationTile_TouchReleaseFarFromStartWithoutMoves_DoesNotOpenStation()
+    {
+        var vm = CreateViewModel();
+        vm.IsNowPlayingOpen = false;
+        vm.SelectedStation = null;
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 1200, Height = 800, Content = view };
+        window.Show();
+        window.Activate();
+        window.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+
+        var tile = view.GetVisualDescendants().OfType<Button>()
+            .First(button => button.Classes.Contains("stationTile"));
+        var start = tile.TranslatePoint(
+            new Point(tile.Bounds.Width / 2, tile.Bounds.Height / 2), window)!.Value;
+
+        var pointer = window.TouchBegin(start, RawInputModifiers.None);
+        // A touch gesture recognizer can swallow the intermediate moves. The
+        // release position still shows that this was a drag, not a tap.
+        window.TouchEnd(pointer, start + new Point(0, 60), RawInputModifiers.None);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(vm.SelectedStation, Is.Null,
+            "the release position must count towards the drag distance");
+        window.Close();
+    }
+
+    [AvaloniaTest]
+    public void StationTile_SlowShortDrag_DoesNotOpenStation()
+    {
+        var vm = CreateViewModel();
+        vm.IsNowPlayingOpen = false;
+        vm.SelectedStation = null;
+        var view = new MetroShellView { DataContext = vm };
+        var window = new Window { Width = 1200, Height = 800, Content = view };
+        window.Show();
+        window.Activate();
+        window.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+
+        var tile = view.GetVisualDescendants().OfType<Button>()
+            .First(button => button.Classes.Contains("stationTile"));
+        var start = tile.TranslatePoint(
+            new Point(tile.Bounds.Width / 2, tile.Bounds.Height / 2), window)!.Value;
+
+        var pointer = window.TouchBegin(start, RawInputModifiers.None);
+        window.TouchMove(pointer, start + new Point(0, 15), RawInputModifiers.None);
+        window.TouchEnd(pointer, start + new Point(0, 15), RawInputModifiers.None);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(vm.SelectedStation, Is.Null,
+            "a slow drag beyond the platform touch slop must not open the station");
+        window.Close();
+    }
+
+    [AvaloniaTest]
     public void ProfileMenu_ListsManageAboveDisconnect()
     {
         var vm = CreateViewModel();
