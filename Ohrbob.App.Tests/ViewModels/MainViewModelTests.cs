@@ -480,6 +480,89 @@ public class MainViewModelTests
     }
 
     [Test]
+    public async Task PrefetchNext_IsSavedPerStation()
+    {
+        var config = new ConfigService(_tempConfigPath);
+        config.Save("https://example.com", "token");
+        var vm = new MainViewModel(config, new OhrbobClient(config, new PlaylistHttpHandler()), null, new TestAudioPlayer(), a => a(), offlineState: new OfflineStateService(_tempOfflinePath));
+
+        await vm.RetryConnectionAsync();
+
+        Assert.That(vm.PrefetchNextEnabled, Is.True, "pre-fetch defaults on");
+
+        vm.PrefetchNextEnabled = false;
+        await vm.ApplyPrefetchNextAsync();
+
+        Assert.That(config.GetPrefetchNext("s1"), Is.False);
+        Assert.That(config.GetPrefetchNext("other-station"), Is.True);
+    }
+
+    [Test]
+    public async Task SyncDownloads_WithBufferOffAndPrefetchOn_DownloadsOnlyTheNextEpisode()
+    {
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        var requests = new List<string>();
+        var handler = new PlaylistHttpHandler
+        {
+            PlaylistJson = "{\"stationId\":\"s1\",\"hostPaceEnabled\":false,\"isAging\":false,\"episodes\":[" +
+                "{\"episodeId\":\"e1\",\"title\":\"Current\",\"streamUri\":\"https://audio/1\",\"isCurrent\":true}," +
+                "{\"episodeId\":\"e2\",\"title\":\"Next\",\"streamUri\":\"https://audio/2\",\"isCurrent\":false}," +
+                "{\"episodeId\":\"e3\",\"title\":\"Later\",\"streamUri\":\"https://audio/3\",\"isCurrent\":false}]}"
+        };
+        var config = new ConfigService(_tempConfigPath);
+        config.Save("https://example.com", "token");
+        var downloadHandler = new MockHttpMessageHandler(req =>
+        {
+            requests.Add(req.RequestUri!.ToString());
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(new byte[] { 1 }) };
+        });
+        var downloads = new EpisodeDownloadService(root, new HttpClient(downloadHandler), _ => TimeSpan.FromMinutes(1));
+        var vm = new MainViewModel(config, new OhrbobClient(config, handler), null, new TestAudioPlayer(), a => a(), downloads, new OfflineStateService(_tempOfflinePath));
+
+        try
+        {
+            await vm.RetryConnectionAsync();
+            await vm.WaitForDownloadsAsync();
+
+            Assert.That(requests, Is.EqualTo(new[] { "https://audio/2" }));
+            Assert.That(downloads.GetDownloadedPath("s1", "e2"), Is.Not.Null);
+            Assert.That(downloads.GetDownloadedPath("s1", "e3"), Is.Null);
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task TurningPrefetchOff_PrunesTheDownloadedNextEpisode()
+    {
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        var config = new ConfigService(_tempConfigPath);
+        config.Save("https://example.com", "token");
+        var downloads = new EpisodeDownloadService(root, new HttpClient(new MockHttpMessageHandler(_ =>
+            new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(new byte[] { 1 }) })), _ => TimeSpan.FromMinutes(1));
+        var vm = new MainViewModel(config, new OhrbobClient(config, new PlaylistHttpHandler()), null, new TestAudioPlayer(), a => a(), downloads, new OfflineStateService(_tempOfflinePath));
+
+        try
+        {
+            await vm.RetryConnectionAsync();
+            await vm.WaitForDownloadsAsync();
+            Assert.That(downloads.GetDownloadedPath("s1", "e2"), Is.Not.Null);
+
+            vm.PrefetchNextEnabled = false;
+            await vm.ApplyPrefetchNextAsync();
+            await vm.WaitForDownloadsAsync();
+
+            Assert.That(downloads.GetDownloadedPath("s1", "e2"), Is.Null);
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Test]
     public async Task HostPacedStation_HasExactDownloadBlockedReason()
     {
         var handler = new PlaylistHttpHandler

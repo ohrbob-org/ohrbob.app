@@ -15,6 +15,7 @@ public class ConfigService
     public bool DoNotAutoPlay { get; set; }
 
     private Dictionary<string, int> _bufferMinutesByStation = new();
+    private Dictionary<string, bool> _prefetchNextByStation = new();
     private readonly string? _customPath;
 
     public ConfigService()
@@ -69,6 +70,7 @@ public class ConfigService
                 StreamToken = data.StreamToken;
                 DoNotAutoPlay = data.DoNotAutoPlay;
                 _bufferMinutesByStation = data.BufferMinutesByStation ?? new();
+                _prefetchNextByStation = data.PrefetchNextByStation ?? new();
             }
         }
         catch
@@ -82,6 +84,19 @@ public class ConfigService
         AllowedBufferMinutes.Contains(minutes)
             ? minutes
             : 0;
+
+    /// <summary>Pre-fetching the next episode is on unless a station opted out.</summary>
+    public bool GetPrefetchNext(string stationId) =>
+        !_prefetchNextByStation.TryGetValue(stationId, out var enabled) || enabled;
+
+    public void SetPrefetchNext(string stationId, bool enabled)
+    {
+        if (string.IsNullOrEmpty(stationId)) return;
+        // On is the default, so only an explicit opt-out needs to be stored.
+        if (enabled) _prefetchNextByStation.Remove(stationId);
+        else _prefetchNextByStation[stationId] = false;
+        Persist();
+    }
 
     public void SetBufferMinutes(string stationId, int minutes)
     {
@@ -137,6 +152,7 @@ public class ConfigService
             StreamToken = StreamToken,
             DoNotAutoPlay = DoNotAutoPlay,
             BufferMinutesByStation = _bufferMinutesByStation,
+            PrefetchNextByStation = _prefetchNextByStation,
         };
         return JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true });
     }
@@ -147,5 +163,6 @@ public class ConfigService
         public string? StreamToken { get; set; }
         public bool DoNotAutoPlay { get; set; }
         public Dictionary<string, int>? BufferMinutesByStation { get; set; }
+        public Dictionary<string, bool>? PrefetchNextByStation { get; set; }
     }
 }

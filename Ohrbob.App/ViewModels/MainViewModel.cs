@@ -64,6 +64,7 @@ public partial class MainViewModel : ViewModelBase
     private bool _isUpdatingStateFromPlayer;
     private bool _isSkipping;
     private bool _suppressBufferSave;
+    private bool _suppressPrefetchSave;
 
     [ObservableProperty]
     private bool _isConnected;
@@ -216,6 +217,9 @@ public partial class MainViewModel : ViewModelBase
 
     [ObservableProperty]
     private bool _isDownloadEnabled;
+
+    [ObservableProperty]
+    private bool _prefetchNextEnabled = true;
 
     [ObservableProperty]
     private bool _isBufferSelectionEnabled;
@@ -393,7 +397,7 @@ public partial class MainViewModel : ViewModelBase
     {
         SettingsStation = SelectedStation;
         if (SelectedStation?.Station?.Id is { } stationId)
-            RestoreBufferOption(stationId);
+            RestoreStationOptions(stationId);
         IsUpNextOpen = false;
         IsEpisodeActionsOpen = false;
         IsSettingsOpen = true;
@@ -406,7 +410,7 @@ public partial class MainViewModel : ViewModelBase
         if (station?.Station?.Id is not { } stationId) return;
 
         SettingsStation = station;
-        RestoreBufferOption(stationId);
+        RestoreStationOptions(stationId);
         IsEpisodeActionsOpen = false;
         IsUpNextOpen = false;
         IsSettingsOpen = true;
@@ -1257,6 +1261,27 @@ public partial class MainViewModel : ViewModelBase
         _ = ApplySelectedBufferAsync();
     }
 
+    partial void OnPrefetchNextEnabledChanged(bool value)
+    {
+        if (_suppressPrefetchSave) return;
+        _ = ApplyPrefetchNextAsync();
+    }
+
+    /// <summary>Persists the station's pre-fetch choice and re-syncs its cache.</summary>
+    public async Task ApplyPrefetchNextAsync()
+    {
+        var stationId = SettingsStation?.Station?.Id ?? SelectedStation?.Station?.Id;
+        if (stationId is null) return;
+        _configService.SetPrefetchNext(stationId, PrefetchNextEnabled);
+
+        // A setting for a station that is not playing must not disturb the
+        // active station's queue.
+        if (stationId != SelectedStation?.Station?.Id) return;
+
+        TriggerDownloadSync();
+        await WaitForDownloadsAsync();
+    }
+
     /// <summary>Persists the station's buffer and refreshes its playlist.</summary>
     public async Task ApplySelectedBufferAsync()
     {
@@ -1300,6 +1325,7 @@ public partial class MainViewModel : ViewModelBase
 
             var blocked = DownloadsBlocked;
             var minutes = _configService.GetBufferMinutes(stationId);
+            var prefetchNext = !blocked && _configService.GetPrefetchNext(stationId);
             // The full Metro playlist includes listening history. Do not fill the
             // download buffer with episodes that are already completed; keep the
             // currently-playing file protected while it is still on screen.
@@ -1309,8 +1335,8 @@ public partial class MainViewModel : ViewModelBase
 
             // Host-paced/aging files must never survive, so the current episode is
             // protected only while its station still allows downloads.
-            await _downloads.SyncAsync(stationId, downloadable, minutes, !blocked && minutes > 0,
-                PositionSeconds, CancellationToken.None, blocked ? null : CurrentEpisodeId);
+            await _downloads.SyncAsync(stationId, downloadable, minutes, !blocked,
+                PositionSeconds, CancellationToken.None, blocked ? null : CurrentEpisodeId, prefetchNext);
             SaveOfflineSnapshot();
         }
         catch (OperationCanceledException)
@@ -1412,8 +1438,9 @@ public partial class MainViewModel : ViewModelBase
         if (ActiveStationId is not { } stationId) return null;
 
         var minutes = _configService.GetBufferMinutes(stationId);
+        var prefetchNext = _configService.GetPrefetchNext(stationId);
         var episodes = string.Join("\n", PlaylistItems.Select(p => $"{p.EpisodeId}:{p.StreamUri}:{p.IsCurrent}"));
-        return $"{stationId}|{minutes}|{episodes}";
+        return $"{stationId}|{minutes}|{prefetchNext}|{episodes}";
     }
 
     /// <summary>
@@ -1426,17 +1453,21 @@ public partial class MainViewModel : ViewModelBase
         ? station.HostPaceEnabled || station.IsAging
         : _playlistHostPaceEnabled || _playlistIsAging;
 
-    private void RestoreBufferOption(string stationId)
+    private void RestoreStationOptions(string stationId)
     {
         var minutes = _configService.GetBufferMinutes(stationId);
+        var prefetch = _configService.GetPrefetchNext(stationId);
         _suppressBufferSave = true;
+        _suppressPrefetchSave = true;
         try
         {
             SelectedBufferOption = BufferOptions.FirstOrDefault(o => o.Minutes == minutes) ?? BufferOptions[0];
+            PrefetchNextEnabled = prefetch;
         }
         finally
         {
             _suppressBufferSave = false;
+            _suppressPrefetchSave = false;
         }
     }
 
@@ -1480,7 +1511,7 @@ public partial class MainViewModel : ViewModelBase
             if (snapshot.ActiveStationId is { } stationId &&
                 snapshot.StationStates.TryGetValue(stationId, out var state))
             {
-                RestoreBufferOption(stationId);
+                RestoreStationOptions(stationId);
                 ApplyOfflineState(stationId, state);
             }
         }
@@ -1764,9 +1795,10 @@ public partial class MainViewModel : ViewModelBase
             DownloadBlockedReason = null;
 
         var minutes = station?.Id is { } stationId ? _configService.GetBufferMinutes(stationId) : 0;
+        var prefetchNext = station?.Id is { } prefetchStationId && _configService.GetPrefetchNext(prefetchStationId);
         DownloadStatusMessage = DownloadBlockedReason
-            ?? (minutes == 0 ? "Set a buffer in Settings to download episodes." : null);
-        IsDownloadEnabled = DownloadBlockedReason == null && minutes > 0;
+            ?? (minutes == 0 && !prefetchNext ? "Set a buffer in Settings to download episodes." : null);
+        IsDownloadEnabled = DownloadBlockedReason == null && (minutes > 0 || prefetchNext);
         IsBufferSelectionEnabled = DownloadBlockedReason == null;
 
         foreach (var item in PlaylistItems)
@@ -1830,7 +1862,7 @@ public partial class MainViewModel : ViewModelBase
             _stationSwitchTask = SwitchStationAsync(stationId, _stationGeneration, playbackReady);
         }
 
-        RestoreBufferOption(stationId);
+        RestoreStationOptions(stationId);
         if (IsPortrait) IsSidebarOpen = false;
     }
 

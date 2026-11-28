@@ -86,4 +86,32 @@ public class ConfigServiceTests
         Assert.That(reloaded.GetBufferMinutes("station-a"), Is.EqualTo(0));
         Assert.That(reloaded.GetBufferMinutes("station-b"), Is.EqualTo(0));
     }
+
+    [Test]
+    public void PrefetchNext_DefaultsOn_IsIndependentPerStation_AndRoundTrips()
+    {
+        var service = new ConfigService(_tempFilePath);
+
+        Assert.That(service.GetPrefetchNext("station-a"), Is.True, "pre-fetch defaults to on");
+
+        service.SetPrefetchNext("station-a", false);
+        service.Save("https://example.com", "token");
+
+        var reloaded = new ConfigService(_tempFilePath);
+
+        Assert.That(reloaded.GetPrefetchNext("station-a"), Is.False);
+        Assert.That(reloaded.GetPrefetchNext("station-b"), Is.True, "another station keeps the default");
+    }
+
+    [Test]
+    public void SetPrefetchNext_TrueRestoresTheDefault()
+    {
+        var service = new ConfigService(_tempFilePath);
+        service.SetPrefetchNext("station-a", false);
+        service.SetPrefetchNext("station-a", true);
+
+        var reloaded = new ConfigService(_tempFilePath);
+
+        Assert.That(reloaded.GetPrefetchNext("station-a"), Is.True);
+    }
 }

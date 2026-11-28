@@ -304,6 +304,17 @@
                             <TextBlock Text="Whole upcoming episodes of this station are downloaded. More buffer uses more storage."
                                        FontSize="12" TextWrapping="Wrap"
                                        Foreground="{DynamicResource MetroMutedBrush}" />
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                <StackPanel Spacing="2">
+                                    <TextBlock Text="pre-fetch next episode" Classes="metroLabel" />
+                                    <TextBlock Text="Keeps the next episode ready so skipping starts instantly. Uses storage."
+                                               FontSize="12" TextWrapping="Wrap"
+                                               Foreground="{DynamicResource MetroMutedBrush}" />
+                                </StackPanel>
+                                <ToggleSwitch Grid.Column="1" VerticalAlignment="Center"
+                                              IsChecked="{Binding PrefetchNextEnabled, Mode=TwoWay}"
+                                              IsEnabled="{Binding IsBufferSelectionEnabled}" />
+                            </Grid>
                             <Border Background="{StaticResource MetroYellowBrush}" Padding="10"
                                     IsVisible="{Binding DownloadBlockedReason, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                                 <TextBlock Text="{Binding DownloadBlockedReason}" FontSize="12" TextWrapping="Wrap"

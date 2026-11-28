@@ -289,6 +289,115 @@ public class EpisodeDownloadServiceTests
     }
 
     [Test]
+    public async Task Sync_BufferOff_PrefetchNext_DownloadsOnlyTheNextEpisode()
+    {
+        var handler = new StubHandler();
+        var service = new EpisodeDownloadService(_root, new HttpClient(handler), _ => TimeSpan.FromMinutes(1));
+        var items = new[] { Item("e1", true), Item("e2"), Item("e3") };
+
+        await service.SyncAsync("s1", items, 0, true, 0, CancellationToken.None,
+            protectedEpisodeId: "e1", prefetchNext: true);
+
+        Assert.That(handler.Requests, Is.EqualTo(new[] { "https://audio/e2.mp3" }));
+        Assert.That(items[0].DownloadState, Is.EqualTo(DownloadState.NotDownloaded),
+            "the streaming current episode is not downloaded");
+        Assert.That(items[1].DownloadState, Is.EqualTo(DownloadState.Downloaded));
+        Assert.That(items[2].DownloadState, Is.EqualTo(DownloadState.NotDownloaded));
+    }
+
+    [Test]
+    public async Task Sync_BufferOff_WithoutPrefetch_DownloadsNothing()
+    {
+        var handler = new StubHandler();
+        var service = new EpisodeDownloadService(_root, new HttpClient(handler), _ => TimeSpan.FromMinutes(1));
+        var items = new[] { Item("e1", true), Item("e2") };
+
+        await service.SyncAsync("s1", items, 0, true, 0, CancellationToken.None, prefetchNext: false);
+
+        Assert.That(handler.Requests, Is.Empty);
+        Assert.That(items.All(i => i.DownloadState == DownloadState.NotDownloaded), Is.True);
+    }
+
+    [Test]
+    public async Task Sync_PrefetchNext_GuaranteesNextWhenBufferBudgetIsAlreadyMet()
+    {
+        // A 30-minute current episode satisfies a 10-minute buffer by itself.
+        var handler = new StubHandler();
+        var service = new EpisodeDownloadService(_root, new HttpClient(handler), _ => TimeSpan.FromMinutes(30));
+        var items = new[] { Item("e1", true), Item("e2"), Item("e3") };
+
+        await service.SyncAsync("s1", items, 10, true, 0, CancellationToken.None,
+            protectedEpisodeId: "e1", prefetchNext: true);
+
+        Assert.That(handler.Requests, Is.EqualTo(new[] { "https://audio/e1.mp3", "https://audio/e2.mp3" }));
+        Assert.That(items[1].DownloadState, Is.EqualTo(DownloadState.Downloaded));
+        Assert.That(items[2].DownloadState, Is.EqualTo(DownloadState.NotDownloaded));
+    }
+
+    [Test]
+    public async Task Sync_PrefetchNext_PrunesEverythingBeyondTheNextEpisode()
+    {
+        var handler = new StubHandler();
+        var service = new EpisodeDownloadService(_root, new HttpClient(handler), _ => TimeSpan.FromMinutes(1));
+        await service.SyncAsync("s1", new[] { Item("e1", true), Item("e2"), Item("e3") }, 3, true, 0,
+            CancellationToken.None, protectedEpisodeId: "e1");
+        handler.Requests.Clear();
+
+        var items = new[] { Item("e1", true), Item("e2"), Item("e3") };
+        await service.SyncAsync("s1", items, 0, true, 0, CancellationToken.None,
+            protectedEpisodeId: "e1", prefetchNext: true);
+
+        Assert.That(service.GetDownloadedPath("s1", "e1"), Is.Not.Null, "the current file stays");
+        Assert.That(service.GetDownloadedPath("s1", "e2"), Is.Not.Null, "the next episode is kept");
+        Assert.That(service.GetDownloadedPath("s1", "e3"), Is.Null);
+        Assert.That(handler.Requests, Is.Empty);
+    }
+
+    [Test]
+    public async Task Sync_PrefetchNext_FollowsTheSkipWindow()
+    {
+        var handler = new StubHandler();
+        var service = new EpisodeDownloadService(_root, new HttpClient(handler), _ => TimeSpan.FromMinutes(1));
+        await service.SyncAsync("s1", new[] { Item("e1", true), Item("e2"), Item("e3") }, 0, true, 0,
+            CancellationToken.None, protectedEpisodeId: "e1", prefetchNext: true);
+        handler.Requests.Clear();
+
+        // The listener skipped: e2 is current and e3 is the new next episode.
+        var items = new[] { Item("e1"), Item("e2", true), Item("e3") };
+        await service.SyncAsync("s1", items, 0, true, 0, CancellationToken.None,
+            protectedEpisodeId: "e2", prefetchNext: true);
+
+        Assert.That(handler.Requests, Is.EqualTo(new[] { "https://audio/e3.mp3" }));
+        Assert.That(service.GetDownloadedPath("s1", "e1"), Is.Null, "the skipped episode is pruned");
+        Assert.That(service.GetDownloadedPath("s1", "e2"), Is.Not.Null);
+        Assert.That(service.GetDownloadedPath("s1", "e3"), Is.Not.Null);
+    }
+
+    [Test]
+    public async Task Sync_PrefetchNext_DoesNotDownloadWhenDownloadsAreNotAllowed()
+    {
+        var handler = new StubHandler();
+        var service = new EpisodeDownloadService(_root, new HttpClient(handler), _ => TimeSpan.FromMinutes(1));
+        var items = new[] { Item("e1", true), Item("e2") };
+
+        await service.SyncAsync("s1", items, 0, false, 0, CancellationToken.None, prefetchNext: true);
+
+        Assert.That(handler.Requests, Is.Empty);
+    }
+
+    [Test]
+    public async Task Sync_PrefetchNext_WhenCurrentIsLast_DownloadsNothing()
+    {
+        var handler = new StubHandler();
+        var service = new EpisodeDownloadService(_root, new HttpClient(handler), _ => TimeSpan.FromMinutes(1));
+        var items = new[] { Item("e1"), Item("e2", true) };
+
+        await service.SyncAsync("s1", items, 0, true, 0, CancellationToken.None, prefetchNext: true);
+
+        Assert.That(handler.Requests, Is.Empty);
+    }
+
+    [Test]
     public async Task Prune_StationIdTraversal_CannotTouchFilesOutsideCacheRoot()
     {
         var baseDir = Path.Combine(Path.GetTempPath(), "ohrbob-traversal-" + Guid.NewGuid().ToString("N"));

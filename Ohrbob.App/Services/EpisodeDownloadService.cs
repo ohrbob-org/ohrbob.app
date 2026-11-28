@@ -58,7 +58,8 @@ public class EpisodeDownloadService
         bool downloadsAllowed,
         int currentPositionSeconds,
         CancellationToken cancellationToken,
-        string? protectedEpisodeId = null)
+        string? protectedEpisodeId = null,
+        bool prefetchNext = false)
     {
         using var own = new CancellationTokenSource();
         _cts = own;
@@ -67,72 +68,65 @@ public class EpisodeDownloadService
 
         try
         {
-            if (!downloadsAllowed || bufferMinutes <= 0)
+            var folder = StationFolder(stationId);
+            var next = prefetchNext ? FindNextItem(playlist) : null;
+
+            if (!downloadsAllowed)
             {
                 await PruneAsync(stationId, playlist, 0, protectedEpisodeId);
-                foreach (var item in playlist)
-                {
-                    var state = GetDownloadedPath(stationId, item.EpisodeId) is null
-                        ? DownloadState.NotDownloaded
-                        : DownloadState.Downloaded;
-                    SetState(item, state);
-                }
+                ReconcileStates(stationId, playlist);
+                return;
+            }
+
+            if (bufferMinutes <= 0)
+            {
+                // Without a buffer only one episode is kept ready for the next skip.
+                if (next is not null && next.DownloadState != DownloadState.Downloaded)
+                    await EnsureDownloadedAsync(stationId, next, folder, token);
+
+                await PruneAsync(stationId, playlist, 0, protectedEpisodeId,
+                    currentPositionSeconds, prefetchNext);
+                ReconcileStates(stationId, playlist);
                 return;
             }
 
             var target = TimeSpan.FromMinutes(bufferMinutes);
             var budget = TimeSpan.Zero;
-            var folder = StationFolder(stationId);
+            var nextAttempted = false;
 
             foreach (var item in playlist)
             {
                 token.ThrowIfCancellationRequested();
 
+                if (ReferenceEquals(item, next))
+                    nextAttempted = true;
+
                 var elapsed = item.IsCurrent
                     ? TimeSpan.FromSeconds(currentPositionSeconds)
                     : TimeSpan.Zero;
-                var existing = GetDownloadedPath(stationId, item.EpisodeId);
-                TimeSpan duration;
+                var duration = await EnsureDownloadedAsync(stationId, item, folder, token);
+                if (duration is null)
+                    continue;
 
-                if (existing is not null)
-                {
-                    SetState(item, DownloadState.Downloaded);
-                    duration = await ReadDurationAsync(existing);
-                }
-                else
-                {
-                    SetState(item, DownloadState.Queued);
-                    SetState(item, DownloadState.Downloading);
-
-                    var downloaded = await TryDownloadAsync(item, folder, token);
-                    if (downloaded is null)
-                    {
-                        SetState(item, DownloadState.Failed);
-                        continue;
-                    }
-
-                    duration = downloaded.Value;
-                    SetState(item, DownloadState.Downloaded);
-                }
-
-                var remaining = duration - elapsed;
+                var remaining = duration.Value - elapsed;
                 if (remaining > TimeSpan.Zero)
                     budget += remaining;
                 if (budget >= target)
                     break;
             }
 
-            // Lowering the target must remove files that no longer fit, while keeping
-            // the protected current episode and any files still inside the budget.
-            await PruneAsync(stationId, playlist, bufferMinutes, protectedEpisodeId, currentPositionSeconds);
+            // The next episode stays prefetched even when the current episode alone
+            // already fills the buffer target.
+            if (next is not null && !nextAttempted && next.DownloadState != DownloadState.Downloaded)
+                await EnsureDownloadedAsync(stationId, next, folder, token);
 
-            foreach (var item in playlist)
-            {
-                var path = GetDownloadedPath(stationId, item.EpisodeId);
-                if (path is null && item.DownloadState == DownloadState.Failed)
-                    continue;
-                SetState(item, path is null ? DownloadState.NotDownloaded : DownloadState.Downloaded);
-            }
+            // Lowering the target must remove files that no longer fit, while keeping
+            // the protected current episode, the prefetched next episode and any
+            // files still inside the budget.
+            await PruneAsync(stationId, playlist, bufferMinutes, protectedEpisodeId,
+                currentPositionSeconds, prefetchNext);
+
+            ReconcileStates(stationId, playlist);
         }
         finally
         {
@@ -146,11 +140,12 @@ public class EpisodeDownloadService
         IReadOnlyList<PlaylistItem> playlist,
         int bufferMinutes,
         string? protectedEpisodeId = null,
-        int currentPositionSeconds = 0)
+        int currentPositionSeconds = 0,
+        bool prefetchNext = false)
     {
         // File enumeration and deletion run off the UI thread; SyncAsync awaits this
         // without ConfigureAwait(false) so its state updates still resume on the UI thread.
-        return Task.Run(() => Prune(stationId, playlist, bufferMinutes, protectedEpisodeId, currentPositionSeconds));
+        return Task.Run(() => Prune(stationId, playlist, bufferMinutes, protectedEpisodeId, currentPositionSeconds, prefetchNext));
     }
 
     private void Prune(
@@ -158,7 +153,8 @@ public class EpisodeDownloadService
         IReadOnlyList<PlaylistItem> playlist,
         int bufferMinutes,
         string? protectedEpisodeId,
-        int currentPositionSeconds)
+        int currentPositionSeconds,
+        bool prefetchNext)
     {
         var folder = StationFolder(stationId);
         if (!Directory.Exists(folder))
@@ -167,6 +163,9 @@ public class EpisodeDownloadService
         var keep = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         if (!string.IsNullOrEmpty(protectedEpisodeId))
             keep.Add(SafeSegment(protectedEpisodeId));
+
+        if (prefetchNext && FindNextItem(playlist) is { } next)
+            keep.Add(SafeSegment(next.EpisodeId));
 
         var target = TimeSpan.FromMinutes(Math.Max(0, bufferMinutes));
         if (target > TimeSpan.Zero)
@@ -218,6 +217,65 @@ public class EpisodeDownloadService
         catch (ObjectDisposedException)
         {
         }
+    }
+
+    /// <summary>
+    /// Makes sure the item is on disk. Returns its duration, or null when the
+    /// download failed (the item is then marked Failed).
+    /// </summary>
+    private async Task<TimeSpan?> EnsureDownloadedAsync(
+        string stationId,
+        PlaylistItem item,
+        string folder,
+        CancellationToken token)
+    {
+        var existing = GetDownloadedPath(stationId, item.EpisodeId);
+        if (existing is not null)
+        {
+            SetState(item, DownloadState.Downloaded);
+            return await ReadDurationAsync(existing);
+        }
+
+        SetState(item, DownloadState.Queued);
+        SetState(item, DownloadState.Downloading);
+
+        var downloaded = await TryDownloadAsync(item, folder, token);
+        if (downloaded is null)
+        {
+            SetState(item, DownloadState.Failed);
+            return null;
+        }
+
+        SetState(item, DownloadState.Downloaded);
+        return downloaded.Value;
+    }
+
+    private void ReconcileStates(string stationId, IReadOnlyList<PlaylistItem> playlist)
+    {
+        foreach (var item in playlist)
+        {
+            var path = GetDownloadedPath(stationId, item.EpisodeId);
+            // Keep a failed attempt visible until a later sync retries it.
+            if (path is null && item.DownloadState == DownloadState.Failed)
+                continue;
+            SetState(item, path is null ? DownloadState.NotDownloaded : DownloadState.Downloaded);
+        }
+    }
+
+    /// <summary>The episode that would start if the listener skipped right now.</summary>
+    private static PlaylistItem? FindNextItem(IReadOnlyList<PlaylistItem> playlist)
+    {
+        var currentIndex = -1;
+        for (var i = 0; i < playlist.Count; i++)
+        {
+            if (!playlist[i].IsCurrent) continue;
+            currentIndex = i;
+            break;
+        }
+
+        if (currentIndex < 0)
+            return playlist.FirstOrDefault(item => !item.IsCurrent);
+        return currentIndex + 1 < playlist.Count ? playlist[currentIndex + 1] : null;
     }
 
     private async Task<TimeSpan?> TryDownloadAsync(PlaylistItem item, string folder, CancellationToken token)
